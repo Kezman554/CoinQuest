@@ -82,6 +82,23 @@ class Week(Base):
     #: Why it was voided, if it was. A void is an unusual act and wants a note.
     void_reason: Mapped[str | None] = mapped_column(Text)
 
+    # --- Overrides. Settlement proposes; a parent may settle on a different
+    # assignment of make-goods, including one that pays less than the app
+    # worked out. Recorded so that a week paying less than it might have does
+    # not read, a year later, as though the app got its sums wrong.
+
+    #: Who chose a different assignment. Null when the figures are the ones
+    #: the app proposed, which is the ordinary case.
+    overridden_by: Mapped[str | None] = mapped_column(String(60))
+
+    #: Their reason, in their words.
+    override_reason: Mapped[str | None] = mapped_column(Text)
+
+    #: What the app would have paid, had nobody overridden it. Stored beside
+    #: what was actually paid, because the difference between the two is the
+    #: whole story and neither number means much alone.
+    optimum_total_pence: Mapped[int | None] = mapped_column(Integer)
+
     # --- Payday. Recorded after settlement, which is why these stay writable.
 
     paid_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
@@ -158,6 +175,21 @@ class Week(Base):
             " settled_base_pence + settled_chore_pay_pence"
             " + settled_bonus_pence + settled_reward_pence",
             name="total_is_the_sum_of_its_parts",
+        ),
+        # An override belongs to a settled week, names who made it, and says
+        # what it was chosen over.
+        CheckConstraint(
+            "overridden_by IS NULL OR (status = 'settled'"
+            " AND optimum_total_pence IS NOT NULL)",
+            name="an_override_is_recorded_in_full",
+        ),
+        CheckConstraint(
+            "override_reason IS NULL OR overridden_by IS NOT NULL",
+            name="only_an_override_has_a_reason",
+        ),
+        CheckConstraint(
+            "optimum_total_pence IS NULL OR optimum_total_pence >= 0",
+            name="optimum_not_negative",
         ),
         # You cannot pay a week that has not closed.
         CheckConstraint(

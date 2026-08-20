@@ -17,10 +17,19 @@ survives the definition being renamed, repriced or deleted outright.
 
 More than one week may be open at once, and each settles independently on its
 own figures. Nothing here reads "the current week".
+
+A proposal is a proposal. The assignment of make-goods is worked out to pay the
+most, and a parent may hand back a different one — including one that pays
+less, because a passed week can be worth more to a child than the fifty pence
+it cost. That is a judgement about a household, not about arithmetic, and it is
+theirs. What they cannot do is break the scheme: a supplied assignment is
+checked against the same rules as the computed one, and the week records that
+it was overridden, by whom, and what the app would have paid instead.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -47,8 +56,10 @@ from app.services.recovery import (
     Assignment,
     Miss,
     Requirement,
+    SuppliedRecovery,
     WeekAssessment,
     assess_week,
+    assignment_from,
     best_assignment,
     record_inferred_misses,
 )
@@ -125,6 +136,24 @@ class Proposal:
     days_waived: int
     cap: int
 
+    #: True when the assignment came from a parent rather than the optimiser.
+    overridden: bool = False
+
+    #: What the computed assignment would have been worth. The same as
+    #: total_pence when nobody overrode anything, and the other half of the
+    #: story when somebody did.
+    optimum_total_pence: int = 0
+
+    @property
+    def foregone_pence(self) -> int:
+        """What the override costs, if it costs anything.
+
+        Never negative: an override that happens to pay more than the computed
+        assignment is impossible, since the computed one is the best available
+        by construction.
+        """
+        return max(self.optimum_total_pence - self.total_pence, 0)
+
     @property
     def chore_pay_awarded(self) -> bool:
         return self.chore_pay_pence > 0 or self.chore_pay_at_stake_pence == 0
@@ -145,8 +174,14 @@ def propose(
     *,
     cap: int = RECOVERY_CAP,
     base_pence: int | None = None,
+    override: Sequence[SuppliedRecovery] | None = None,
 ) -> Proposal:
     """Work out what an open week is worth. Writes nothing.
+
+    Pass `override` to score an assignment a parent supplied instead of the
+    computed one. It is validated against this week's assessment before it is
+    scored, so it can lose money but cannot claim something untrue about the
+    week. The computed figure is worked out either way and carried alongside.
 
     Refuses a closed week. That refusal is the whole guarantee: a settled
     week's figures are read from its own columns and there is no code path
@@ -167,9 +202,16 @@ def propose(
 
     plan = plan_week(week_period(week, tz), definitions, waivers, week_id=week.id)
     assessment = assess_week(plan, definitions, instances, cap=cap)
-    assignment = best_assignment(assessment)
 
-    recoveries = _recoveries(assessment, assignment)
+    optimum = best_assignment(assessment)
+    if override is None:
+        assignment = optimum
+        recoveries = _recoveries(assessment, assignment)
+    else:
+        # Raises InvalidAssignment, which the caller turns into a refusal.
+        assignment = assignment_from(assessment, override)
+        recoveries = _supplied_recoveries(assessment, override)
+
     lines = _lines(assessment, assignment)
 
     return Proposal(
@@ -188,6 +230,8 @@ def propose(
         lines=lines,
         days_waived=plan.days_waived,
         cap=cap,
+        overridden=override is not None,
+        optimum_total_pence=base_pence + optimum.total_pence,
     )
 
 
@@ -212,6 +256,36 @@ def _recoveries(assessment: WeekAssessment, assignment: Assignment) -> tuple[Rec
         )
         for miss, requirement in zip(assessment.misses, spent)
     )
+
+
+def _supplied_recoveries(
+    assessment: WeekAssessment, supplied: Sequence[SuppliedRecovery]
+) -> tuple[Recovery, ...]:
+    """The parent's own pairing, kept as they gave it.
+
+    Unlike the computed one this is not presentational: they said which chore
+    covers which miss, and the record should say what they said.
+    """
+    return tuple(
+        Recovery(
+            miss_definition_id=recovery.for_definition_id,
+            miss_name=_name_of(assessment, recovery.for_definition_id),
+            spent_definition_id=recovery.spend_definition_id,
+            spent_name=_name_of(assessment, recovery.spend_definition_id),
+            forgone_pence=_amount_of(assessment, recovery.spend_definition_id),
+        )
+        for recovery in supplied
+    )
+
+
+def _name_of(assessment: WeekAssessment, definition_id: int) -> str:
+    requirement = assessment.requirement(definition_id)
+    return requirement.name if requirement else f"chore {definition_id}"
+
+
+def _amount_of(assessment: WeekAssessment, definition_id: int) -> int:
+    requirement = assessment.requirement(definition_id)
+    return requirement.amount_pence if requirement else 0
 
 
 def _lines(assessment: WeekAssessment, assignment: Assignment) -> tuple[ProposedLine, ...]:
@@ -285,6 +359,7 @@ def settle(
     authorisation: Authorisation,
     *,
     agreed_total_pence: int,
+    override_reason: str | None = None,
 ) -> Week:
     """Close a week on figures a parent has read and agreed.
 
@@ -330,6 +405,14 @@ def settle(
     week.settled_reward_pence = proposal.reward_pence
     week.settled_total_pence = proposal.total_pence
     week.closed_at = authorisation.at
+
+    if proposal.overridden:
+        # Recorded so that a week paying less than it might have does not read,
+        # a year from now, as though the app got its sums wrong. The figure
+        # that was turned down is part of the record.
+        week.overridden_by = authorisation.party
+        week.override_reason = override_reason
+        week.optimum_total_pence = proposal.optimum_total_pence
 
     session.add(
         EarningEntry(
@@ -459,6 +542,9 @@ def stored_figures(week: Week) -> dict[str, int | str | None]:
     """
     return {
         "status": week.status.value,
+        "overridden_by": week.overridden_by,
+        "override_reason": week.override_reason,
+        "optimum_total_pence": week.optimum_total_pence,
         "base_pence": week.settled_base_pence,
         "chore_pay_pence": week.settled_chore_pay_pence,
         "bonus_pence": week.settled_bonus_pence,

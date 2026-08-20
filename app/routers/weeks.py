@@ -26,6 +26,7 @@ from app.routers.dependencies import AuthorisedRequest, authorise, get_session
 from app.services import payments, savings, settlement
 from app.services.calendar import today
 from app.services.payments import PaymentError
+from app.services.recovery import InvalidAssignment, SuppliedRecovery
 from app.services.savings import SavingsError
 from app.services.settlement import NotOpen, ProposalChanged
 
@@ -73,6 +74,9 @@ class ProposalView(BaseModel):
     recoveries: list[RecoveryView]
     recovery_cap: int
     days_waived: int
+    overridden: bool
+    optimum_total_pence: int
+    foregone_pence: int
     lines: list[LineView]
 
     @classmethod
@@ -101,6 +105,9 @@ class ProposalView(BaseModel):
             ],
             recovery_cap=proposal.cap,
             days_waived=proposal.days_waived,
+            overridden=proposal.overridden,
+            optimum_total_pence=proposal.optimum_total_pence,
+            foregone_pence=proposal.foregone_pence,
             lines=[
                 LineView(
                     chore_name=line.chore_name,
@@ -122,6 +129,9 @@ class SettledWeekView(BaseModel):
     start_date: str
     end_date: str
     status: str
+    overridden_by: str | None
+    override_reason: str | None
+    optimum_total_pence: int | None
     base_pence: int | None
     chore_pay_pence: int | None
     bonus_pence: int | None
@@ -141,6 +151,9 @@ class SettledWeekView(BaseModel):
             start_date=week.start_date.isoformat(),
             end_date=week.end_date.isoformat(),
             status=figures["status"],
+            overridden_by=figures["overridden_by"],
+            override_reason=figures["override_reason"],
+            optimum_total_pence=figures["optimum_total_pence"],
             base_pence=figures["base_pence"],
             chore_pay_pence=figures["chore_pay_pence"],
             bonus_pence=figures["bonus_pence"],
@@ -175,10 +188,48 @@ class WeekSummary(BaseModel):
 # --- What comes in ---------------------------------------------------------
 
 
+class SuppliedRecoveryIn(BaseModel):
+    """Spend this chore to cover a miss of that one."""
+
+    spend_definition_id: int
+    for_definition_id: int
+
+
+class OverrideRequest(BaseModel):
+    """An assignment of make-goods a parent chose themselves.
+
+    An empty list is a real instruction — recover nothing — and is not the
+    same as sending no override at all, which means "use the computed one".
+    """
+
+    recoveries: list[SuppliedRecoveryIn]
+    reason: str | None = None
+
+    def supplied(self) -> list[SuppliedRecovery]:
+        return [
+            SuppliedRecovery(
+                spend_definition_id=recovery.spend_definition_id,
+                for_definition_id=recovery.for_definition_id,
+            )
+            for recovery in self.recoveries
+        ]
+
+
+class ProposalPreviewRequest(BaseModel):
+    """Ask what a week would be worth under an assignment of your own."""
+
+    override: OverrideRequest
+
+
 class SettleRequest(AuthorisedRequest):
-    """Explicit agreement to a figure the parent has read."""
+    """Explicit agreement to a figure the parent has read.
+
+    If `override` is given, the figure being agreed is the overridden one —
+    the same check applies, against the same proposal the parent was shown.
+    """
 
     agreed_total_pence: int = Field(ge=0)
+    override: OverrideRequest | None = None
 
 
 class VoidRequest(AuthorisedRequest):
@@ -197,12 +248,25 @@ def _load(session: Session, week_id: int) -> Week:
     return week
 
 
-def _proposal(session: Session, week: Week) -> settlement.Proposal:
+def _proposal(
+    session: Session, week: Week, override: OverrideRequest | None = None
+) -> settlement.Proposal:
     try:
-        return settlement.propose(session, week, get_settings().tzinfo)
+        return settlement.propose(
+            session,
+            week,
+            get_settings().tzinfo,
+            override=override.supplied() if override is not None else None,
+        )
     except NotOpen as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from None
+    except InvalidAssignment as exc:
+        # A parent may choose to lose money. They may not choose to break the
+        # rules, and the refusal says which rule.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from None
 
 
@@ -237,6 +301,20 @@ def get_proposal(
     return ProposalView.of(_proposal(session, _load(session, week_id)))
 
 
+@router.post("/{week_id}/proposal", response_model=ProposalView)
+def preview_proposal(
+    week_id: int,
+    body: ProposalPreviewRequest,
+    session: Session = Depends(get_session),
+) -> ProposalView:
+    """What the week would be worth under an assignment of the parent's own.
+
+    Reading, not writing, so it carries no PIN — and a parent has to be able
+    to read a figure before they can agree to it.
+    """
+    return ProposalView.of(_proposal(session, _load(session, week_id), body.override))
+
+
 @router.get("/{week_id}", response_model=SettledWeekView | ProposalView)
 def get_week(week_id: int, session: Session = Depends(get_session)):
     """A week. Stored figures if it is closed, a proposal if it is open."""
@@ -258,13 +336,14 @@ def settle_week(
     week = _load(session, week_id)
 
     try:
-        proposal = _proposal(session, week)
+        proposal = _proposal(session, week, body.override)
         settlement.settle(
             session,
             week,
             proposal,
             authorisation,
             agreed_total_pence=body.agreed_total_pence,
+            override_reason=body.override.reason if body.override else None,
         )
         session.commit()
     except ProposalChanged as exc:

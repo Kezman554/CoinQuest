@@ -14,6 +14,15 @@ decision, definite when made, and it names them. A miss established here is the
 absence of anything having happened: nobody decided it, so it has no author.
 Both are misses; they are not the same fact.
 
+**The computed answer is a proposal, not a verdict.** Settlement proposes and
+nothing settles until a parent agrees, so a parent may hand back a different
+assignment from the one worked out here — including one that pays less. A
+passed week can be worth more to a child than the fifty pence it cost, and
+that is a judgement no optimiser is entitled to make. What a supplied
+assignment does not get is trust: it is checked against the same rules as any
+other, because a parent may choose to lose money and may not choose to break
+the scheme. See `assignment_from`.
+
 **Recovery is an optimisation, so it is computed.** A missed basic chore may be
 recovered by having completed a bonus chore, forgone unpaid. Which bonus to
 spend is a real choice with real money on it, and the obvious answer is wrong
@@ -362,6 +371,109 @@ def best_assignment(assessment: WeekAssessment) -> Assignment:
             tuple(-i for i in assignment.spent_definition_ids),
         ),
     )
+
+
+class InvalidAssignment(ValueError):
+    """A supplied assignment breaks a rule, rather than merely losing money.
+
+    Losing money is allowed and is the whole reason this door exists. Spending
+    a chore that was never done, spending one twice, recovering a miss that did
+    not happen, or going past the cap are not choices — they are claims about
+    the week that are untrue.
+    """
+
+
+@dataclass(frozen=True)
+class SuppliedRecovery:
+    """A parent's instruction: spend this chore to cover a miss of that one."""
+
+    spend_definition_id: int
+    for_definition_id: int
+
+
+def assignment_from(
+    assessment: WeekAssessment, supplied: Sequence[SuppliedRecovery]
+) -> Assignment:
+    """Score an assignment a parent supplied, after checking it is lawful.
+
+    Every rule the computed assignment obeys is checked here too, against the
+    same assessment of the same week. The only thing a parent is allowed to do
+    that the optimiser will not is choose a worse answer.
+    """
+    if len(supplied) > assessment.cap:
+        raise InvalidAssignment(
+            f"At most {assessment.cap} misses may be recovered in a week;"
+            f" this assignment recovers {len(supplied)}."
+        )
+
+    spendable = {
+        requirement.definition_id: requirement
+        for requirement in assessment.spendable_bonuses
+    }
+
+    spent: list[Requirement] = []
+    seen: set[int] = set()
+    for recovery in supplied:
+        requirement = assessment.requirement(recovery.spend_definition_id)
+
+        if requirement is None:
+            raise InvalidAssignment(
+                f"There is no chore {recovery.spend_definition_id} in this week."
+            )
+        if recovery.spend_definition_id in seen:
+            raise InvalidAssignment(
+                f"{requirement.name!r} is spent twice; a bonus chore is paid or"
+                " spent, never both, and never twice."
+            )
+        if requirement.category is not Category.BONUS:
+            raise InvalidAssignment(
+                f"{requirement.name!r} is not a bonus chore, so it cannot be"
+                " spent to recover anything."
+            )
+        if not requirement.is_assessed or not requirement.met:
+            raise InvalidAssignment(
+                f"{requirement.name!r} was not completed this week, so there is"
+                " nothing to give up."
+            )
+        if recovery.spend_definition_id not in spendable:
+            raise InvalidAssignment(
+                f"{requirement.name!r} cannot be completed on demand, so it is"
+                " not a recovery."
+            )
+
+        seen.add(recovery.spend_definition_id)
+        spent.append(requirement)
+
+    _check_the_misses_exist(assessment, supplied)
+    return evaluate(assessment, spent)
+
+
+def _check_the_misses_exist(
+    assessment: WeekAssessment, supplied: Sequence[SuppliedRecovery]
+) -> None:
+    """A recovery has to be for a miss that actually happened.
+
+    Counted per chore rather than merely "there were some misses": recovering
+    two misses of a chore that was missed once is as untrue as inventing one.
+    """
+    available: dict[int, int] = {}
+    for miss in assessment.misses:
+        available[miss.definition_id] = available.get(miss.definition_id, 0) + 1
+
+    wanted: dict[int, int] = {}
+    for recovery in supplied:
+        wanted[recovery.for_definition_id] = (
+            wanted.get(recovery.for_definition_id, 0) + 1
+        )
+
+    for definition_id, count in wanted.items():
+        requirement = assessment.requirement(definition_id)
+        name = requirement.name if requirement else f"chore {definition_id}"
+        if available.get(definition_id, 0) < count:
+            raise InvalidAssignment(
+                f"{name!r} was missed {available.get(definition_id, 0)} times"
+                f" this week; {count} cannot be recovered."
+            )
 
 
 def record_inferred_misses(session, misses: Iterable[Miss]) -> int:

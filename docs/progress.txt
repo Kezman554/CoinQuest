@@ -499,3 +499,46 @@ clears it.
 Tests: 341 pass. Verified live with a 4-second start and a 16-second cap:
 4 -> 8 -> 16 -> 16, then a correct PIN, then back to 4. The log names the
 lockout number each time.
+
+2026-08-20 — Session Q: settling on an assignment a parent supplied
+
+app/services/recovery.py gains assignment_from(assessment, supplied) and
+SuppliedRecovery(spend_definition_id, for_definition_id). A supplied
+assignment is scored by the same evaluate() as the computed one, after being
+checked against the same week: at most `cap` recoveries; each spent chore must
+be a bonus, completed and confirmed this week, of a cadence that can be done
+on demand, and spent once; and each miss recovered must have actually happened,
+counted per chore. A parent may lose money. They may not claim something untrue
+about the week.
+
+app/services/settlement.py: propose(..., override=...) scores the supplied
+assignment and carries optimum_total_pence alongside — what the app would have
+paid — plus foregone_pence, the difference. settle() writes overridden_by,
+override_reason and optimum_total_pence.
+
+Revision 1eb8e8b3e4ae adds those three columns, with CHECKs that an override
+belongs to a settled week and names both its author and what it was chosen
+over. The immutability trigger now covers them: an override is part of the
+closing figures and is frozen with them.
+
+Router: POST /api/weeks/{id}/proposal previews a week under a supplied
+assignment, because a parent has to be able to read a figure before agreeing
+to it. agreed_total_pence is checked against whichever proposal was made, so
+submitting the computed figure alongside an override is refused, and so is the
+reverse.
+
+A real bug found and fixed on the way. Two earlier migrations built their
+table shape with copy_from=Week.__table__, importing the live model. The
+moment this session added three columns, those revisions could no longer run
+against an empty database — the rebuild tried to copy columns that do not
+exist yet at that point in the history. A fresh deploy on the Pi would have
+failed. Each weeks-rebuilding migration now defines the table literally, as of
+itself, and the whole chain builds from empty again.
+
+Tests: 367 pass. An override that loses 50p is proposed, settles at 450 rather
+than 500, and records both figures. Exceeding the cap, spending a chore that
+was never completed, spending one twice, spending a basic, spending a
+week-long condition, and recovering a miss that did not happen are each
+refused with the rule that was broken. A settled overridden week refuses both
+proposal doors, cannot be settled twice, has every override column frozen by
+the trigger, and reads the same after the scheme changes underneath it.
