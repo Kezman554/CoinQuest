@@ -4,7 +4,7 @@ A pocket-money and chore tracker for one child, running as a self-contained serv
 Built with FastAPI, SQLite, Alembic, React, Vite and TypeScript, served from a single multi-stage container on port 8600.
 
 ## Structure
-- `app/` - FastAPI application: models, routers, services, migrations
+- `app/` - FastAPI application: `models/` (schema), `routers/`, `services/` (money, calendar, scheme logic), `migrations/` (Alembic)
 - `frontend/` - React + Vite + TypeScript, built into the image and served by the API
 - `tests/` - pytest
 - `docs/` - PRD and progress log
@@ -14,6 +14,8 @@ Built with FastAPI, SQLite, Alembic, React, Vite and TypeScript, served from a s
 - `npm run dev --prefix frontend` - Run the frontend against it
 - `pytest` - Run tests
 - `alembic upgrade head` - Apply migrations
+- `alembic revision --autogenerate -m "..."` - Draft the next one
+- `alembic check` - Fail if the models have drifted from the migrations
 
 ## Git
 - Do not push to GitHub without explicit permission
@@ -30,6 +32,10 @@ These are load-bearing. Each was decided deliberately and none should be reverse
 - **The child is configuration.** No child's name appears in this repository. It comes from `CHILD_NAME` at deployment. This repo is public
 - **The PIN is verified server-side and rejected server-side.** Never returned to a client, never embedded in the bundle. Hiding a button is presentation, not authorisation
 - **The service owns only its own database.** No external filesystem access, no dependency on any other service running
+- **Append-only means append-only in the database.** Both ledgers and every settled figure are protected by SQLite triggers created in the first migration. A correction is a new row, never an edit
+- **Never subtract two aware datetimes directly.** Python ignores the zone when they share a `tzinfo`, so a week across a clock change measures 168 hours instead of 169. Use `calendar.elapsed()`
+- **Periods are half-open.** `start`/`end` are inclusive dates for people; `starts_at`/`ends_before` are the instants to query against
+- **Tests build the database with the real migration**, never `create_all` - the triggers exist only in the migration
 - Runs on ARM64 - anything with native builds must resolve for that architecture
 
 ## Reference

@@ -1,0 +1,294 @@
+"""initial schema
+
+Creates the whole schema, and then the triggers that make the scheme's central
+rule a property of the database rather than a habit of the application: a
+closed week's figures cannot be changed, and neither ledger can be updated or
+deleted from. A hand-typed UPDATE at the sqlite3 prompt is refused too.
+
+Revision ID: 90dcc46188e0
+Revises: 
+Create Date: 2026-08-20 17:52:17.945239
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+import app.models.base  # UtcDateTime, referenced by the columns below
+
+
+# revision identifiers, used by Alembic.
+revision: str = '90dcc46188e0'
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+# Immutability. SQLite has no roles to revoke, so a BEFORE trigger raising
+# ABORT is the mechanism available, and it is enough: it fires for the ORM,
+# for a raw statement, and for a person poking at the file with sqlite3.
+#
+# A closed week keeps two writable columns, paid_at and deposited_pence,
+# because payday happens after settlement. Everything that constitutes the
+# closing figure is frozen.
+
+IMMUTABILITY_TRIGGERS = {
+    "settled_week_figures_are_final": """
+        CREATE TRIGGER settled_week_figures_are_final
+        BEFORE UPDATE ON weeks
+        FOR EACH ROW WHEN OLD.status IN ('settled', 'voided') AND (
+               NEW.status               IS NOT OLD.status
+            OR NEW.start_date           IS NOT OLD.start_date
+            OR NEW.end_date             IS NOT OLD.end_date
+            OR NEW.settled_basic_pence  IS NOT OLD.settled_basic_pence
+            OR NEW.settled_bonus_pence  IS NOT OLD.settled_bonus_pence
+            OR NEW.settled_reward_pence IS NOT OLD.settled_reward_pence
+            OR NEW.settled_total_pence  IS NOT OLD.settled_total_pence
+            OR NEW.closed_at            IS NOT OLD.closed_at
+        )
+        BEGIN
+            SELECT RAISE(ABORT,
+                'a settled or voided week is closed forever; its figures cannot change');
+        END
+    """,
+    "a_closed_week_is_not_deleted": """
+        CREATE TRIGGER a_closed_week_is_not_deleted
+        BEFORE DELETE ON weeks
+        FOR EACH ROW WHEN OLD.status IN ('settled', 'voided')
+        BEGIN
+            SELECT RAISE(ABORT, 'a closed week cannot be deleted');
+        END
+    """,
+    # Every column that carries the money or the story is frozen. The single
+    # permitted change is source_definition_id being cleared, which is what
+    # ON DELETE SET NULL does when a definition is deleted. That is the point
+    # of the column: severing provenance must be possible precisely so that
+    # deleting a definition can never take a settled figure with it. It may be
+    # cleared and never repointed.
+    "settlement_lines_are_not_updated": """
+        CREATE TRIGGER settlement_lines_are_not_updated
+        BEFORE UPDATE ON settlement_lines
+        FOR EACH ROW WHEN (
+               NEW.week_id           IS NOT OLD.week_id
+            OR NEW.chore_name        IS NOT OLD.chore_name
+            OR NEW.category          IS NOT OLD.category
+            OR NEW.cadence           IS NOT OLD.cadence
+            OR NEW.unit_amount_pence IS NOT OLD.unit_amount_pence
+            OR NEW.quantity          IS NOT OLD.quantity
+            OR NEW.amount_pence      IS NOT OLD.amount_pence
+            OR NEW.note              IS NOT OLD.note
+            OR NEW.created_at        IS NOT OLD.created_at
+            OR (NEW.source_definition_id IS NOT OLD.source_definition_id
+                AND NEW.source_definition_id IS NOT NULL)
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'settlement lines are append-only');
+        END
+    """,
+    "settlement_lines_are_not_deleted": """
+        CREATE TRIGGER settlement_lines_are_not_deleted
+        BEFORE DELETE ON settlement_lines
+        BEGIN
+            SELECT RAISE(ABORT, 'settlement lines are append-only');
+        END
+    """,
+    "earnings_are_not_updated": """
+        CREATE TRIGGER earnings_are_not_updated
+        BEFORE UPDATE ON earnings_ledger
+        BEGIN
+            SELECT RAISE(ABORT, 'the earnings ledger is append-only');
+        END
+    """,
+    "earnings_are_not_deleted": """
+        CREATE TRIGGER earnings_are_not_deleted
+        BEFORE DELETE ON earnings_ledger
+        BEGIN
+            SELECT RAISE(ABORT, 'the earnings ledger is append-only');
+        END
+    """,
+    "savings_are_not_updated": """
+        CREATE TRIGGER savings_are_not_updated
+        BEFORE UPDATE ON savings_ledger
+        BEGIN
+            SELECT RAISE(ABORT, 'the savings ledger is append-only');
+        END
+    """,
+    "savings_are_not_deleted": """
+        CREATE TRIGGER savings_are_not_deleted
+        BEFORE DELETE ON savings_ledger
+        BEGIN
+            SELECT RAISE(ABORT, 'the savings ledger is append-only');
+        END
+    """,
+}
+
+
+def upgrade() -> None:
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.create_table('chore_definitions',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=120), nullable=False),
+    sa.Column('cadence', sa.Enum('daily', 'weekly_count', 'weekly_condition', 'one_off', 'event', name='ck_cadence', native_enum=False, length=32), nullable=False),
+    sa.Column('category', sa.Enum('basic', 'bonus', 'reward', name='ck_category', native_enum=False, length=32), nullable=False),
+    sa.Column('amount_pence', sa.Integer(), nullable=False),
+    sa.Column('times_per_week', sa.Integer(), nullable=True),
+    sa.Column('is_available', sa.Boolean(), nullable=False),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('created_at', app.models.base.UtcDateTime(), nullable=False),
+    sa.Column('updated_at', app.models.base.UtcDateTime(), nullable=False),
+    sa.CheckConstraint("(cadence = 'weekly_count' AND times_per_week IS NOT NULL AND times_per_week > 0) OR (cadence <> 'weekly_count' AND times_per_week IS NULL)", name=op.f('ck_chore_definitions_times_per_week_only_for_weekly_count')),
+    sa.CheckConstraint('amount_pence >= 0', name=op.f('ck_chore_definitions_amount_not_negative')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_chore_definitions')),
+    sa.UniqueConstraint('name', name=op.f('uq_chore_definitions_name'))
+    )
+    op.create_table('weeks',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('start_date', sa.Date(), nullable=False),
+    sa.Column('end_date', sa.Date(), nullable=False),
+    sa.Column('status', sa.Enum('open', 'settled', 'voided', name='ck_weekstatus', native_enum=False, length=32), nullable=False),
+    sa.Column('settled_basic_pence', sa.Integer(), nullable=True),
+    sa.Column('settled_bonus_pence', sa.Integer(), nullable=True),
+    sa.Column('settled_reward_pence', sa.Integer(), nullable=True),
+    sa.Column('settled_total_pence', sa.Integer(), nullable=True),
+    sa.Column('closed_at', app.models.base.UtcDateTime(), nullable=True),
+    sa.Column('void_reason', sa.Text(), nullable=True),
+    sa.Column('paid_at', app.models.base.UtcDateTime(), nullable=True),
+    sa.Column('deposited_pence', sa.Integer(), nullable=True),
+    sa.Column('created_at', app.models.base.UtcDateTime(), nullable=False),
+    sa.CheckConstraint("(status = 'open'   AND settled_total_pence IS NULL AND closed_at IS NULL) OR (status IN ('settled', 'voided')   AND settled_basic_pence IS NOT NULL   AND settled_bonus_pence IS NOT NULL   AND settled_reward_pence IS NOT NULL   AND settled_total_pence IS NOT NULL   AND closed_at IS NOT NULL)", name=op.f('ck_weeks_closed_weeks_carry_their_figures')),
+    sa.CheckConstraint("CAST(strftime('%w', start_date) AS INTEGER) = 0", name=op.f('ck_weeks_starts_on_a_sunday')),
+    sa.CheckConstraint("paid_at IS NULL OR status IN ('settled', 'voided')", name=op.f('ck_weeks_only_a_closed_week_is_paid')),
+    sa.CheckConstraint("status <> 'voided' OR settled_total_pence = 0", name=op.f('ck_weeks_a_voided_week_pays_nothing')),
+    sa.CheckConstraint('deposited_pence IS NULL OR (deposited_pence >= 0 AND deposited_pence <= settled_total_pence)', name=op.f('ck_weeks_deposit_within_the_payment')),
+    sa.CheckConstraint('julianday(end_date) - julianday(start_date) = 6', name=op.f('ck_weeks_runs_seven_days')),
+    sa.CheckConstraint('settled_basic_pence IS NULL OR settled_basic_pence >= 0', name=op.f('ck_weeks_basic_not_negative')),
+    sa.CheckConstraint('settled_bonus_pence IS NULL OR settled_bonus_pence >= 0', name=op.f('ck_weeks_bonus_not_negative')),
+    sa.CheckConstraint('settled_reward_pence IS NULL OR settled_reward_pence >= 0', name=op.f('ck_weeks_reward_not_negative')),
+    sa.CheckConstraint('settled_total_pence IS NULL OR settled_total_pence = settled_basic_pence + settled_bonus_pence + settled_reward_pence', name=op.f('ck_weeks_total_is_the_sum_of_its_parts')),
+    sa.CheckConstraint('settled_total_pence IS NULL OR settled_total_pence >= 0', name=op.f('ck_weeks_total_not_negative')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_weeks')),
+    sa.UniqueConstraint('start_date', name=op.f('uq_weeks_start_date'))
+    )
+    op.create_table('chore_instances',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('definition_id', sa.Integer(), nullable=False),
+    sa.Column('week_id', sa.Integer(), nullable=False),
+    sa.Column('due_date', sa.Date(), nullable=True),
+    sa.Column('state', sa.Enum('untouched', 'claimed', 'confirmed', 'missed', name='ck_instancestate', native_enum=False, length=32), nullable=False),
+    sa.Column('quantity', sa.Integer(), nullable=False),
+    sa.Column('claimed_at', app.models.base.UtcDateTime(), nullable=True),
+    sa.Column('confirmed_at', app.models.base.UtcDateTime(), nullable=True),
+    sa.Column('missed_at', app.models.base.UtcDateTime(), nullable=True),
+    sa.Column('recovered_instance_id', sa.Integer(), nullable=True),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('created_at', app.models.base.UtcDateTime(), nullable=False),
+    sa.CheckConstraint("(state = 'claimed' AND claimed_at IS NOT NULL) OR (state = 'confirmed' AND confirmed_at IS NOT NULL) OR (state = 'missed' AND missed_at IS NOT NULL) OR state = 'untouched'", name=op.f('ck_chore_instances_state_carries_its_timestamp')),
+    sa.CheckConstraint('quantity > 0', name=op.f('ck_chore_instances_quantity_positive')),
+    sa.CheckConstraint('recovered_instance_id IS NULL OR recovered_instance_id <> id', name=op.f('ck_chore_instances_an_instance_cannot_recover_itself')),
+    sa.ForeignKeyConstraint(['definition_id'], ['chore_definitions.id'], name=op.f('fk_chore_instances_definition_id_chore_definitions'), ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['recovered_instance_id'], ['chore_instances.id'], name=op.f('fk_chore_instances_recovered_instance_id_chore_instances'), ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['week_id'], ['weeks.id'], name=op.f('fk_chore_instances_week_id_weeks'), ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_chore_instances'))
+    )
+    with op.batch_alter_table('chore_instances', schema=None) as batch_op:
+        batch_op.create_index('uq_chore_instances_definition_day', ['definition_id', 'due_date'], unique=True, sqlite_where=sa.text('due_date IS NOT NULL'))
+        batch_op.create_index('uq_chore_instances_definition_week', ['definition_id', 'week_id'], unique=True, sqlite_where=sa.text('due_date IS NULL'))
+
+    op.create_table('earnings_ledger',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('entry_type', sa.Enum('week_settlement', 'reward', name='ck_earningtype', native_enum=False, length=32), nullable=False),
+    sa.Column('amount_pence', sa.Integer(), nullable=False),
+    sa.Column('week_id', sa.Integer(), nullable=True),
+    sa.Column('occurred_on', sa.Date(), nullable=False),
+    sa.Column('reason', sa.Text(), nullable=True),
+    sa.Column('created_at', app.models.base.UtcDateTime(), nullable=False),
+    sa.CheckConstraint("entry_type <> 'reward' OR (reason IS NOT NULL AND length(trim(reason)) > 0)", name=op.f('ck_earnings_ledger_a_reward_states_its_reason')),
+    sa.CheckConstraint("entry_type <> 'week_settlement' OR week_id IS NOT NULL", name=op.f('ck_earnings_ledger_a_settlement_names_its_week')),
+    sa.CheckConstraint('amount_pence >= 0', name=op.f('ck_earnings_ledger_amount_not_negative')),
+    sa.ForeignKeyConstraint(['week_id'], ['weeks.id'], name=op.f('fk_earnings_ledger_week_id_weeks'), ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_earnings_ledger'))
+    )
+    op.create_table('savings_ledger',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('entry_type', sa.Enum('opening_balance', 'deposit', 'withdrawal', 'match', name='ck_savingstype', native_enum=False, length=32), nullable=False),
+    sa.Column('amount_pence', sa.Integer(), nullable=False),
+    sa.Column('balance_after_pence', sa.Integer(), nullable=False),
+    sa.Column('week_id', sa.Integer(), nullable=True),
+    sa.Column('occurred_on', sa.Date(), nullable=False),
+    sa.Column('reason', sa.Text(), nullable=True),
+    sa.Column('created_at', app.models.base.UtcDateTime(), nullable=False),
+    sa.CheckConstraint("(entry_type = 'withdrawal' AND amount_pence < 0) OR (entry_type <> 'withdrawal' AND amount_pence >= 0)", name=op.f('ck_savings_ledger_only_a_withdrawal_is_negative')),
+    sa.CheckConstraint('balance_after_pence >= 0', name=op.f('ck_savings_ledger_balance_not_negative')),
+    sa.ForeignKeyConstraint(['week_id'], ['weeks.id'], name=op.f('fk_savings_ledger_week_id_weeks'), ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_savings_ledger'))
+    )
+    op.create_table('settlement_lines',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('week_id', sa.Integer(), nullable=False),
+    sa.Column('chore_name', sa.String(length=120), nullable=False),
+    sa.Column('category', sa.Enum('basic', 'bonus', 'reward', name='ck_category', native_enum=False, length=32), nullable=False),
+    sa.Column('cadence', sa.Enum('daily', 'weekly_count', 'weekly_condition', 'one_off', 'event', name='ck_cadence', native_enum=False, length=32), nullable=False),
+    sa.Column('unit_amount_pence', sa.Integer(), nullable=False),
+    sa.Column('quantity', sa.Integer(), nullable=False),
+    sa.Column('amount_pence', sa.Integer(), nullable=False),
+    sa.Column('source_definition_id', sa.Integer(), nullable=True),
+    sa.Column('note', sa.Text(), nullable=True),
+    sa.Column('created_at', app.models.base.UtcDateTime(), nullable=False),
+    sa.CheckConstraint('amount_pence >= 0', name=op.f('ck_settlement_lines_amount_not_negative')),
+    sa.CheckConstraint('quantity > 0', name=op.f('ck_settlement_lines_quantity_positive')),
+    sa.CheckConstraint('unit_amount_pence >= 0', name=op.f('ck_settlement_lines_unit_amount_not_negative')),
+    sa.ForeignKeyConstraint(['source_definition_id'], ['chore_definitions.id'], name=op.f('fk_settlement_lines_source_definition_id_chore_definitions'), ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['week_id'], ['weeks.id'], name=op.f('fk_settlement_lines_week_id_weeks'), ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_settlement_lines'))
+    )
+    with op.batch_alter_table('settlement_lines', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_settlement_lines_week_id'), ['week_id'], unique=False)
+
+    op.create_table('waivers',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('scope', sa.Enum('day', 'chore_week', name='ck_waiverscope', native_enum=False, length=32), nullable=False),
+    sa.Column('day', sa.Date(), nullable=True),
+    sa.Column('week_id', sa.Integer(), nullable=True),
+    sa.Column('definition_id', sa.Integer(), nullable=True),
+    sa.Column('reason', sa.Text(), nullable=True),
+    sa.Column('created_at', app.models.base.UtcDateTime(), nullable=False),
+    sa.CheckConstraint("(scope = 'day' AND day IS NOT NULL   AND definition_id IS NULL) OR (scope = 'chore_week' AND day IS NULL   AND week_id IS NOT NULL AND definition_id IS NOT NULL)", name=op.f('ck_waivers_each_scope_fills_in_its_own_columns')),
+    sa.ForeignKeyConstraint(['definition_id'], ['chore_definitions.id'], name=op.f('fk_waivers_definition_id_chore_definitions'), ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['week_id'], ['weeks.id'], name=op.f('fk_waivers_week_id_weeks'), ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_waivers'))
+    )
+    with op.batch_alter_table('waivers', schema=None) as batch_op:
+        batch_op.create_index('uq_waivers_chore_week', ['week_id', 'definition_id'], unique=True, sqlite_where=sa.text('day IS NULL'))
+        batch_op.create_index('uq_waivers_day', ['day'], unique=True, sqlite_where=sa.text('day IS NOT NULL'))
+
+    # ### end Alembic commands ###
+
+    for statement in IMMUTABILITY_TRIGGERS.values():
+        op.execute(statement)
+
+
+def downgrade() -> None:
+    # ### commands auto generated by Alembic - please adjust! ###
+    with op.batch_alter_table('waivers', schema=None) as batch_op:
+        batch_op.drop_index('uq_waivers_day', sqlite_where=sa.text('day IS NOT NULL'))
+        batch_op.drop_index('uq_waivers_chore_week', sqlite_where=sa.text('day IS NULL'))
+
+    op.drop_table('waivers')
+    with op.batch_alter_table('settlement_lines', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_settlement_lines_week_id'))
+
+    op.drop_table('settlement_lines')
+    op.drop_table('savings_ledger')
+    op.drop_table('earnings_ledger')
+    with op.batch_alter_table('chore_instances', schema=None) as batch_op:
+        batch_op.drop_index('uq_chore_instances_definition_week', sqlite_where=sa.text('due_date IS NULL'))
+        batch_op.drop_index('uq_chore_instances_definition_day', sqlite_where=sa.text('due_date IS NOT NULL'))
+
+    op.drop_table('chore_instances')
+    op.drop_table('weeks')
+    op.drop_table('chore_definitions')
+    # ### end Alembic commands ###
+
+    for name in IMMUTABILITY_TRIGGERS:
+        op.execute(f"DROP TRIGGER IF EXISTS {name}")

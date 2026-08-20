@@ -62,3 +62,52 @@ the system zone set to America/Los_Angeles.
 
 No float appears in either module or their tests, other than the two passed
 deliberately to format_pence and parse_pence to assert they are rejected.
+
+2026-08-20 — Session C: schema and the first migration
+
+Tables (app/models/): chore_definitions, chore_instances, weeks,
+settlement_lines, waivers, earnings_ledger, savings_ledger.
+
+The separation the scheme turns on:
+  - A definition is a rule and will be edited. An instance is working data
+    and may point at one freely.
+  - A settled week keeps its own figures, and settlement_lines keep their own
+    copy of the chore's name, category, cadence and amount as they stood at
+    the moment of settlement. source_definition_id is provenance only,
+    nullable, ON DELETE SET NULL, and never read to work out money.
+
+Enforced by the database, not by the application remembering:
+  - Triggers refuse any change to a closed week's figures or status, any
+    update or delete on either ledger, and any edit to a settlement line.
+    paid_at and deposited_pence stay writable, because payday follows
+    settlement.
+  - CHECKs: a week starts on a Sunday (strftime %w) and runs seven days; a
+    closed week carries all four figures and they add up; a voided week pays
+    zero; no amount anywhere is negative; only a withdrawal is negative in
+    savings and the balance never goes below zero; a weekly_count chore
+    states its count and no other cadence may; a waiver fills in the columns
+    its scope allows; a reward states its reason.
+  - Partial unique indexes: one instance per chore per day, or per chore per
+    week for the week-scoped cadences.
+
+Alembic initialised at app/migrations with the URL supplied from the
+environment through app.config, never from alembic.ini. render_as_batch is on
+because SQLite cannot alter a column. alembic check reports no drift, and
+downgrade base leaves an empty file.
+
+One conflict found and resolved: ON DELETE SET NULL on a settlement line's
+provenance column fires an UPDATE, which the blanket append-only trigger
+blocked — making a definition undeletable once settled, and the SET NULL dead
+configuration. The trigger now freezes every column that carries the money or
+the story and permits exactly one change: provenance being cleared, never
+repointed.
+
+Instants are stored UTC and returned aware via a UtcDateTime type; a naive
+datetime is refused rather than assumed. Local days are separate Date columns,
+computed in Europe/London by app.services.calendar.
+
+Tests: 138 pass. Schema tests build the database by running the real migration
+against an empty file, not create_all, because the triggers exist only in the
+migration. The central case asserts that renaming, repricing, recategorising
+and withdrawing a chore leaves a settled week's stored figures untouched, and
+that deleting the definition outright does too.
