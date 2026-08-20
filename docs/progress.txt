@@ -405,3 +405,32 @@ running balances of 450 and 600, and both weeks stop reading as owed.
 
 Numbers to confirm: WEEKLY_BASE_PENCE defaults to 100 and the school award
 preset defaults to 100. Both are in one place each.
+
+2026-08-20 — Session H addendum: the Eagle award, and rewards after settlement
+
+The preset is the Eagle award: £3 every time the school gives him one, no
+limit (§7). Fixed name as well as fixed amount — the name is what he calls it
+and what makes the ledger readable a year later, so it is the reason recorded
+against the entry. Sending a different amount to the preset endpoint is
+refused with 422 rather than ignored; quietly substituting a number for the
+one asked for is worse than saying no. /api/rewards remains for a reward of
+any amount.
+
+The edge: a reward entered for a week that has already settled. A reward now
+always lands on an open week — its own if open, otherwise the next open one,
+otherwise a week opened after the latest on record, so he gets it with the
+next lot of money. occurred_on still records when it actually happened, and
+the response says carried_to_an_open_week so nobody has to work out where it
+went.
+
+The alternative — recording it against no week at all — was rejected for a
+concrete reason rather than a stylistic one. Payment tracking lives on weeks
+(paid_at, deposited_pence), and the earnings ledger is append-only, so there
+is no paid_at to write on a ledger row and no way to mark an unattached
+reward as handed over. It would have been owed forever. Everything that is
+owed has to land on something that can be paid, and a week is the only such
+thing in this schema.
+
+Tests: 306 pass, including a reward for a settled week, for a voided week,
+with no open week available, three rewards not creating duplicate weeks, and
+a carried reward still being owed and paid.

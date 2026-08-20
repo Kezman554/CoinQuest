@@ -483,9 +483,13 @@ def test_a_reward_survives_the_week_being_voided(api, session, beds):
     assert owed["owed_pence"] == 250          # the reward stands
 
 
-def test_a_reward_is_paid_with_the_week(api, session, beds):
-    week = settled_week(api, session, beds)
-    api.post(
+def test_a_reward_is_paid_with_the_week_it_belongs_to(api, session, beds):
+    # Entered while the week is open, so it belongs to that week and goes out
+    # with the same payment.
+    week = Week(start_date=FIRST_SUNDAY, end_date=FIRST_SATURDAY)
+    session.add(week)
+    session.commit()
+    reward = api.post(
         "/api/rewards",
         json={
             "pin": PIN,
@@ -493,7 +497,23 @@ def test_a_reward_is_paid_with_the_week(api, session, beds):
             "reason": "Award at school",
             "occurred_on": date(2026, 8, 18).isoformat(),
         },
-    )
+    ).json()
+    assert reward["week_id"] == week.id
+    assert reward["carried_to_an_open_week"] is False
+
+    for offset in range(7):
+        session.add(
+            ChoreInstance(
+                definition_id=beds.id,
+                week_id=week.id,
+                due_date=date.fromordinal(FIRST_SUNDAY.toordinal() + offset),
+                state=InstanceState.CONFIRMED,
+                confirmed_at=week.created_at,
+                authorised_by="parent",
+            )
+        )
+    session.commit()
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
 
     body = api.post(
         "/api/weeks/payments",
@@ -504,44 +524,191 @@ def test_a_reward_is_paid_with_the_week(api, session, beds):
     assert body["kept_pence"] == 0
 
 
+# --- A reward entered for a week that has already settled -------------------
+
+
+def test_a_reward_for_a_settled_week_is_carried_to_an_open_one(api, session, beds):
+    # A settled week is closed forever and cannot take it. The money does not
+    # vanish and does not attach to the closed week: it goes to the next open
+    # week, and he gets it with that week's money.
+    settled = settled_week(api, session, beds)
+    later = Week(start_date=SECOND_SUNDAY, end_date=SECOND_SATURDAY)
+    session.add(later)
+    session.commit()
+
+    body = api.post(
+        "/api/rewards",
+        json={
+            "pin": PIN,
+            "amount_pence": 300,
+            "reason": "Eagle award",
+            "occurred_on": date(2026, 8, 18).isoformat(),  # inside the settled week
+        },
+    ).json()
+
+    assert body["week_id"] == later.id
+    assert body["week_start_date"] == SECOND_SUNDAY.isoformat()
+    assert body["carried_to_an_open_week"] is True
+    assert body["occurred_on"] == "2026-08-18"  # when it happened is unchanged
+
+    # The settled week is untouched, and still worth what it settled for.
+    session.expire_all()
+    assert session.get(Week, settled.id).settled_total_pence == 450
+    outstanding = {
+        owed["week_id"]: owed
+        for owed in api.get("/api/weeks/owed/outstanding").json()
+    }
+    assert outstanding[settled.id]["owed_pence"] == 450
+
+
+def test_a_reward_for_a_settled_week_opens_one_if_there_is_none(api, session, beds):
+    # Nothing else is open. Rather than attach to a closed week or to nothing,
+    # a week is opened after the latest on record and the reward waits there.
+    settled = settled_week(api, session, beds)
+
+    body = api.post(
+        "/api/rewards",
+        json={
+            "pin": PIN,
+            "amount_pence": 300,
+            "reason": "Eagle award",
+            "occurred_on": date(2026, 8, 18).isoformat(),
+        },
+    ).json()
+
+    assert body["carried_to_an_open_week"] is True
+    assert body["week_id"] != settled.id
+    assert body["week_start_date"] == SECOND_SUNDAY.isoformat()
+
+    session.expire_all()
+    carried = session.get(Week, body["week_id"])
+    assert carried.status is WeekStatus.OPEN
+    assert carried.start_date == SECOND_SUNDAY
+
+
+def test_a_carried_reward_is_still_paid(api, session, beds):
+    # The point of carrying it: the money stays owed and is eventually handed
+    # over, which is the one thing that must not fail here.
+    settled_week(api, session, beds)
+    body = api.post(
+        "/api/rewards",
+        json={
+            "pin": PIN,
+            "amount_pence": 300,
+            "reason": "Eagle award",
+            "occurred_on": date(2026, 8, 18).isoformat(),
+        },
+    ).json()
+    carried_id = body["week_id"]
+
+    api.post(
+        f"/api/weeks/{carried_id}/settle", json={"pin": PIN, "agreed_total_pence": 100}
+    )
+    outstanding = {
+        owed["week_id"]: owed
+        for owed in api.get("/api/weeks/owed/outstanding").json()
+    }
+    assert outstanding[carried_id]["reward_pence"] == 300
+    assert outstanding[carried_id]["owed_pence"] == 400  # 100 base + the award
+
+
+def test_a_reward_never_attaches_to_a_closed_week(api, session, beds):
+    # Including a voided one: closed is closed, whichever way it closed.
+    week = Week(start_date=FIRST_SUNDAY, end_date=FIRST_SATURDAY)
+    session.add(week)
+    session.commit()
+    api.post(f"/api/weeks/{week.id}/void", json={"pin": PIN, "reason": "Away"})
+
+    body = api.post(
+        "/api/rewards",
+        json={
+            "pin": PIN,
+            "amount_pence": 300,
+            "reason": "Eagle award",
+            "occurred_on": date(2026, 8, 18).isoformat(),
+        },
+    ).json()
+    assert body["week_id"] != week.id
+    assert body["carried_to_an_open_week"] is True
+
+
+def test_a_reward_never_creates_a_second_week_for_the_same_dates(api, session, beds):
+    settled_week(api, session, beds)
+    for _ in range(3):
+        api.post(
+            "/api/rewards",
+            json={
+                "pin": PIN,
+                "amount_pence": 300,
+                "reason": "Eagle award",
+                "occurred_on": date(2026, 8, 18).isoformat(),
+            },
+        )
+    starts = [week.start_date for week in session.query(Week).all()]
+    assert len(starts) == len(set(starts)) == 2
+
+
 # --- 6. The preset ----------------------------------------------------------
 
 
-def test_the_school_award_preset_is_offered(api):
+def test_the_eagle_award_preset_is_offered(api):
     presets = api.get("/api/rewards/presets").json()
-    assert {preset["key"] for preset in presets} == {"school_award"}
-    assert presets[0]["name"] == "School award"
-    assert presets[0]["default_amount"] == "£1.00"
+    assert {preset["key"] for preset in presets} == {"eagle_award"}
+    assert presets[0]["name"] == "Eagle award"
+    assert presets[0]["amount_pence"] == 300
+    assert presets[0]["amount"] == "£3.00"
 
 
-def test_the_preset_records_a_reward_without_retyping_it(api, session):
+def test_the_preset_records_the_award_without_retyping_it(api, session):
     session.add(Week(start_date=FIRST_SUNDAY, end_date=FIRST_SATURDAY))
     session.commit()
 
     body = api.post(
-        "/api/rewards/presets/school_award",
+        "/api/rewards/presets/eagle_award",
         json={"pin": PIN, "occurred_on": date(2026, 8, 18).isoformat()},
     ).json()
-    assert body["amount_pence"] == 100
-    assert body["reason"] == "School award"
+    assert body["amount_pence"] == 300
+    # The name is the reason, because it is what he calls it and what makes
+    # the ledger readable a year later.
+    assert body["reason"] == "Eagle award"
 
 
-def test_the_preset_amount_is_a_default_not_a_price(api, session):
+def test_the_preset_amount_is_fixed_and_a_different_one_is_refused(api, session):
     session.add(Week(start_date=FIRST_SUNDAY, end_date=FIRST_SATURDAY))
     session.commit()
 
-    body = api.post(
-        "/api/rewards/presets/school_award",
-        json={"pin": PIN, "amount": "£2.00", "occurred_on": date(2026, 8, 18).isoformat()},
-    ).json()
-    assert body["amount_pence"] == 200
-    assert body["reason"] == "School award"
+    for attempt in ({"amount": "£2.00"}, {"amount_pence": 200}):
+        response = api.post(
+            "/api/rewards/presets/eagle_award", json={"pin": PIN, **attempt}
+        )
+        # Refused rather than ignored: quietly substituting a different number
+        # for the one that was asked for is worse than saying no.
+        assert response.status_code == 422
+
+    assert session.query(EarningEntry).count() == 0
+
+
+def test_the_award_may_be_given_any_number_of_times(api, session):
+    # The school decides how often it hands one out; the scheme pays for each.
+    session.add(Week(start_date=FIRST_SUNDAY, end_date=FIRST_SATURDAY))
+    session.commit()
+
+    for _ in range(4):
+        response = api.post(
+            "/api/rewards/presets/eagle_award",
+            json={"pin": PIN, "occurred_on": date(2026, 8, 18).isoformat()},
+        )
+        assert response.status_code == 201
+
+    entries = session.query(EarningEntry).all()
+    assert len(entries) == 4
+    assert sum(entry.amount_pence for entry in entries) == 1200
 
 
 def test_the_preset_needs_the_pin(api, session):
     session.add(Week(start_date=FIRST_SUNDAY, end_date=FIRST_SATURDAY))
     session.commit()
-    response = api.post("/api/rewards/presets/school_award", json={"pin": WRONG})
+    response = api.post("/api/rewards/presets/eagle_award", json={"pin": WRONG})
     assert response.status_code == 401
 
 
