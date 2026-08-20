@@ -52,15 +52,13 @@ One child, who claims chores and checks his progress, and his parents, who confi
 ### Savings
 
 - A savings ledger recording deposits, withdrawals and an opening balance
-- A monthly match on the lowest balance reached in that month, up to a capped portion of the balance
-- A rate that rises with each month containing no withdrawal, and resets when one occurs
+- A monthly match on the lowest balance reached that month, up to a capped portion of it, at a rate that rises with each month containing no withdrawal and resets when one occurs
 - A monthly match settled as a closed event recording the balance low, rate and cap applied
 
 ### Surfaces
 
 - A weekly view for the child: chores, claims, misses, recovery status, and what the week is on track to pay
 - A parent view carrying every action above
-- A savings view, and a lifetime view contrasting actual savings with a never-withdrawn projection
 - A summary endpoint shaped for an external dashboard tile: what the week is on track to pay, and whether a recovery is outstanding and by when
 
 ## Scope
@@ -101,8 +99,7 @@ One child, who claims chores and checks his progress, and his parents, who confi
 
 ### Integrations
 
-- None at MVP. The service is self-contained and depends on nothing else running
-- An external dashboard links to this app and reads its summary endpoint; the dependency runs one way only
+- None at MVP. The service is self-contained and depends on nothing else running; an external dashboard links to it and reads its summary endpoint, one way only
 
 ### Constraints
 
