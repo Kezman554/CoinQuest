@@ -26,3 +26,39 @@ clean including the tsc typecheck.
 
 Not done yet: no database, models or migrations (Alembic is installed but not
 initialised), no Dockerfile, and the API does not yet serve the built bundle.
+
+2026-08-20 — Session B: money and calendar services
+
+app/services/money.py
+  - Integer pence throughout. format_pence(450) -> "£4.50"; parse_pence
+    accepts "4.50", "£4.50", "4", ".5", "1,234.56", "450p" and signs.
+  - Parsing rejects a third decimal rather than rounding it: an amount that
+    cannot be paid is a typing mistake, not a value to guess at. A float
+    passed as an amount raises MoneyError rather than being coerced.
+
+app/services/calendar.py
+  - Every function takes the timezone as an argument. Nothing reads the
+    system zone and nothing defaults to one; the container clock is UTC.
+  - Period(start, end, tz) holds whole local days. start/end are inclusive
+    as a person would say them; starts_at/ends_before are the instants, and
+    are half-open so 23:59:59.7 cannot fall out of the week that owns it.
+  - week_start, week_containing, week_containing_instant, current_week,
+    day_containing, month_containing, month_bounds, local_date, today,
+    start_of_day, elapsed.
+  - The week runs Sunday to Saturday. Both British clock changes fall on a
+    Sunday, so a London week boundary at midnight is never ambiguous.
+
+One trap found and defended against: when two aware datetimes share a tzinfo
+object, Python subtracts them by wall clock and ignores the zone, so the
+October week measured 168 hours instead of 169. elapsed() and
+Period.duration go via UTC, and a test asserts both the wrong answer and the
+right one so the reason cannot be lost.
+
+Tests: 93 pass. Covers the BST-to-GMT week (169h), the GMT-to-BST week
+(167h), the 25- and 23-hour days, both halves of the repeated 01:30, a week
+spanning a month end and a year end, month bounds opening in BST and closing
+in GMT, and pence round trips over every penny to £2. The suite passes with
+the system zone set to America/Los_Angeles.
+
+No float appears in either module or their tests, other than the two passed
+deliberately to format_pence and parse_pence to assert they are rejected.
