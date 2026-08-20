@@ -152,3 +152,49 @@ leaves the claim standing for a parent to decide about.
 
 Tests: 171 pass. The three cases the card asks for — 0, 3 and 6 waived days —
 assert 7/2/3, 4/1/2 and 1/0/0 respectively.
+
+2026-08-20 — Session E: claiming, and a parent ruling on claims
+
+app/services/authorisation.py — verify_pin compares the offered PIN against
+the configured one with hmac.compare_digest, and returns an Authorisation
+naming the party. The party is derived from the credential, never taken from
+the request: a client says what it wants done, never who it is. When a second
+parent is authorised, this is the one place that changes.
+
+app/routers/dependencies.py — a session per request, committed by the request
+itself rather than by the dependency, which is what makes a batch atomic. The
+PIN field is a pydantic SecretStr so it cannot be echoed in a repr, a log line
+or a validation error.
+
+app/routers/claims.py
+  - POST /api/claims — the child, no credential. A claim is a request to be
+    believed, not an assertion that money is owed. Refused if the instance is
+    already claimed or the week is closed.
+  - POST /api/claims/review — a parent's batch, one PIN for the submission.
+    The PIN is checked before anything is read; every decision is applied to
+    the session and nothing is committed until all of them have applied. Any
+    failure rolls the whole thing back and names the item that stopped it.
+  - POST /api/instances/{id}/missed — a parent marking a miss without waiting
+    for settlement, which is what makes the recovery window usable. Same
+    authorisation. Confirmed work is not taken back this way.
+
+A rejected claim returns to UNTOUCHED, not MISSED. Not believing a claim is
+not the same as ruling the chore was not done, and an untouched instance stays
+provisional until settlement, so the child can still do it.
+
+Schema (revision e42da40283c5): chore_instances.authorised_by, with a CHECK
+that a confirmed instance names its author. Alembic does not autogenerate
+CHECK constraints on SQLite, so that was written by hand. Two older tests
+confirmed work without an author and now say who agreed it.
+
+Verified against a live server, not only the test client: a claim with no
+credential returns 200, the same batch with a wrong PIN returns 401 and with
+no PIN field 422, and with the correct PIN returns 200 and stores
+authorised_by='parent'.
+
+Tests: 196 pass. The three the card asks for — wrong PIN, a batch containing
+one inapplicable item, and a valid batch — assert 401 with nothing moved, 409
+with nothing moved, and confirmations and rejections applied together.
+
+Not done: there is no attempt limiting on the PIN. A four-digit PIN on a
+household LAN can be brute-forced by anything that can reach the port.

@@ -124,6 +124,13 @@ class ChoreInstance(Base):
     confirmed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     missed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
+    #: Who authorised the state this instance is in. There is one parent
+    #: today, so this is always the same string, and recording it anyway is
+    #: the point: when a second parent is authorised alongside the first, the
+    #: history already says which of them agreed what. A miss written by
+    #: settlement rather than by a person records that instead.
+    authorised_by: Mapped[str | None] = mapped_column(String(60))
+
     #: Set when this instance was spent recovering a miss, at settlement. A
     #: recovery is worked unpaid, so it is confirmed but pays nothing.
     recovered_instance_id: Mapped[int | None] = mapped_column(
@@ -141,6 +148,11 @@ class ChoreInstance(Base):
     __table_args__ = (
         CheckConstraint("quantity > 0", name="quantity_positive"),
         CheckConstraint("sequence > 0", name="sequence_positive"),
+        # A confirmation is money, so it names who agreed it.
+        CheckConstraint(
+            "state <> 'confirmed' OR authorised_by IS NOT NULL",
+            name="a_confirmation_names_its_author",
+        ),
         CheckConstraint(
             "(state = 'claimed' AND claimed_at IS NOT NULL)"
             " OR (state = 'confirmed' AND confirmed_at IS NOT NULL)"

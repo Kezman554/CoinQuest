@@ -348,6 +348,7 @@ def test_waiving_a_day_afterwards_removes_only_untouched_instances(session):
     )
     monday.state = InstanceState.CONFIRMED
     monday.confirmed_at = NOW
+    monday.authorised_by = "parent"
     session.commit()
 
     reduced = plan_week(WEEK, [daily], day_waivers(MONDAY, TUESDAY), week_id=week_row.id)

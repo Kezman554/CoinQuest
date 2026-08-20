@@ -254,6 +254,7 @@ def test_a_voided_week_pays_nothing_but_keeps_its_instances(session):
             due_date=SUNDAY,
             state=InstanceState.CONFIRMED,
             confirmed_at=NOW,
+            authorised_by="parent",  # a confirmation names who agreed it
         )
     )
     session.commit()
