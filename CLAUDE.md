@@ -26,7 +26,7 @@ Built with FastAPI, SQLite, Alembic, React, Vite and TypeScript, served from a s
 
 These are load-bearing. Each was decided deliberately and none should be reversed without saying so.
 
-- **Money is integer pence.** No floating point touches currency, anywhere, including in tests
+- **Money is integer pence.** No floating point touches currency, anywhere — except where a test's purpose is to assert a float is rejected. That test must pass one, and it is what makes the rule enforceable rather than aspirational
 - **A settled week or month is closed forever.** Amounts are stored, never recomputed. Nothing may recalculate a settled period, and no rule change reaches backwards
 - **The timezone is Europe/London, set explicitly.** The container clock is UTC and every week boundary, payday and monthly period depends on getting this right
 - **The child is configuration.** No child's name appears in this repository. It comes from `CHILD_NAME` at deployment. This repo is public
@@ -34,7 +34,7 @@ These are load-bearing. Each was decided deliberately and none should be reverse
 - **The service owns only its own database.** No external filesystem access, no dependency on any other service running
 - **Append-only means append-only in the database.** Both ledgers and every settled figure are protected by SQLite triggers created in the first migration. A correction is a new row, never an edit
 - **Never subtract two aware datetimes directly.** Python ignores the zone when they share a `tzinfo`, so a week across a clock change measures 168 hours instead of 169. Use `calendar.elapsed()`
-- **Periods are half-open.** `start`/`end` are inclusive dates for people; `starts_at`/`ends_before` are the instants to query against
+- **Time intervals are half-open: [start, end).** The end is the first instant of the next period, never a "last instant" — a last instant exists only at whatever resolution was chosen, and comparing against it silently loses records in the final fraction of a second. `Period.start` / `.end` stay inclusive dates for display
 - **Tests build the database with the real migration**, never `create_all` - the triggers exist only in the migration
 - Runs on ARM64 - anything with native builds must resolve for that architecture
 
