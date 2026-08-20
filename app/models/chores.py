@@ -24,7 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UtcDateTime, enum_column, utcnow
-from app.models.enums import Cadence, Category, InstanceState
+from app.models.enums import Cadence, Category, InstanceState, MissOrigin
 
 
 class ChoreDefinition(Base):
@@ -124,6 +124,13 @@ class ChoreInstance(Base):
     confirmed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     missed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
+    #: How this miss came about, where it is one. A parent marking a chore
+    #: missed is a decision and names its author; a miss established at
+    #: settlement is the absence of anything having happened, and has no
+    #: author to name. Recording which of the two it was keeps them from
+    #: being read back as the same fact.
+    miss_origin: Mapped[MissOrigin | None] = mapped_column(enum_column(MissOrigin))
+
     #: When a claim on this instance was last rejected, and how many times it
     #: has been. The state goes back to UNTOUCHED and stays provisional, so no
     #: rule depends on either of these — but without them a rejected claim is
@@ -162,6 +169,21 @@ class ChoreInstance(Base):
         CheckConstraint("quantity > 0", name="quantity_positive"),
         CheckConstraint("sequence > 0", name="sequence_positive"),
         CheckConstraint("rejection_count >= 0", name="rejection_count_not_negative"),
+        CheckConstraint(
+            "(state = 'missed') = (miss_origin IS NOT NULL)",
+            name="a_miss_says_how_it_arose",
+        ),
+        # Nobody authorises an absence. A miss nothing happened to was
+        # established by settlement, and inventing a person for it would make
+        # the record say something untrue.
+        CheckConstraint(
+            "miss_origin <> 'inferred_at_settlement' OR authorised_by IS NULL",
+            name="an_inferred_miss_has_no_author",
+        ),
+        CheckConstraint(
+            "miss_origin <> 'parent_marked' OR authorised_by IS NOT NULL",
+            name="a_parent_marked_miss_names_the_parent",
+        ),
         CheckConstraint(
             "(rejection_count = 0 AND rejected_at IS NULL)"
             " OR (rejection_count > 0 AND rejected_at IS NOT NULL)",

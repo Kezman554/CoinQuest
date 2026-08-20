@@ -218,3 +218,61 @@ unhappen a rejection. A confirmation after a rejection keeps both facts.
 
 Tests: 203 pass, including three rejections on one instance, re-claiming
 after a rejection, and a refused batch recording no rejection at all.
+
+2026-08-20 — Session F: misses, recovery, and the best assignment
+
+app/services/recovery.py. Pure apart from one writer.
+
+Assessment is against the requirement, never a count of rows. Requirement
+comes from the week's plan; the question is whether that many were confirmed,
+and shortfall is floored at zero. A waiver applied after work was confirmed
+leaves a confirmed instance the plan no longer asks for, and that surplus is
+harmless: it cannot go negative and cannot buy off a miss elsewhere. Both are
+tested.
+
+Misses: a parent-marked miss is definite and fills the shortfall first; the
+rest are inferred at settlement. If a parent marked more missed than the week
+ended up short of — which a later waiver can cause — the extra ones simply do
+not become misses.
+
+An inferred miss has no author. record_inferred_misses writes
+miss_origin=inferred_at_settlement and clears authorised_by, because if the
+child had a claim rejected on that instance earlier in the week the rejecting
+parent's name is still sitting there and would read as though they had ruled
+it missed. The rejection survives in rejected_at/rejection_count, which is
+where that fact belongs. Revision 82826e03b64d adds miss_origin with three
+CHECKs: a miss says how it arose, an inferred miss has no author, and a
+parent-marked one names the parent.
+
+Recovery eligibility is derived from ON_DEMAND_CADENCES in enums.py — daily,
+weekly_count, one_off. A weekly condition cannot be started on Thursday and an
+event is not the child's to decide. No chore name appears in the rule.
+
+The optimiser evaluates every lawful assignment (subsets of completed,
+spendable bonus chores up to the cap) and takes the highest total, with
+deterministic tie-breaking because the figure is about to be stored forever.
+Two things the obvious answer gets wrong, both tested: spending a 300p bonus
+when a 100p one would do, and spending anything at all when the misses exceed
+the cap.
+
+Discovered while testing: recovering is not always worth doing. Two misses
+rescued with 400p of bonus chores to save 350p of chore pay is a 50p loss, and
+the optimiser correctly declines. Two of my own tests asserted otherwise and
+were wrong.
+
+Also fixed here: one_off and event chores have no plan-derived requirement, so
+a completed one-off bonus was invisible to the assessment. For those two
+cadences the instances a parent created are the requirement
+(WEEK_DERIVED_CADENCES marks the difference).
+
+Appendment: a weekly condition ignores the reduction band — there is no
+fraction of "kept tidy all week" to take off — but honours the waives-entirely
+band at the same threshold as the counts.
+
+Tests: 236 pass, including the card's three weeks (more bonuses than misses,
+more misses than the cap, and greedy paying less than best) and a permutation
+test asserting chore ordering never changes the figure.
+
+Open question for settlement: the chore pay is treated as one pot, paid in
+full only if every basic requirement was met or recovered, on the strength of
+"exceeding the cap fails the chore pay".

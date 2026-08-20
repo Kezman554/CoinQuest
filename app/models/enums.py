@@ -22,6 +22,29 @@ class Cadence(str, enum.Enum):
 #: Cadences that produce one instance for the whole week rather than per day.
 WEEK_SCOPED_CADENCES = frozenset({Cadence.WEEKLY_COUNT, Cadence.WEEKLY_CONDITION})
 
+#: Cadences a week's plan can predict from a definition alone. The other two
+#: are created by a parent when they happen, so for those the instances that
+#: exist are the requirement: somebody deliberately added each one. This is not
+#: a hole in "assess the requirement, never the rows" — it is what the
+#: requirement consists of when the scheme cannot know it in advance.
+WEEK_DERIVED_CADENCES = frozenset(
+    {Cadence.DAILY, Cadence.WEEKLY_COUNT, Cadence.WEEKLY_CONDITION}
+)
+
+#: Cadences a child can decide to complete today, told this morning that
+#: yesterday was missed. This is the property that makes a chore usable as a
+#: recovery, and it is a fact about the cadence rather than about any
+#: particular chore: no list of chore names appears anywhere in the recovery
+#: rules, so adding a chore never means remembering to update them.
+#:
+#: A WEEKLY_CONDITION is excluded because it cannot be started on Thursday —
+#: a condition held all week is either already true or already lost. An EVENT
+#: is excluded because the child does not decide when it happens; somebody
+#: else does, and a rule the child cannot act on is not a recovery route.
+ON_DEMAND_CADENCES = frozenset(
+    {Cadence.DAILY, Cadence.WEEKLY_COUNT, Cadence.ONE_OFF}
+)
+
 
 class Category(str, enum.Enum):
     """What a chore does to the money, which is what makes it a category."""
@@ -43,6 +66,19 @@ class InstanceState(str, enum.Enum):
     CLAIMED = "claimed"      # the child says it is done; not yet money
     CONFIRMED = "confirmed"  # a parent has agreed it
     MISSED = "missed"        # a parent marked it missed, or settlement did
+
+
+class MissOrigin(str, enum.Enum):
+    """How a miss came to be, which is two different facts.
+
+    A parent marking a chore missed is a decision, definite the moment it is
+    made, and it names who made it. A miss established at settlement is the
+    absence of anything having happened: nobody decided it, so nobody is
+    recorded as its author.
+    """
+
+    PARENT_MARKED = "parent_marked"
+    INFERRED_AT_SETTLEMENT = "inferred_at_settlement"
 
 
 class WeekStatus(str, enum.Enum):

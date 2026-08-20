@@ -150,6 +150,27 @@ class WeekPlan:
         """How many occasions this chore is asked for. Zero if it was waived."""
         return len(self.for_definition(definition_id))
 
+    def required_for(self, definition_id: int) -> int:
+        """What the week asks of this chore in total, judgements included.
+
+        This is the number to assess against. Counting stored instances
+        instead would ask a different and wrong question: a waiver applied
+        after work was confirmed leaves a confirmed instance the plan no
+        longer asks for, and that surplus is only harmless if the question is
+        "was the requirement met" rather than "how many rows are there".
+        """
+        deferred = sum(
+            1 for judgement in self.deferred if judgement.definition_id == definition_id
+        )
+        return self.count_for(definition_id) + deferred
+
+    @property
+    def required(self) -> dict[int, int]:
+        """The whole week's requirement, by definition."""
+        ids = {instance.definition_id for instance in self.instances}
+        ids |= {judgement.definition_id for judgement in self.deferred}
+        return {definition_id: self.required_for(definition_id) for definition_id in ids}
+
 
 def waived_days_in(week: Period, waivers: Iterable) -> tuple[date, ...]:
     """The days of this week that a day-waiver covers, in order."""
@@ -260,6 +281,24 @@ def plan_week(
                 )
 
         elif definition.cadence is Cadence.WEEKLY_CONDITION:
+            # A condition is not made of days, so the reduction band does not
+            # apply to it: there is no fraction of "kept tidy all week" to
+            # take off for a day away. The waives-entirely band does apply,
+            # and at the same threshold as the counts — a week mostly not
+            # spent here is not a week in which the condition was failed.
+            if band_for(len(waived_days), bands).waives_entirely:
+                exclusions.append(
+                    Exclusion(
+                        definition_id=definition.id,
+                        definition_name=definition.name,
+                        reason=(
+                            f"{len(waived_days)} days waived puts the week past"
+                            " the threshold where nothing is assessed"
+                        ),
+                    )
+                )
+                continue
+
             # Judged once, at settlement. Deliberately not an instance now:
             # a condition held all week cannot be assessed before the week
             # has finished happening.

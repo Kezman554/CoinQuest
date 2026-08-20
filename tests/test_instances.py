@@ -360,3 +360,38 @@ def test_waiving_a_day_afterwards_removes_only_untouched_instances(session):
     assert len(remaining) == 6
     survivor = session.query(ChoreInstance).filter(ChoreInstance.due_date == MONDAY).one()
     assert survivor.state is InstanceState.CONFIRMED
+
+
+def test_a_condition_is_waived_entirely_at_the_same_threshold_as_the_counts():
+    # A condition is not made of days, so the reduction band cannot touch it —
+    # there is no fraction of "kept tidy all week" to take off. The
+    # waives-entirely band does apply, and at the same threshold.
+    for days in (3, 4):
+        plan = plan_week(WEEK, [CONDITION], day_waivers(*WEEK.days[:days]))
+        assert len(plan.deferred) == 1, f"{days} days waived should still be judged"
+
+    for days in (5, 6, 7):
+        plan = plan_week(WEEK, [CONDITION], day_waivers(*WEEK.days[:days]))
+        assert plan.deferred == (), f"{days} days waived should waive it entirely"
+        assert "threshold" in plan.exclusions[0].reason
+
+
+def test_the_threshold_for_a_condition_follows_the_table():
+    # Move the waives-entirely band and the condition moves with it, without
+    # anything in the condition branch being edited.
+    early = (
+        CountBand(up_to_days_waived=1, reduce_by=0),
+        CountBand(up_to_days_waived=7, waives_entirely=True),
+    )
+    assert plan_week(WEEK, [CONDITION], day_waivers(WEEK.days[0]), bands=early).deferred
+    assert plan_week(
+        WEEK, [CONDITION], day_waivers(*WEEK.days[:2]), bands=early
+    ).deferred == ()
+
+
+def test_required_for_counts_a_condition_as_one():
+    plan = plan_week(WEEK, [DAILY, THRICE, CONDITION])
+    assert plan.required_for(DAILY.id) == 7
+    assert plan.required_for(THRICE.id) == 3
+    assert plan.required_for(CONDITION.id) == 1  # a judgement is still asked for
+    assert plan.required == {DAILY.id: 7, THRICE.id: 3, CONDITION.id: 1}

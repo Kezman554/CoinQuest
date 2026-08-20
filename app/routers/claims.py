@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.models.base import utcnow
 from app.models.chores import ChoreInstance
-from app.models.enums import InstanceState, WeekStatus
+from app.models.enums import InstanceState, MissOrigin, WeekStatus
 from app.models.weeks import Week
 from app.routers.dependencies import AuthorisedRequest, authorise, get_session
 from app.services.authorisation import Authorisation
@@ -89,6 +89,7 @@ class InstanceView(BaseModel):
     claimed_at: datetime | None
     confirmed_at: datetime | None
     missed_at: datetime | None
+    miss_origin: str | None
     rejected_at: datetime | None
     rejection_count: int
     authorised_by: str | None
@@ -105,6 +106,7 @@ class InstanceView(BaseModel):
             claimed_at=instance.claimed_at,
             confirmed_at=instance.confirmed_at,
             missed_at=instance.missed_at,
+            miss_origin=instance.miss_origin.value if instance.miss_origin else None,
             rejected_at=instance.rejected_at,
             rejection_count=instance.rejection_count,
             authorised_by=instance.authorised_by,
@@ -264,6 +266,9 @@ def mark_missed(
 
         instance.state = InstanceState.MISSED
         instance.missed_at = authorisation.at
+        # A parent deciding this is definite, and names them. A miss the
+        # settlement infers later does neither.
+        instance.miss_origin = MissOrigin.PARENT_MARKED
         instance.authorised_by = authorisation.party
         instance.claimed_at = None
         if body.note:
