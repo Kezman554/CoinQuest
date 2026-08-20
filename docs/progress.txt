@@ -542,3 +542,39 @@ week-long condition, and recovering a miss that did not happen are each
 refused with the rule that was broken. A settled overridden week refuses both
 proposal doors, cannot be settled twice, has every override column frozen by
 the trigger, and reads the same after the scheme changes underneath it.
+
+2026-08-20 — Phase 2 close: wording, a required reason, and voids
+
+1. Refusals are written for a person. "was missed 1 times this week" becomes
+   "was missed once this week", a miss that never happened says so rather than
+   reporting zero, and counts read "1 miss" or "2 misses". The lockout message
+   had the same fault — "Try again in 1 seconds" — and is fixed with it.
+
+2. An override that settles below optimum_total_pence must carry a non-empty
+   reason. Enforced in settle() and by a CHECK (revision 3c1f6a2d9b74), since
+   "a settled week explains itself" is exactly the rule a later caller forgets.
+   An override that costs nothing needs no reason: there is no difference to
+   explain. A blank or whitespace reason counts as none.
+
+   Ordering matters here and was wrong at first: the agreed-figure check now
+   runs before the reason check. Somebody agreeing the wrong number has not
+   read the right proposal, and asking them to justify a choice they have not
+   seen is no help.
+
+3. A void takes no assignment. §11 zeroes the base, the chore pay and the
+   bonuses, so there is nothing for a make-good to rescue, and accepting one
+   would record a deliberate choice that changed nothing. Sending an override
+   to the void endpoint is refused by name rather than ignored in silence, and
+   an already-voided week refuses an override through both proposal doors.
+
+The question outstanding from H was answered in f3b346e, not left open: a
+reward always lands on an open week — its own if open, otherwise the next open
+one, otherwise a week opened after the latest on record. The alternative, a
+ledger entry belonging to no week, cannot work: payment tracking lives on
+weeks (paid_at, deposited_pence) and the earnings ledger is append-only, so an
+unattached reward could never be marked as handed over and would be owed
+forever. open_week_for() carries that reasoning, and five tests cover it.
+
+Tests: 375 pass. Verified live: computed 500p, override 450p with 50p
+foregone, refused without a reason, void-with-override refused, and settled
+with a reason recording both figures.

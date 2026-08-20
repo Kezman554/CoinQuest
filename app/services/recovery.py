@@ -373,6 +373,16 @@ def best_assignment(assessment: WeekAssessment) -> Assignment:
     )
 
 
+def _times(count: int) -> str:
+    """"once", "twice", or "5 times". These messages are read by a parent on a
+    kitchen wall, not by anybody looking at a stack trace."""
+    return {1: "once", 2: "twice"}.get(count, f"{count} times")
+
+
+def _misses(count: int) -> str:
+    return "1 miss" if count == 1 else f"{count} misses"
+
+
 class InvalidAssignment(ValueError):
     """A supplied assignment breaks a rule, rather than merely losing money.
 
@@ -402,7 +412,7 @@ def assignment_from(
     """
     if len(supplied) > assessment.cap:
         raise InvalidAssignment(
-            f"At most {assessment.cap} misses may be recovered in a week;"
+            f"At most {_misses(assessment.cap)} may be recovered in a week;"
             f" this assignment recovers {len(supplied)}."
         )
 
@@ -469,10 +479,16 @@ def _check_the_misses_exist(
     for definition_id, count in wanted.items():
         requirement = assessment.requirement(definition_id)
         name = requirement.name if requirement else f"chore {definition_id}"
-        if available.get(definition_id, 0) < count:
+        happened = available.get(definition_id, 0)
+        if happened < count:
+            if happened == 0:
+                raise InvalidAssignment(
+                    f"{name!r} was not missed this week, so there is nothing"
+                    " there to recover."
+                )
             raise InvalidAssignment(
-                f"{name!r} was missed {available.get(definition_id, 0)} times"
-                f" this week; {count} cannot be recovered."
+                f"{name!r} was missed {_times(happened)} this week;"
+                f" {_misses(count)} cannot be recovered."
             )
 
 

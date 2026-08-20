@@ -81,7 +81,9 @@ def describe_wait(seconds: int) -> str:
     would not tell them anyway.
     """
     if seconds <= 60:
-        return f"Too many incorrect PINs. Try again in {max(seconds, 1)} seconds."
+        left = max(seconds, 1)
+        unit = "second" if left == 1 else "seconds"
+        return f"Too many incorrect PINs. Try again in {left} {unit}."
     minutes = (seconds + 59) // 60
     unit = "minute" if minutes == 1 else "minutes"
     return f"Too many incorrect PINs. Try again in about {minutes} {unit}."

@@ -187,6 +187,15 @@ class Week(Base):
             "override_reason IS NULL OR overridden_by IS NOT NULL",
             name="only_an_override_has_a_reason",
         ),
+        # An override that pays less than the app offered has to say why. The
+        # turned-down figure is stored so the difference tells a story; without
+        # a reason it tells the half a person could have worked out anyway.
+        CheckConstraint(
+            "overridden_by IS NULL"
+            " OR settled_total_pence >= optimum_total_pence"
+            " OR (override_reason IS NOT NULL AND length(trim(override_reason)) > 0)",
+            name="an_override_that_costs_money_says_why",
+        ),
         CheckConstraint(
             "optimum_total_pence IS NULL OR optimum_total_pence >= 0",
             name="optimum_not_negative",

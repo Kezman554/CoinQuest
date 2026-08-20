@@ -258,7 +258,7 @@ def test_a_request_with_no_client_still_gets_counted():
 @pytest.mark.parametrize(
     ("seconds", "wording"),
     [
-        (1, "1 seconds"),
+        (1, "1 second."),       # not "1 seconds"
         (30, "30 seconds"),
         (60, "60 seconds"),
         (61, "about 2 minutes"),

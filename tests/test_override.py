@@ -8,7 +8,7 @@ not.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -28,6 +28,7 @@ PIN = "0000"
 WRONG = "9999"
 SUNDAY = date(2026, 8, 16)
 SATURDAY = date(2026, 8, 22)
+NOW = datetime(2026, 8, 23, 9, 0, tzinfo=timezone.utc)
 
 
 @pytest.fixture()
@@ -276,7 +277,7 @@ def test_recovering_a_miss_that_does_not_exist_is_refused(api, session, week, sc
     add(session, week, scheme["hoover"], confirmed=2)
 
     detail = refuse(api, week, override((scheme["hoover"].id, scheme["beds"].id)))
-    assert "was missed 0 times" in detail
+    assert "was not missed this week" in detail
 
 
 def test_recovering_more_misses_than_happened_is_refused(api, session, week, scheme):
@@ -292,7 +293,8 @@ def test_recovering_more_misses_than_happened_is_refused(api, session, week, sch
             (scheme["shed"].id, scheme["beds"].id),
         ),
     )
-    assert "was missed 1 times" in detail
+    assert "was missed once this week" in detail
+    assert "2 misses cannot be recovered" in detail
 
 
 def test_spending_the_same_chore_twice_is_refused(api, session, week, scheme):
@@ -444,6 +446,7 @@ def test_agreeing_the_computed_figure_for_an_overridden_week_is_refused(
             "override": override(
                 (scheme["hoover"].id, scheme["beds"].id),
                 (scheme["shed"].id, scheme["beds"].id),
+                reason="He earned the week",
             ),
         },
     )
@@ -528,3 +531,168 @@ def test_an_overridden_week_survives_the_scheme_changing(
     assert body["total_pence"] == 450
     assert body["optimum_total_pence"] == 500
     assert body["chore_pay_pence"] == 350
+
+
+# --- The wording, which a parent reads on a kitchen wall --------------------
+
+
+def test_the_refusals_are_written_for_a_person(api, session, week, scheme):
+    add(session, week, scheme["beds"], confirmed=6, untouched=1)   # missed once
+    add(session, week, scheme["hoover"], confirmed=2)
+    add(session, week, scheme["shed"], confirmed=1)
+
+    detail = refuse(
+        api,
+        week,
+        override(
+            (scheme["hoover"].id, scheme["beds"].id),
+            (scheme["shed"].id, scheme["beds"].id),
+        ),
+    )
+    assert "missed once this week" in detail
+    assert "1 times" not in detail
+    assert "2 misses cannot be recovered" in detail
+
+
+def test_a_miss_that_never_happened_is_said_plainly(api, session, week, scheme):
+    add(session, week, scheme["beds"], confirmed=7)
+    add(session, week, scheme["hoover"], confirmed=2)
+
+    detail = refuse(api, week, override((scheme["hoover"].id, scheme["beds"].id)))
+    assert detail.endswith("was not missed this week, so there is nothing there to recover.")
+    assert "0 times" not in detail
+
+
+# --- An override that costs money has to say why ----------------------------
+
+
+def test_an_override_that_loses_money_without_a_reason_is_refused(
+    api, session, losing_week, scheme
+):
+    response = api.post(
+        f"/api/weeks/{losing_week.id}/settle",
+        json={
+            "pin": PIN,
+            "agreed_total_pence": 450,
+            "override": override(
+                (scheme["hoover"].id, scheme["beds"].id),
+                (scheme["shed"].id, scheme["beds"].id),
+            ),
+        },
+    )
+    assert response.status_code == 422
+    assert "50p less than the 500p" in response.json()["detail"]
+    assert "Say why" in response.json()["detail"]
+
+    session.expire_all()
+    assert session.get(Week, losing_week.id).status is WeekStatus.OPEN
+
+
+def test_a_blank_reason_is_no_reason(api, session, losing_week, scheme):
+    response = api.post(
+        f"/api/weeks/{losing_week.id}/settle",
+        json={
+            "pin": PIN,
+            "agreed_total_pence": 450,
+            "override": override(
+                (scheme["hoover"].id, scheme["beds"].id),
+                (scheme["shed"].id, scheme["beds"].id),
+                reason="   ",
+            ),
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_an_override_that_costs_nothing_needs_no_reason(api, session, week, scheme):
+    # Recovering one miss with the cheap chore is what the app would have done
+    # anyway, so there is no difference to explain.
+    add(session, week, scheme["beds"], confirmed=6, untouched=1)
+    add(session, week, scheme["hoover"], confirmed=2)
+
+    response = api.post(
+        f"/api/weeks/{week.id}/settle",
+        json={
+            "pin": PIN,
+            "agreed_total_pence": 450,
+            "override": override((scheme["hoover"].id, scheme["beds"].id)),
+        },
+    )
+    assert response.status_code == 200
+
+    session.expire_all()
+    stored = session.get(Week, week.id)
+    assert stored.overridden_by == "parent"
+    assert stored.override_reason is None
+    assert stored.settled_total_pence == stored.optimum_total_pence
+
+
+def test_the_database_refuses_a_costly_override_with_no_reason(session, week):
+    from sqlalchemy.exc import IntegrityError
+
+    # Belt and braces: the rule holds even if a future caller goes around the
+    # service that enforces it.
+    week.status = WeekStatus.SETTLED
+    week.settled_base_pence = 100
+    week.settled_chore_pay_pence = 0
+    week.settled_bonus_pence = 0
+    week.settled_reward_pence = 0
+    week.settled_total_pence = 100
+    week.closed_at = NOW
+    week.overridden_by = "parent"
+    week.optimum_total_pence = 500   # 400p given up, and nothing said about it
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+
+
+# --- A void takes no assignment ---------------------------------------------
+
+
+def test_voiding_with_an_override_is_refused(api, session, losing_week, scheme):
+    # A void zeroes the base, the chore pay and the bonuses, so there is
+    # nothing for a make-good to rescue. Accepting one would record a
+    # deliberate choice that changed nothing.
+    response = api.post(
+        f"/api/weeks/{losing_week.id}/void",
+        json={
+            "pin": PIN,
+            "reason": "Grounded",
+            "override": override((scheme["hoover"].id, scheme["beds"].id)),
+        },
+    )
+    assert response.status_code == 422
+    assert "nothing for a make-good to rescue" in response.text
+
+    session.expire_all()
+    assert session.get(Week, losing_week.id).status is WeekStatus.OPEN
+
+
+def test_an_override_cannot_be_applied_to_an_already_voided_week(
+    api, session, losing_week, scheme
+):
+    api.post(f"/api/weeks/{losing_week.id}/void", json={"pin": PIN, "reason": "Grounded"})
+
+    preview = api.post(
+        f"/api/weeks/{losing_week.id}/proposal",
+        json={"override": override((scheme["hoover"].id, scheme["beds"].id))},
+    )
+    assert preview.status_code == 409
+    assert "voided" in preview.json()["detail"]
+
+    settle = api.post(
+        f"/api/weeks/{losing_week.id}/settle",
+        json={
+            "pin": PIN,
+            "agreed_total_pence": 100,
+            "override": override(
+                (scheme["hoover"].id, scheme["beds"].id), reason="Trying anyway"
+            ),
+        },
+    )
+    assert settle.status_code == 409
+
+    session.expire_all()
+    stored = session.get(Week, losing_week.id)
+    assert stored.status is WeekStatus.VOIDED
+    assert stored.overridden_by is None

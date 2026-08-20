@@ -69,6 +69,16 @@ class NotOpen(Exception):
     """The week is settled or voided. Closed is closed."""
 
 
+class OverrideNeedsAReason(Exception):
+    """An override that pays less than the app offered, and says nothing.
+
+    The turned-down figure is stored precisely so the difference between the
+    two tells a story. Left without a reason it tells half of one, and the
+    half it leaves out is the only part a person could not work out for
+    themselves a year later.
+    """
+
+
 class ProposalChanged(Exception):
     """The week is no longer worth what the parent agreed to.
 
@@ -377,6 +387,13 @@ def settle(
             f" {agreed_total_pence}p. Read the figures again before agreeing."
         )
 
+    if proposal.overridden and proposal.foregone_pence and not (override_reason or "").strip():
+        raise OverrideNeedsAReason(
+            f"This settles for {proposal.foregone_pence}p less than the"
+            f" {proposal.optimum_total_pence}p the app worked out. Say why,"
+            " so the week explains itself later."
+        )
+
     # The misses become real here and not before. Until this moment an
     # untouched instance was provisional, which is what gave the child the
     # rest of the week to do something about it.
@@ -411,7 +428,7 @@ def settle(
         # a year from now, as though the app got its sums wrong. The figure
         # that was turned down is part of the record.
         week.overridden_by = authorisation.party
-        week.override_reason = override_reason
+        week.override_reason = (override_reason or "").strip() or None
         week.optimum_total_pence = proposal.optimum_total_pence
 
     session.add(

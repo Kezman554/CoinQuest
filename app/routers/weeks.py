@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -28,7 +28,7 @@ from app.services.calendar import today
 from app.services.payments import PaymentError
 from app.services.recovery import InvalidAssignment, SuppliedRecovery
 from app.services.savings import SavingsError
-from app.services.settlement import NotOpen, ProposalChanged
+from app.services.settlement import NotOpen, OverrideNeedsAReason, ProposalChanged
 
 router = APIRouter(prefix="/api/weeks", tags=["weeks"])
 
@@ -235,6 +235,20 @@ class SettleRequest(AuthorisedRequest):
 class VoidRequest(AuthorisedRequest):
     reason: str = Field(min_length=1)
 
+    # Declared only so that sending one can be refused by name rather than
+    # ignored in silence.
+    override: OverrideRequest | None = None
+
+    @model_validator(mode="after")
+    def a_void_takes_no_assignment(self) -> VoidRequest:
+        if self.override is not None:
+            raise ValueError(
+                "A voided week loses the base, the chore pay and the bonuses,"
+                " so there is nothing for a make-good to rescue. Settle the"
+                " week if you want the chore pay; void it if you do not."
+            )
+        return self
+
 
 # --- Helpers ---------------------------------------------------------------
 
@@ -350,6 +364,11 @@ def settle_week(
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from None
+    except OverrideNeedsAReason as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from None
     except Exception:
         session.rollback()
