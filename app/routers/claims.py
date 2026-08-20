@@ -89,6 +89,8 @@ class InstanceView(BaseModel):
     claimed_at: datetime | None
     confirmed_at: datetime | None
     missed_at: datetime | None
+    rejected_at: datetime | None
+    rejection_count: int
     authorised_by: str | None
 
     @classmethod
@@ -103,6 +105,8 @@ class InstanceView(BaseModel):
             claimed_at=instance.claimed_at,
             confirmed_at=instance.confirmed_at,
             missed_at=instance.missed_at,
+            rejected_at=instance.rejected_at,
+            rejection_count=instance.rejection_count,
             authorised_by=instance.authorised_by,
         )
 
@@ -165,6 +169,8 @@ def claim(body: ClaimRequest, session: Session = Depends(get_session)) -> Instan
 
     instance.state = InstanceState.CLAIMED
     instance.claimed_at = utcnow()
+    # rejected_at and rejection_count are deliberately left alone. Claiming
+    # again does not unhappen a rejection.
     session.commit()
     session.refresh(instance)
     return InstanceView.of(instance)
@@ -286,7 +292,13 @@ def _reject(instance: ChoreInstance, authorisation: Authorisation) -> None:
     and the difference matters: an untouched instance is provisional until
     settlement, so the child can still do it, or claim it again, before the
     week closes.
+
+    The rejection is recorded even though no rule reads it. Without it a
+    refused claim looks exactly like a tap that never registered, and the
+    child re-claims into the same refusal without ever being told why.
     """
     instance.state = InstanceState.UNTOUCHED
     instance.claimed_at = None
+    instance.rejected_at = authorisation.at
+    instance.rejection_count += 1
     instance.authorised_by = authorisation.party

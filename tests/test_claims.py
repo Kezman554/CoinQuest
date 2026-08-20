@@ -464,3 +464,140 @@ def test_the_database_refuses_a_confirmation_with_no_author(session, instances):
     with pytest.raises(IntegrityError):
         session.commit()
     session.rollback()
+
+
+# --- A rejection leaves a trace --------------------------------------------
+
+
+def test_a_rejection_is_recorded_even_though_the_state_goes_back(api, session, instances):
+    claim(api, instances[0])
+    response = api.post(
+        "/api/claims/review",
+        json={
+            "pin": PIN,
+            "decisions": [{"instance_id": instances[0].id, "decision": "reject"}],
+        },
+    )
+    assert response.status_code == 200
+
+    session.expire_all()
+    stored = session.get(ChoreInstance, instances[0].id)
+    # The state is provisional again, so no rule has changed...
+    assert stored.state is InstanceState.UNTOUCHED
+    assert stored.claimed_at is None
+    # ...but the week view can now say that a claim was made and refused.
+    assert stored.rejected_at is not None
+    assert stored.rejection_count == 1
+
+
+def test_a_rejected_instance_is_distinguishable_from_an_untouched_one(api, instances):
+    untouched = api.post("/api/claims", json={"instance_id": instances[1].id}).json()
+    assert untouched["rejection_count"] == 0
+    assert untouched["rejected_at"] is None
+
+    claim(api, instances[0])
+    api.post(
+        "/api/claims/review",
+        json={
+            "pin": PIN,
+            "decisions": [{"instance_id": instances[0].id, "decision": "reject"}],
+        },
+    )
+    # Re-claiming shows the history, so the child is told rather than left to
+    # wonder whether the first tap registered at all.
+    reclaimed = api.post("/api/claims", json={"instance_id": instances[0].id}).json()
+    assert reclaimed["state"] == "claimed"
+    assert reclaimed["rejection_count"] == 1
+    assert reclaimed["rejected_at"] is not None
+
+
+def test_claiming_again_does_not_erase_the_rejection(api, session, instances):
+    claim(api, instances[0])
+    api.post(
+        "/api/claims/review",
+        json={
+            "pin": PIN,
+            "decisions": [{"instance_id": instances[0].id, "decision": "reject"}],
+        },
+    )
+    session.expire_all()
+    first_rejection = session.get(ChoreInstance, instances[0].id).rejected_at
+
+    claim(api, instances[0])
+    session.expire_all()
+    stored = session.get(ChoreInstance, instances[0].id)
+    assert stored.rejected_at == first_rejection
+    assert stored.rejection_count == 1
+
+
+def test_three_rejections_do_not_read_as_never_having_claimed(api, session, instances):
+    for _ in range(3):
+        claim(api, instances[0])
+        api.post(
+            "/api/claims/review",
+            json={
+                "pin": PIN,
+                "decisions": [{"instance_id": instances[0].id, "decision": "reject"}],
+            },
+        )
+
+    session.expire_all()
+    stored = session.get(ChoreInstance, instances[0].id)
+    assert stored.state is InstanceState.UNTOUCHED
+    assert stored.rejection_count == 3
+
+
+def test_a_confirmation_after_a_rejection_keeps_both_facts(api, session, instances):
+    claim(api, instances[0])
+    api.post(
+        "/api/claims/review",
+        json={
+            "pin": PIN,
+            "decisions": [{"instance_id": instances[0].id, "decision": "reject"}],
+        },
+    )
+    claim(api, instances[0])
+    api.post(
+        "/api/claims/review",
+        json={
+            "pin": PIN,
+            "decisions": [{"instance_id": instances[0].id, "decision": "confirm"}],
+        },
+    )
+
+    session.expire_all()
+    stored = session.get(ChoreInstance, instances[0].id)
+    assert stored.state is InstanceState.CONFIRMED
+    assert stored.confirmed_at is not None
+    assert stored.rejection_count == 1  # it was refused once on the way here
+
+
+def test_a_refused_batch_records_no_rejection(api, session, instances):
+    # The all-or-nothing rule covers the new columns too.
+    claim(api, instances[0])
+    response = api.post(
+        "/api/claims/review",
+        json={
+            "pin": PIN,
+            "decisions": [
+                {"instance_id": instances[0].id, "decision": "reject"},
+                {"instance_id": instances[2].id, "decision": "reject"},  # never claimed
+            ],
+        },
+    )
+    assert response.status_code == 409
+
+    session.expire_all()
+    stored = session.get(ChoreInstance, instances[0].id)
+    assert stored.rejection_count == 0
+    assert stored.rejected_at is None
+
+
+def test_a_rejection_count_without_a_time_is_not_storable(session, instances):
+    from sqlalchemy.exc import IntegrityError
+
+    instance = session.get(ChoreInstance, instances[0].id)
+    instance.rejection_count = 1  # but no rejected_at
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()

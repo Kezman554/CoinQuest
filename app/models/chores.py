@@ -124,6 +124,19 @@ class ChoreInstance(Base):
     confirmed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     missed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
+    #: When a claim on this instance was last rejected, and how many times it
+    #: has been. The state goes back to UNTOUCHED and stays provisional, so no
+    #: rule depends on either of these — but without them a rejected claim is
+    #: indistinguishable from a tap that never registered, and the child
+    #: re-claims into the same refusal with no idea why. Three rejections would
+    #: otherwise leave a row reading exactly like one nobody ever touched,
+    #: which is a hole in a ledger whose whole purpose is saying what happened.
+    #: A later claim does not clear either: it is history, not current state.
+    rejected_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    rejection_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
     #: Who authorised the state this instance is in. There is one parent
     #: today, so this is always the same string, and recording it anyway is
     #: the point: when a second parent is authorised alongside the first, the
@@ -148,6 +161,12 @@ class ChoreInstance(Base):
     __table_args__ = (
         CheckConstraint("quantity > 0", name="quantity_positive"),
         CheckConstraint("sequence > 0", name="sequence_positive"),
+        CheckConstraint("rejection_count >= 0", name="rejection_count_not_negative"),
+        CheckConstraint(
+            "(rejection_count = 0 AND rejected_at IS NULL)"
+            " OR (rejection_count > 0 AND rejected_at IS NOT NULL)",
+            name="a_rejection_records_when_it_happened",
+        ),
         # A confirmation is money, so it names who agreed it.
         CheckConstraint(
             "state <> 'confirmed' OR authorised_by IS NOT NULL",

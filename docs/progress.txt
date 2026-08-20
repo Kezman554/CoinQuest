@@ -198,3 +198,23 @@ with nothing moved, and confirmations and rejections applied together.
 
 Not done: there is no attempt limiting on the PIN. A four-digit PIN on a
 household LAN can be brute-forced by anything that can reach the port.
+
+2026-08-20 — Session E addendum: rejections leave a trace
+
+A rejected claim returned the instance to UNTOUCHED and cleared claimed_at,
+which is the right state, but nothing survived to say the rejection had
+happened. From the child's side that is indistinguishable from a tap that
+never registered, so he re-claims into the same refusal; and three rejections
+left a row reading exactly like one nobody had ever touched.
+
+Revision 7a0c95a307e0 adds chore_instances.rejected_at and rejection_count,
+with CHECKs that the count is not negative and that a count above zero has a
+time to go with it. Neither column changes a rule — the state is still
+UNTOUCHED and still provisional — so the week view can later say "not
+accepted, have another go" instead of silently losing the claim.
+
+Claiming again deliberately does not clear either column: claiming does not
+unhappen a rejection. A confirmation after a rejection keeps both facts.
+
+Tests: 203 pass, including three rejections on one instance, re-claiming
+after a rejection, and a refused batch recording no rejection at all.
