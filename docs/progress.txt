@@ -473,3 +473,29 @@ against a running server: four wrong PINs, then 429 with "Try again in 10
 seconds", a correct PIN refused while cooling off, the stated wait counting
 down, and the correct PIN accepted at ten seconds without a restart. The log
 shows each failure and the lockout.
+
+2026-08-20 — Session P revision: the cooling-off escalates
+
+Per-source counting stays and the limit stays at 5. The cooling-off now starts
+at 30 seconds, doubles on each consecutive lockout from the same source, caps
+at 900, and resets to the start on a correct PIN.
+PIN_COOL_OFF_START_SECONDS and PIN_COOL_OFF_MAX_SECONDS are configuration.
+
+The reason, which is not the one I had written down: the kitchen wall screen is
+a single source used by the child and the parents both — it is where he claims
+and where they confirm — so on the surface that matters most, "a guesser locks
+only itself" means he locks his parents out of their own app. A flat five
+minutes made the ordinary case (a mistype, a bored nine-year-old) expensive and
+the hostile case cheap: 5 guesses per 300s is about 1,440 a day from one
+address, the whole four-digit space inside a week. Escalating inverts that. A
+mistype costs half a minute; sustained guessing reaches the 15-minute ceiling
+after six lockouts and needs over 20 days for the keyspace. Both numbers are
+asserted in a test rather than left as a claim in a comment.
+
+Waiting a cooling-off out clears the failure count but not the lockout count,
+so the doubling cannot be reset by simply serving each one. Only a correct PIN
+clears it.
+
+Tests: 341 pass. Verified live with a 4-second start and a 16-second cap:
+4 -> 8 -> 16 -> 16, then a correct PIN, then back to 4. The log names the
+lockout number each time.

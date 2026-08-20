@@ -57,12 +57,23 @@ class Settings:
             raise ConfigError(f"PIN_ATTEMPT_LIMIT must be at least 1, got {limit!r}.")
         self.pin_attempt_limit: int = int(limit)
 
-        cool_off = _get("PIN_COOL_OFF_SECONDS", "300")
-        if not cool_off.isdigit() or int(cool_off) < 1:
+        # The cooling-off starts here and doubles with each consecutive
+        # lockout, up to the cap. Short to begin with because the kitchen
+        # screen is shared: the usual cause is a mistype, not an attack.
+        start = _get("PIN_COOL_OFF_START_SECONDS", "30")
+        if not start.isdigit() or int(start) < 1:
             raise ConfigError(
-                f"PIN_COOL_OFF_SECONDS must be at least 1, got {cool_off!r}."
+                f"PIN_COOL_OFF_START_SECONDS must be at least 1, got {start!r}."
             )
-        self.pin_cool_off_seconds: int = int(cool_off)
+        self.pin_cool_off_start_seconds: int = int(start)
+
+        ceiling = _get("PIN_COOL_OFF_MAX_SECONDS", "900")
+        if not ceiling.isdigit() or int(ceiling) < int(start):
+            raise ConfigError(
+                f"PIN_COOL_OFF_MAX_SECONDS must be at least the starting"
+                f" cooling-off ({start}), got {ceiling!r}."
+            )
+        self.pin_cool_off_max_seconds: int = int(ceiling)
 
         port = _get("COINQUEST_PORT", "8600")
         if not port.isdigit():

@@ -41,7 +41,9 @@ def clock() -> FakeClock:
 
 @pytest.fixture()
 def limiter(clock) -> AttemptLimiter:
-    return AttemptLimiter(limit=3, cool_off_seconds=60, clock=clock)
+    return AttemptLimiter(
+        limit=3, cool_off_start_seconds=60, cool_off_max_seconds=240, clock=clock
+    )
 
 
 # --- 1. Consecutive failures, counted, and then refused ---------------------
@@ -115,6 +117,101 @@ def test_time_still_has_to_pass(limiter, clock):
     clock.advance(59)
     with pytest.raises(LockedOut):
         limiter.check("10.0.0.5")
+
+
+# --- The cooling-off escalates ----------------------------------------------
+
+
+def test_the_first_cooling_off_is_the_short_one(limiter):
+    # The kitchen screen is shared, so the common case is a mistype or a bored
+    # child, and neither should cost an evening.
+    assert limiter.cool_off_for(1) == 60
+
+
+def test_each_consecutive_lockout_doubles(limiter):
+    assert [limiter.cool_off_for(n) for n in range(1, 5)] == [60, 120, 240, 240]
+
+
+def test_the_doubling_stops_at_the_cap(limiter):
+    # An hours-long lockout punishes the household, not the guesser.
+    assert limiter.cool_off_for(10) == 240
+    assert limiter.cool_off_for(100) == 240
+
+
+def test_the_default_escalation_is_thirty_seconds_to_a_quarter_hour():
+    from app.services.lockout import AttemptLimiter as Limiter
+
+    real = Limiter(limit=5, cool_off_start_seconds=30, cool_off_max_seconds=900)
+    assert [real.cool_off_for(n) for n in range(1, 8)] == [
+        30, 60, 120, 240, 480, 900, 900
+    ]
+
+
+def lock_out_once(limiter, source="10.0.0.5"):
+    for _ in range(3):
+        limiter.record_failure(source)
+
+
+def test_a_second_lockout_lasts_twice_as_long(limiter, clock):
+    lock_out_once(limiter)
+    assert limiter.seconds_remaining("10.0.0.5") == 61
+
+    clock.advance(61)
+    limiter.check("10.0.0.5")          # served, and counting starts again
+    lock_out_once(limiter)
+    assert limiter.seconds_remaining("10.0.0.5") == 121   # not 61
+
+
+def test_waiting_a_cooling_off_out_does_not_reset_the_escalation(limiter, clock):
+    # Otherwise somebody working through the keyspace would simply wait each
+    # one out and never face anything longer than the first.
+    for expected in (61, 121, 241, 241):
+        lock_out_once(limiter)
+        assert limiter.seconds_remaining("10.0.0.5") == expected
+        clock.advance(expected)
+        limiter.check("10.0.0.5")
+
+
+def test_a_correct_pin_puts_the_escalation_back_to_the_start(limiter, clock):
+    lock_out_once(limiter)
+    clock.advance(61)
+    limiter.check("10.0.0.5")
+    lock_out_once(limiter)
+    assert limiter.seconds_remaining("10.0.0.5") == 121
+
+    clock.advance(121)
+    limiter.check("10.0.0.5")
+    limiter.record_success("10.0.0.5")   # they got in
+
+    lock_out_once(limiter)
+    assert limiter.seconds_remaining("10.0.0.5") == 61   # back to the short one
+
+
+def test_the_escalation_is_per_source(limiter, clock):
+    lock_out_once(limiter, "10.0.0.5")
+    clock.advance(61)
+    limiter.check("10.0.0.5")
+    lock_out_once(limiter, "10.0.0.5")
+    assert limiter.seconds_remaining("10.0.0.5") == 121
+
+    lock_out_once(limiter, "10.0.0.9")
+    assert limiter.seconds_remaining("10.0.0.9") == 61
+
+
+def test_guessing_the_whole_keyspace_takes_far_longer_than_a_flat_wait(limiter):
+    # The reason for escalating at all, in numbers. Five guesses per lockout,
+    # ten thousand PINs to try: a flat five minutes lets it through in about a
+    # week, while doubling to a fifteen-minute ceiling does not.
+    from app.services.lockout import AttemptLimiter as Limiter
+
+    real = Limiter(limit=5, cool_off_start_seconds=30, cool_off_max_seconds=900)
+    lockouts_needed = 10_000 // 5
+
+    flat_days = (lockouts_needed * 300) / 86_400
+    escalating_days = sum(real.cool_off_for(n) for n in range(1, lockouts_needed + 1)) / 86_400
+
+    assert flat_days < 7           # inside a week
+    assert escalating_days > 20    # and now it is not
 
 
 # --- 3. Keyed on the source address, and on nothing it says about itself ----
@@ -217,7 +314,8 @@ def test_the_log_never_contains_the_pin(api, session, caplog):
 def api(session, monkeypatch):
     """The app, with a limit small enough to reach and short enough to wait."""
     monkeypatch.setenv("PIN_ATTEMPT_LIMIT", "3")
-    monkeypatch.setenv("PIN_COOL_OFF_SECONDS", "1")
+    monkeypatch.setenv("PIN_COOL_OFF_START_SECONDS", "1")
+    monkeypatch.setenv("PIN_COOL_OFF_MAX_SECONDS", "4")
 
     from app.config import get_settings
     from app.main import app
@@ -253,7 +351,7 @@ def test_the_endpoint_refuses_after_enough_wrong_pins(api, session):
     )
     assert refused.status_code == 429
     assert "Try again in" in refused.json()["detail"]
-    assert refused.headers["Retry-After"] == "1"  # the cool-off is a second
+    assert refused.headers["Retry-After"] == "1"  # the first cool-off is a second
 
 
 def test_a_wrong_pin_still_gives_nothing_away(api, session):
@@ -325,3 +423,20 @@ def test_a_correct_pin_before_the_limit_resets_the_count(api, session):
     for _ in range(2):
         response = api.post("/api/rewards", json={"pin": WRONG, "amount_pence": 1, "reason": "x"})
         assert response.status_code == 401
+
+
+def test_the_endpoint_escalates_between_lockouts(api, session):
+    import time
+
+    lock_out(api)
+    first = api.post(
+        "/api/savings/opening-balance", json={"pin": WRONG, "amount_pence": 100}
+    )
+    assert first.headers["Retry-After"] == "1"
+
+    time.sleep(1.2)
+    lock_out(api)
+    second = api.post(
+        "/api/savings/opening-balance", json={"pin": WRONG, "amount_pence": 100}
+    )
+    assert second.headers["Retry-After"] == "2"   # doubled, not repeated
