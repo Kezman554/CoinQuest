@@ -15,8 +15,6 @@ Built with FastAPI, SQLite, Alembic, React, Vite and TypeScript, served from a s
 - `pytest` - Run tests
 - `alembic upgrade head` - Apply migrations
 
-*(The scaffold that makes these work is built in the first session; until then they describe the intended shape, which the PRD's structure section defines.)*
-
 ## Git
 - Do not push to GitHub without explicit permission
 - Commit after completing each session

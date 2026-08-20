@@ -16,7 +16,18 @@ FastAPI · SQLite · Alembic · React · Vite · TypeScript. Single multi-stage 
 
 ## Running it
 
-Copy `.env.example` to `.env` and fill it in. `docs/coinquest_PRD.md` describes what each setting does.
+Copy `.env.example` to `.env` and fill it in. `CHILD_NAME` and `PARENT_PIN` have no defaults and the service will not start without them; `docs/coinquest_PRD.md` describes what each setting does.
+
+```
+python -m venv .venv && .venv/Scripts/activate   # source .venv/bin/activate on the Pi
+pip install -r requirements.txt
+uvicorn app.main:app --reload                     # API on :8600, /health to check it
+
+npm install --prefix frontend
+npm run dev --prefix frontend                     # dev server on :5173, proxying to the API
+
+pytest
+```
 
 ## A note on the design
 

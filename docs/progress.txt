@@ -1,0 +1,28 @@
+2026-08-20 — Session A: project scaffold
+
+Python side:
+  - app/ package with routers/, models/, services/, migrations/ (all empty
+    so far), tests/, requirements.txt pinned, pytest.ini.
+  - app/config.py reads CHILD_NAME, PARENT_PIN, DATABASE_URL, COINQUEST_PORT
+    and TZ. The first two have no default and raise ConfigError if absent.
+    A variable set to empty counts as absent — the checked-in .env leaves the
+    optional three blank, which must not crash the service.
+    TZ is resolved to a ZoneInfo at startup, so a bad zone fails immediately
+    rather than part-way through a settlement.
+  - app/main.py: FastAPI app with GET /health, returning status, timezone and
+    the current London time.
+  - tzdata is a dependency. Windows carries no IANA database and a slim
+    container image may not either; Europe/London must resolve everywhere.
+
+Frontend:
+  - frontend/ scaffolded with Vite + React + TypeScript.
+  - Dev server proxies /health and /api to the API on 8600, so every fetch in
+    the app is a relative path in development and in the container alike.
+  - App.tsx calls /health and shows the result — proof the wiring works.
+
+Verified: pytest 7 passed; uvicorn serving /health 200 with +01:00 (BST
+correct); npm run dev serving the app and proxying /health 200; npm run build
+clean including the tsc typecheck.
+
+Not done yet: no database, models or migrations (Alembic is installed but not
+initialised), no Dockerfile, and the API does not yet serve the built bundle.
