@@ -276,3 +276,51 @@ test asserting chore ordering never changes the figure.
 Open question for settlement: the chore pay is treated as one pot, paid in
 full only if every basic requirement was met or recovered, on the strength of
 "exceeding the cap fails the chore pay".
+
+2026-08-20 — Session G: proposing and closing a week
+
+app/services/settlement.py
+
+  propose() computes what an open week is worth and writes nothing. It can be
+  called by a dashboard tile every five minutes and change nothing; a test
+  snapshots the whole database around three calls and asserts equality. In
+  particular untouched instances stay untouched — they become misses at
+  settlement and not before.
+
+  settle() takes the figure the parent actually read, as agreed_total_pence,
+  and refuses if the week no longer proposes it. Storing forever an amount
+  nobody agreed to is the one mistake that cannot be corrected afterwards.
+  It records the inferred misses, links each spent bonus instance to the miss
+  it covered via recovered_instance_id, writes a SettlementLine per assessed
+  chore, writes the week's four figures, and writes one earnings entry.
+
+  void() closes a week at zero, keeps every instance exactly as it is, and
+  requires a reason.
+
+  propose() refuses a week that is not open. That refusal is the mechanism
+  behind "no code path recomputes a settled period", not merely the intention:
+  there is no route from a closed week back to a current definition.
+
+app/routers/weeks.py — GET /api/weeks, GET /api/weeks/{id} (stored figures if
+closed, proposal if open), GET /api/weeks/{id}/proposal, and POST .../settle
+and .../void. Reading needs no PIN; closing always does.
+
+Two interpretations to check:
+
+  "Base" is read as the chore pay the week put at stake — everything the basic
+  chores were worth — with chore_pay_pence being what it actually came to,
+  the whole of it or nothing. If the scheme means a separate unconditional
+  weekly allowance, that is a new figure and is not modelled.
+
+  Voiding "does not touch rewards already earned": the week's own figures must
+  all be zero (the schema requires it), so the rewards confirmed that week are
+  written to the earnings ledger as REWARD entries in their own right. The
+  week pays nothing and the reward is still his.
+
+Tests: 261 pass. Settling a week, changing the chore's name, amount and
+availability, and reading the week back gives the same figures and the old
+names. Deleting every definition outright gives the same figures too.
+
+Verified live: a proposal without a PIN, a settle refused for disagreeing with
+the figure, a settle agreed, then repricing the chore from 200p to 900p and
+reading 200p back, and the proposal endpoint refusing a settled week.

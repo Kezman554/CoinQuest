@@ -9,11 +9,14 @@ from __future__ import annotations
 from app.models.base import Base, UtcDateTime, utcnow
 from app.models.chores import ChoreDefinition, ChoreInstance
 from app.models.enums import (
+    ON_DEMAND_CADENCES,
+    WEEK_DERIVED_CADENCES,
     WEEK_SCOPED_CADENCES,
     Cadence,
     Category,
     EarningType,
     InstanceState,
+    MissOrigin,
     SavingsType,
     WaiverScope,
     WeekStatus,
@@ -23,6 +26,8 @@ from app.models.waivers import Waiver
 from app.models.weeks import SettlementLine, Week
 
 __all__ = [
+    "ON_DEMAND_CADENCES",
+    "WEEK_DERIVED_CADENCES",
     "WEEK_SCOPED_CADENCES",
     "Base",
     "Cadence",
@@ -32,6 +37,7 @@ __all__ = [
     "EarningEntry",
     "EarningType",
     "InstanceState",
+    "MissOrigin",
     "SavingsEntry",
     "SavingsType",
     "SettlementLine",
