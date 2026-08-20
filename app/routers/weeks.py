@@ -13,6 +13,8 @@ correct afterwards.
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -21,10 +23,17 @@ from app.config import get_settings
 from app.models.enums import WeekStatus
 from app.models.weeks import Week
 from app.routers.dependencies import AuthorisedRequest, authorise, get_session
-from app.services import settlement
+from app.services import payments, savings, settlement
+from app.services.calendar import today
+from app.services.payments import PaymentError
+from app.services.savings import SavingsError
 from app.services.settlement import NotOpen, ProposalChanged
 
 router = APIRouter(prefix="/api/weeks", tags=["weeks"])
+
+#: Savings sits behind its own prefix but belongs to the same act: an opening
+#: balance and a payday deposit are the two ways money reaches the account.
+savings_router = APIRouter(prefix="/api/savings", tags=["savings"])
 
 
 # --- What goes out ---------------------------------------------------------
@@ -296,3 +305,171 @@ def void_week(
 
     session.refresh(week)
     return SettledWeekView.of(week)
+
+
+# --- Payday ----------------------------------------------------------------
+
+
+class OwedView(BaseModel):
+    """A closed week and what it comes to, until somebody hands it over."""
+
+    week_id: int
+    start_date: str
+    end_date: str
+    settled_total_pence: int
+    reward_pence: int
+    owed_pence: int
+    is_paid: bool
+
+    @classmethod
+    def of(cls, owed: payments.Owed) -> "OwedView":
+        return cls(
+            week_id=owed.week_id,
+            start_date=owed.start_date.isoformat(),
+            end_date=owed.end_date.isoformat(),
+            settled_total_pence=owed.settled_total_pence,
+            reward_pence=owed.reward_pence,
+            owed_pence=owed.owed_pence,
+            is_paid=owed.is_paid,
+        )
+
+
+class PaymentRequest(AuthorisedRequest):
+    """One handing-over, covering one or more settled weeks."""
+
+    week_ids: list[int] = Field(min_length=1)
+    deposited_pence: int = Field(ge=0)
+    occurred_on: date | None = None
+
+
+class PaymentView(BaseModel):
+    week_ids: list[int]
+    paid_pence: int
+    deposited_pence: int
+    kept_pence: int
+    occurred_on: str
+    savings_balance_pence: int
+
+
+@router.get("/owed/outstanding", response_model=list[OwedView])
+def list_outstanding(session: Session = Depends(get_session)) -> list[OwedView]:
+    """Weeks settled but not yet paid. Reading needs no PIN."""
+    return [OwedView.of(owed) for owed in payments.outstanding(session)]
+
+
+@router.post("/payments", response_model=PaymentView)
+def record_payment(
+    body: PaymentRequest, session: Session = Depends(get_session)
+) -> PaymentView:
+    """Mark weeks paid, and bank what the child chose to keep back.
+
+    A separate act from settling, and separately authorised: agreeing what a
+    week is worth and handing the money over are two different statements, and
+    days apart in practice.
+    """
+    authorisation = authorise(body)
+    weeks = [_load(session, week_id) for week_id in body.week_ids]
+    day = body.occurred_on or today(get_settings().tzinfo)
+
+    try:
+        payment = payments.pay(
+            session,
+            weeks,
+            authorisation,
+            deposited_pence=body.deposited_pence,
+            occurred_on=day,
+        )
+        session.commit()
+    except (PaymentError, SavingsError) as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from None
+    except Exception:
+        session.rollback()
+        raise
+
+    return PaymentView(
+        week_ids=list(payment.week_ids),
+        paid_pence=payment.paid_pence,
+        deposited_pence=payment.deposited_pence,
+        kept_pence=payment.kept_pence,
+        occurred_on=payment.occurred_on.isoformat(),
+        savings_balance_pence=payment.balance_after_pence,
+    )
+
+
+# --- The savings ledger ----------------------------------------------------
+
+
+class OpeningBalanceRequest(AuthorisedRequest):
+    amount_pence: int = Field(ge=0)
+    occurred_on: date | None = None
+
+
+class SavingsEntryView(BaseModel):
+    id: int
+    entry_type: str
+    amount_pence: int
+    balance_after_pence: int
+    occurred_on: str
+    week_id: int | None
+    reason: str | None
+
+
+class SavingsView(BaseModel):
+    balance_pence: int
+    entries: list[SavingsEntryView]
+
+
+def _entry_view(entry) -> SavingsEntryView:
+    return SavingsEntryView(
+        id=entry.id,
+        entry_type=entry.entry_type.value,
+        amount_pence=entry.amount_pence,
+        balance_after_pence=entry.balance_after_pence,
+        occurred_on=entry.occurred_on.isoformat(),
+        week_id=entry.week_id,
+        reason=entry.reason,
+    )
+
+
+@savings_router.get("", response_model=SavingsView)
+def get_savings(session: Session = Depends(get_session)) -> SavingsView:
+    """The ledger, and the balance it comes to.
+
+    Nothing computes a match from this yet. The record is kept from the first
+    payday regardless, because the match rewards money left alone and that
+    cannot be reconstructed later from figures nobody wrote down.
+    """
+    return SavingsView(
+        balance_pence=savings.current_balance(session),
+        entries=[_entry_view(entry) for entry in savings.history(session)],
+    )
+
+
+@savings_router.post(
+    "/opening-balance", response_model=SavingsEntryView, status_code=status.HTTP_201_CREATED
+)
+def record_opening_balance(
+    body: OpeningBalanceRequest, session: Session = Depends(get_session)
+) -> SavingsEntryView:
+    """What was already in the account on the day this started. Once only."""
+    authorise(body)
+    day = body.occurred_on or today(get_settings().tzinfo)
+
+    try:
+        entry = savings.record_opening_balance(
+            session, amount_pence=body.amount_pence, occurred_on=day
+        )
+        session.commit()
+    except SavingsError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from None
+    except Exception:
+        session.rollback()
+        raise
+
+    return _entry_view(entry)

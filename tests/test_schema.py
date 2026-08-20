@@ -351,14 +351,27 @@ def test_a_week_starts_only_once(session):
     session.rollback()
 
 
-def test_a_deposit_cannot_exceed_the_payment(session):
+def test_a_deposit_cannot_be_negative(session):
     definition = make_definition(session)
     week = make_week(session)
     settle(session, week, definition)
-    week.deposited_pence = 400  # the week only paid 350
+    week.deposited_pence = -1
     with pytest.raises(IntegrityError):
         session.commit()
     session.rollback()
+
+
+def test_a_deposit_may_exceed_this_weeks_settled_total(session):
+    # Not a mistake: a parent-entered reward belongs to the week without being
+    # part of the chore result, so a week can owe more than it settled for.
+    # What a deposit may not exceed is what was actually handed over, and only
+    # the payment knows that.
+    definition = make_definition(session)
+    week = make_week(session)
+    settle(session, week, definition)
+    week.deposited_pence = 400  # the week settled at 350, plus a reward
+    session.commit()
+    assert session.get(Week, week.id).deposited_pence == 400
 
 
 # --- Definitions and instances ---------------------------------------------

@@ -159,16 +159,19 @@ class Week(Base):
             " + settled_bonus_pence + settled_reward_pence",
             name="total_is_the_sum_of_its_parts",
         ),
-        # You cannot pay a week that has not closed, or deposit more than it
-        # paid. Both are integer pence, and neither may be negative.
+        # You cannot pay a week that has not closed.
         CheckConstraint(
             "paid_at IS NULL OR status IN ('settled', 'voided')",
             name="only_a_closed_week_is_paid",
         ),
+        # A deposit is never negative. It is deliberately not capped at this
+        # week's settled total: a week can owe more than it settled for, since
+        # a parent-entered reward belongs to the week without being part of
+        # the chore result. What a deposit may not exceed is what was actually
+        # handed over, and only the payment knows that.
         CheckConstraint(
-            "deposited_pence IS NULL"
-            " OR (deposited_pence >= 0 AND deposited_pence <= settled_total_pence)",
-            name="deposit_within_the_payment",
+            "deposited_pence IS NULL OR deposited_pence >= 0",
+            name="deposit_not_negative",
         ),
     )
 

@@ -360,3 +360,48 @@ manual database reset from the shell was silently doing nothing. Not a code
 problem, but it wasted a cycle.
 
 Tests: 268 pass.
+
+2026-08-20 — Session H: payday, savings and parent-entered rewards
+
+app/services/payments.py
+  - Settling and paying are separate acts. A settled week reads as owed until
+    somebody hands the money over, which is a state the app has to show:
+    otherwise "did we actually pay him for that week?" is answerable only
+    from memory, which is the problem this app exists to solve.
+  - One payment clears several weeks. The deposit is apportioned across them
+    in date order so each week records its share and each savings entry says
+    which week it came from — bookkeeping, not a decision: the child chose one
+    number and it is the total.
+  - What he keeps is reported and stored nowhere. Cash in a pocket is not this
+    app's business and a figure for it would be wrong within a day.
+  - A week owes its settled total plus any parent-entered reward belonging to
+    it. Nothing is applied unless every week in the payment can be.
+
+app/services/savings.py — opening balance (once, and it must be first, because
+everything after it is a movement from a balance), deposits, withdrawals, and
+the running balance. Each row carries the balance after it, written once into a
+row that cannot be edited.
+
+app/routers/rewards.py — POST /api/rewards and POST /api/rewards/presets/{key},
+plus GET /api/rewards/presets. A reward carries an amount and a reason, belongs
+to the week it was entered in, and never touches that week's settled figures: a
+bad week at the hoover does not make an award smaller, and a void does not take
+it back. Amounts may be given as pence or typed as pounds, which is the first
+use of app.services.money at an actual edge.
+
+The school award preset is data. Its amount is a default rather than a price —
+the preset saves retyping the name and reason, not deciding what something is
+worth this time.
+
+Revision 9040ce063e24 relaxes the deposit constraint: a deposit is no longer
+capped at one week's settled total, because a week can owe more than it settled
+for once a reward belongs to it. The cap that matters is against what was
+actually handed over, and only the payment knows that. Weeks triggers dropped
+and recreated around the rebuild again.
+
+Tests: 300 pass. Verified live: two weeks settled at 450p each, both paid in
+one action with 600p banked, apportioned 450 + 150 across the two weeks with
+running balances of 450 and 600, and both weeks stop reading as owed.
+
+Numbers to confirm: WEEKLY_BASE_PENCE defaults to 100 and the school award
+preset defaults to 100. Both are in one place each.
