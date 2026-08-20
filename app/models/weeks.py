@@ -66,7 +66,12 @@ class Week(Base):
     # it pays nothing, but its instances stay, so the record of what was
     # actually done survives.
 
-    settled_basic_pence: Mapped[int | None] = mapped_column(Integer)
+    #: The base allowance for the week. Paid regardless of the chores, and
+    #: zeroed only by a void.
+    settled_base_pence: Mapped[int | None] = mapped_column(Integer)
+
+    #: What the chore pay came to: all of what was at stake, or nothing.
+    settled_chore_pay_pence: Mapped[int | None] = mapped_column(Integer)
     settled_bonus_pence: Mapped[int | None] = mapped_column(Integer)
     settled_reward_pence: Mapped[int | None] = mapped_column(Integer)
     settled_total_pence: Mapped[int | None] = mapped_column(Integer)
@@ -111,21 +116,30 @@ class Week(Base):
             "(status = 'open'"
             "   AND settled_total_pence IS NULL AND closed_at IS NULL)"
             " OR (status IN ('settled', 'voided')"
-            "   AND settled_basic_pence IS NOT NULL"
+            "   AND settled_base_pence IS NOT NULL"
+            "   AND settled_chore_pay_pence IS NOT NULL"
             "   AND settled_bonus_pence IS NOT NULL"
             "   AND settled_reward_pence IS NOT NULL"
             "   AND settled_total_pence IS NOT NULL"
             "   AND closed_at IS NOT NULL)",
             name="closed_weeks_carry_their_figures",
         ),
-        # A voided week pays nothing at all.
+        # A voided week loses the base, the chore pay and the bonuses — the
+        # three things a void actually takes away. Rewards were earned by
+        # something happening rather than by the week going well, so they
+        # settle through the ordinary path and survive it.
         CheckConstraint(
-            "status <> 'voided' OR settled_total_pence = 0",
-            name="a_voided_week_pays_nothing",
+            "status <> 'voided' OR (settled_base_pence = 0"
+            " AND settled_chore_pay_pence = 0 AND settled_bonus_pence = 0)",
+            name="a_voided_week_loses_base_chore_pay_and_bonuses",
         ),
         CheckConstraint(
-            "settled_basic_pence IS NULL OR settled_basic_pence >= 0",
-            name="basic_not_negative",
+            "settled_base_pence IS NULL OR settled_base_pence >= 0",
+            name="base_not_negative",
+        ),
+        CheckConstraint(
+            "settled_chore_pay_pence IS NULL OR settled_chore_pay_pence >= 0",
+            name="chore_pay_not_negative",
         ),
         CheckConstraint(
             "settled_bonus_pence IS NULL OR settled_bonus_pence >= 0",
@@ -141,7 +155,8 @@ class Week(Base):
         ),
         CheckConstraint(
             "settled_total_pence IS NULL OR settled_total_pence ="
-            " settled_basic_pence + settled_bonus_pence + settled_reward_pence",
+            " settled_base_pence + settled_chore_pay_pence"
+            " + settled_bonus_pence + settled_reward_pence",
             name="total_is_the_sum_of_its_parts",
         ),
         # You cannot pay a week that has not closed, or deposit more than it

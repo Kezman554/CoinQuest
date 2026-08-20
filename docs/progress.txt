@@ -324,3 +324,39 @@ names. Deleting every definition outright gives the same figures too.
 Verified live: a proposal without a PIN, a settle refused for disagreeing with
 the figure, a settle agreed, then repricing the chore from 200p to 900p and
 reading 200p back, and the proposal endpoint refusing a settled week.
+
+2026-08-20 — Session G addendum: the base allowance, and voided rewards
+
+Two corrections, both from the scheme document rather than from the code.
+
+§1 pays a base allowance every week regardless of how the chores went. That
+had been collapsed into what I was calling "base", which was actually the
+§2 chore pay at stake. Revision 4e720209aaba renames settled_basic_pence to
+settled_chore_pay_pence and adds settled_base_pence beside it; a week's total
+is now base + chore pay + bonuses + rewards. WEEKLY_BASE_PENCE is
+configuration, defaulting to 100. The proposal now carries base_pence,
+chore_pay_at_stake_pence and chore_pay_pence as three distinct figures.
+
+§11: a voided week loses the base, the chore pay and the bonuses — the three
+things it names — and rewards keep settling through the ordinary path. The
+schema demanded a voided total of zero, which had forced void() to write
+rewards to the earnings ledger as a special case. That was a double-payment
+waiting to happen: a void is liftable until the week settles, and a reward
+written at void-time would be paid again at settlement with an append-only
+ledger unable to take it back. The constraint now zeroes the three components
+instead, and void() writes reward settlement lines the same way settle() does.
+
+Two things worth knowing for the next migration touching `weeks`:
+
+  - A SQLite batch rebuild recreates the table and silently drops any trigger
+    on it. This revision drops and recreates both weeks triggers explicitly,
+    and they name the renamed column anyway.
+  - An empty batch_alter_table block does not rebuild even with
+    recreate="always"; it needs an operation in it. There is a deliberate
+    no-op alter_column doing that job, with a comment saying so.
+
+Also: Bash's /tmp and Python's /tmp are different directories on Windows, so a
+manual database reset from the shell was silently doing nothing. Not a code
+problem, but it wasted a cycle.
+
+Tests: 268 pass.

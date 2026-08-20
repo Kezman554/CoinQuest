@@ -40,6 +40,14 @@ class Settings:
         self.parent_pin: str = _get("PARENT_PIN")
         self.database_url: str = _get("DATABASE_URL", "sqlite:///./coinquest.db")
 
+        # The base allowance: paid every week regardless of how the chores
+        # went, and removed only by a week being voided. A separate figure
+        # from the chore pay, which is earned and can be lost.
+        base = _get("WEEKLY_BASE_PENCE", "100")
+        if not base.isdigit():
+            raise ConfigError(f"WEEKLY_BASE_PENCE must be whole pence, got {base!r}.")
+        self.weekly_base_pence: int = int(base)
+
         port = _get("COINQUEST_PORT", "8600")
         if not port.isdigit():
             raise ConfigError(f"COINQUEST_PORT must be a number, got {port!r}.")

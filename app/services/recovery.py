@@ -143,8 +143,12 @@ class WeekAssessment:
         return self._by_id.get(definition_id)
 
     @property
-    def basic_pay_pence(self) -> int:
-        """The whole chore pay, paid together or not at all."""
+    def chore_pay_at_stake_pence(self) -> int:
+        """What the chore pay is worth: paid whole, or not at all.
+
+        Not the base allowance, which is paid every week whatever happens here
+        and is not the recovery rules' business.
+        """
         return sum(
             requirement.amount_pence
             for requirement in self.requirements
@@ -306,7 +310,7 @@ def evaluate(assessment: WeekAssessment, spent: Sequence[Requirement]) -> Assign
         recovered = 0
         outstanding = len(assessment.misses)
 
-    chore_pay = assessment.basic_pay_pence if outstanding == 0 else 0
+    chore_pay = assessment.chore_pay_at_stake_pence if outstanding == 0 else 0
 
     # A bonus chore is paid or spent, never both.
     bonus_pay = sum(

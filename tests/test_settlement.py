@@ -48,7 +48,7 @@ def api(session):
 
 @pytest.fixture()
 def scheme(session):
-    """A small scheme: 350p of basics, a 100p bonus and a 250p reward."""
+    """350p of basics, a 100p bonus and a 250p reward — plus the 100p base."""
     beds = ChoreDefinition(
         name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=350
     )
@@ -118,12 +118,13 @@ def test_a_proposal_breaks_the_week_down(api, session, scheme):
     add_instances(session, week, scheme["award"], confirmed=1)
 
     body = api.get(f"/api/weeks/{week.id}/proposal").json()
-    assert body["base_pence"] == 350
-    assert body["chore_pay_pence"] == 350
+    assert body["base_pence"] == 100               # the allowance, always paid
+    assert body["chore_pay_at_stake_pence"] == 350  # what the basics were worth
+    assert body["chore_pay_pence"] == 350           # and they were all done
     assert body["chore_pay_awarded"] is True
     assert body["bonus_pence"] == 100
     assert body["reward_pence"] == 250
-    assert body["total_pence"] == 700
+    assert body["total_pence"] == 800               # 100 + 350 + 100 + 250
     assert body["misses"] == 0
     assert body["status"] == "open"
 
@@ -179,7 +180,7 @@ def test_a_proposal_shows_the_recovery_it_would_apply(api, session, scheme):
     ]
     assert body["chore_pay_pence"] == 350
     assert body["bonus_pence"] == 0      # spent, not paid
-    assert body["total_pence"] == 350
+    assert body["total_pence"] == 450    # 100 base + 350 chore pay
 
 
 def test_a_proposal_shows_a_week_that_cannot_be_recovered(api, session, scheme):
@@ -193,7 +194,7 @@ def test_a_proposal_shows_a_week_that_cannot_be_recovered(api, session, scheme):
     assert body["chore_pay_awarded"] is False
     assert body["chore_pay_pence"] == 0
     assert body["bonus_pence"] == 100        # kept, since spending it is futile
-    assert body["total_pence"] == 100
+    assert body["total_pence"] == 200        # the base survives a bad week
 
 
 # --- 2. Settling needs explicit agreement, authorised ------------------------
@@ -204,7 +205,7 @@ def test_settling_without_the_pin_is_refused(api, session, scheme):
     a_perfect_week(session, scheme, week)
 
     response = api.post(
-        f"/api/weeks/{week.id}/settle", json={"pin": WRONG, "agreed_total_pence": 450}
+        f"/api/weeks/{week.id}/settle", json={"pin": WRONG, "agreed_total_pence": 550}
     )
     assert response.status_code == 401
 
@@ -218,22 +219,23 @@ def test_settling_writes_the_agreed_figures_into_the_week(api, session, scheme):
     a_perfect_week(session, scheme, week)
 
     proposal = api.get(f"/api/weeks/{week.id}/proposal").json()
-    assert proposal["total_pence"] == 450
+    assert proposal["total_pence"] == 550
 
     response = api.post(
-        f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450}
+        f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550}
     )
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "settled"
-    assert body["total_pence"] == 450
+    assert body["total_pence"] == 550
+    assert body["base_pence"] == 100
     assert body["chore_pay_pence"] == 350
     assert body["bonus_pence"] == 100
 
     session.expire_all()
     stored = session.get(Week, week.id)
     assert stored.status is WeekStatus.SETTLED
-    assert stored.settled_total_pence == 450
+    assert stored.settled_total_pence == 550
     assert stored.closed_at is not None
 
 
@@ -279,21 +281,21 @@ def test_settling_records_the_misses_it_settled_on(api, session, scheme):
 def test_settling_writes_one_earnings_entry(api, session, scheme):
     week = make_week(session)
     a_perfect_week(session, scheme, week)
-    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
     entries = session.query(EarningEntry).all()
     assert len(entries) == 1
     assert entries[0].entry_type is EarningType.WEEK_SETTLEMENT
-    assert entries[0].amount_pence == 450
+    assert entries[0].amount_pence == 550
 
 
 def test_a_week_cannot_be_settled_twice(api, session, scheme):
     week = make_week(session)
     a_perfect_week(session, scheme, week)
-    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
     again = api.post(
-        f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450}
+        f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550}
     )
     assert again.status_code == 409
 
@@ -310,28 +312,28 @@ def test_two_weeks_are_open_at_once_and_settle_on_their_own_figures(
     a_perfect_week(session, scheme, first)                       # 450p
     add_instances(session, second, scheme["beds"], confirmed=7)  # 350p, no bonus
 
-    assert api.get(f"/api/weeks/{first.id}/proposal").json()["total_pence"] == 450
-    assert api.get(f"/api/weeks/{second.id}/proposal").json()["total_pence"] == 350
+    assert api.get(f"/api/weeks/{first.id}/proposal").json()["total_pence"] == 550
+    assert api.get(f"/api/weeks/{second.id}/proposal").json()["total_pence"] == 450
 
     # Settling the second leaves the first exactly as it was.
-    api.post(f"/api/weeks/{second.id}/settle", json={"pin": PIN, "agreed_total_pence": 350})
+    api.post(f"/api/weeks/{second.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
 
     session.expire_all()
     assert session.get(Week, second.id).status is WeekStatus.SETTLED
-    assert session.get(Week, second.id).settled_total_pence == 350
+    assert session.get(Week, second.id).settled_total_pence == 450
     assert session.get(Week, first.id).status is WeekStatus.OPEN
-    assert api.get(f"/api/weeks/{first.id}/proposal").json()["total_pence"] == 450
+    assert api.get(f"/api/weeks/{first.id}/proposal").json()["total_pence"] == 550
 
 
 def test_the_week_list_shows_which_are_open(api, session, scheme):
     first = make_week(session)
     second = make_week(session, SECOND_SUNDAY, SECOND_SATURDAY)
     a_perfect_week(session, scheme, first)
-    api.post(f"/api/weeks/{first.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
+    api.post(f"/api/weeks/{first.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
     listed = api.get("/api/weeks").json()
     assert [week["status"] for week in listed] == ["settled", "open"]
-    assert listed[0]["total_pence"] == 450
+    assert listed[0]["total_pence"] == 550
     assert listed[1]["total_pence"] is None
     assert listed[1]["week_id"] == second.id
 
@@ -365,7 +367,7 @@ def test_a_settled_weeks_figures_cannot_be_updated_even_directly(api, session, s
 
     week = make_week(session)
     a_perfect_week(session, scheme, week)
-    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
     with pytest.raises((IntegrityError, OperationalError), match="closed forever"):
         session.execute(
@@ -409,20 +411,50 @@ def test_voiding_leaves_rewards_already_earned_intact(api, session, scheme):
 
     api.post(f"/api/weeks/{week.id}/void", json={"pin": PIN, "reason": "Away"})
 
-    # The week pays nothing...
+    session.expire_all()
+    stored = session.get(Week, week.id)
+
+    # The three things a void takes away are gone.
+    assert stored.settled_base_pence == 0
+    assert stored.settled_chore_pay_pence == 0
+    assert stored.settled_bonus_pence == 0
+
+    # The reward is not one of them. It was earned by something happening
+    # rather than by the week going well, so it settles the ordinary way and
+    # the voided week is worth exactly that.
+    assert stored.settled_reward_pence == 250
+    assert stored.settled_total_pence == 250
+
+    (line,) = stored.settlement_lines
+    assert line.chore_name == "School award"
+    assert line.amount_pence == 250
+    assert line.note == "earned before the week was voided"
+
+
+def test_a_voided_week_with_no_rewards_is_worth_nothing(api, session, scheme):
+    week = make_week(session)
+    a_perfect_week(session, scheme, week)
+
+    api.post(f"/api/weeks/{week.id}/void", json={"pin": PIN, "reason": "Away"})
+
     session.expire_all()
     assert session.get(Week, week.id).settled_total_pence == 0
 
-    # ...and the reward, which was earned by something happening rather than
-    # by the week going well, is still his.
-    rewards = (
-        session.query(EarningEntry)
-        .filter(EarningEntry.entry_type == EarningType.REWARD)
-        .all()
-    )
-    assert len(rewards) == 1
-    assert rewards[0].amount_pence == 250
-    assert "School award" in rewards[0].reason
+
+def test_voiding_writes_the_reward_to_the_ledger_only_once(api, session, scheme):
+    # Written at void-time as a special case, a reward would be paid again if
+    # the void were lifted and the week then settled — and an append-only
+    # ledger cannot take it back. It goes through the ordinary path instead,
+    # so there is exactly one entry and it belongs to the week.
+    week = make_week(session)
+    add_instances(session, week, scheme["award"], confirmed=1)
+    api.post(f"/api/weeks/{week.id}/void", json={"pin": PIN, "reason": "Away"})
+
+    entries = session.query(EarningEntry).all()
+    assert len(entries) == 1
+    assert entries[0].entry_type is EarningType.WEEK_SETTLEMENT
+    assert entries[0].amount_pence == 250
+    assert entries[0].week_id == week.id
 
 
 def test_voiding_needs_the_pin_and_a_reason(api, session, scheme):
@@ -450,7 +482,7 @@ def test_a_voided_week_cannot_be_settled_afterwards(api, session, scheme):
     api.post(f"/api/weeks/{week.id}/void", json={"pin": PIN, "reason": "Away"})
 
     response = api.post(
-        f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450}
+        f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550}
     )
     assert response.status_code == 409
 
@@ -463,7 +495,7 @@ def test_changing_a_chores_amount_leaves_the_settled_figures_unchanged(
 ):
     week = make_week(session)
     a_perfect_week(session, scheme, week)
-    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
     # The scheme is reviewed. Everything about both chores changes.
     scheme["beds"].amount_pence = 900
@@ -473,7 +505,7 @@ def test_changing_a_chores_amount_leaves_the_settled_figures_unchanged(
     session.commit()
 
     body = api.get(f"/api/weeks/{week.id}").json()
-    assert body["total_pence"] == 450        # not 905
+    assert body["total_pence"] == 550        # not 1005
     assert body["chore_pay_pence"] == 350    # not 900
     assert body["bonus_pence"] == 100        # not 5
 
@@ -487,7 +519,7 @@ def test_changing_a_chores_amount_leaves_the_settled_figures_unchanged(
 def test_no_path_recomputes_a_settled_week(api, session, scheme):
     week = make_week(session)
     a_perfect_week(session, scheme, week)
-    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
     scheme["beds"].amount_pence = 900
     session.commit()
@@ -506,13 +538,13 @@ def test_no_path_recomputes_a_settled_week(api, session, scheme):
         propose(session, session.get(Week, week.id), get_settings().tzinfo)
 
     # And the week reads the same as it did.
-    assert api.get(f"/api/weeks/{week.id}").json()["total_pence"] == 450
+    assert api.get(f"/api/weeks/{week.id}").json()["total_pence"] == 550
 
 
 def test_a_settled_week_survives_its_chores_being_deleted(api, session, scheme):
     week = make_week(session)
     a_perfect_week(session, scheme, week)
-    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
     # Instances hold the definitions in place, so clear the week out first —
     # the point is that the settled figures do not depend on any of it.
@@ -522,25 +554,26 @@ def test_a_settled_week_survives_its_chores_being_deleted(api, session, scheme):
     session.expire_all()
 
     body = api.get(f"/api/weeks/{week.id}").json()
-    assert body["total_pence"] == 450
+    assert body["total_pence"] == 550
     named = {line["chore_name"]: line for line in body["lines"]}
     assert named["Make bed"]["amount_pence"] == 350
 
     lines = session.query(SettlementLine).all()
     assert all(line.source_definition_id is None for line in lines)  # provenance gone
-    assert sum(line.amount_pence for line in lines) == 450           # money intact
+    assert sum(line.amount_pence for line in lines) == 450  # the base is not a line           # money intact
 
 
 def test_the_settled_figures_come_from_the_weeks_own_columns(api, session, scheme):
     week = make_week(session)
     a_perfect_week(session, scheme, week)
-    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450})
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
     session.expire_all()
     from app.services.settlement import stored_figures
 
     figures = stored_figures(session.get(Week, week.id))
-    assert figures["total_pence"] == 450
+    assert figures["total_pence"] == 550
+    assert figures["base_pence"] == 100
     assert figures["chore_pay_pence"] == 350
     assert figures["bonus_pence"] == 100
     assert figures["status"] == "settled"
@@ -559,7 +592,8 @@ def test_every_stored_amount_is_an_integer_number_of_pence(api, session, scheme)
     session.expire_all()
     stored = session.get(Week, week.id)
     for amount in (
-        stored.settled_basic_pence,
+        stored.settled_base_pence,
+        stored.settled_chore_pay_pence,
         stored.settled_bonus_pence,
         stored.settled_reward_pence,
         stored.settled_total_pence,
@@ -568,6 +602,72 @@ def test_every_stored_amount_is_an_integer_number_of_pence(api, session, scheme)
     for line in stored.settlement_lines:
         assert isinstance(line.amount_pence, int)
         assert isinstance(line.unit_amount_pence, int)
-    assert stored.settled_total_pence == sum(
+    # The base is an allowance, not a chore, so it has no line of its own.
+    assert stored.settled_total_pence == stored.settled_base_pence + sum(
         line.amount_pence for line in stored.settlement_lines
     )
+
+
+# --- The base allowance ------------------------------------------------------
+
+
+def test_the_base_is_paid_however_badly_the_week_went(api, session, scheme):
+    # Nothing done at all: no chore pay, no bonus, no reward. The allowance is
+    # not contingent on any of it.
+    week = make_week(session)
+    add_instances(session, week, scheme["beds"], untouched=7)
+
+    body = api.get(f"/api/weeks/{week.id}/proposal").json()
+    assert body["chore_pay_pence"] == 0
+    assert body["bonus_pence"] == 0
+    assert body["base_pence"] == 100
+    assert body["total_pence"] == 100
+
+
+def test_the_base_is_separate_from_what_the_chores_put_at_stake(api, session, scheme):
+    week = make_week(session)
+    a_perfect_week(session, scheme, week)
+
+    body = api.get(f"/api/weeks/{week.id}/proposal").json()
+    assert body["base_pence"] == 100                # the allowance
+    assert body["chore_pay_at_stake_pence"] == 350  # a different figure entirely
+    assert body["chore_pay_pence"] == 350
+
+
+def test_only_a_void_removes_the_base(api, session, scheme):
+    week = make_week(session)
+    add_instances(session, week, scheme["beds"], untouched=7)
+    api.post(f"/api/weeks/{week.id}/void", json={"pin": PIN, "reason": "Grounded"})
+
+    session.expire_all()
+    assert session.get(Week, week.id).settled_base_pence == 0
+    assert session.get(Week, week.id).settled_total_pence == 0
+
+
+def test_the_base_is_stored_with_the_week_and_never_recomputed(api, session, scheme):
+    week = make_week(session)
+    a_perfect_week(session, scheme, week)
+    api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
+
+    # The scheme raises the allowance. The settled week keeps the old one.
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    import os
+
+    os.environ["WEEKLY_BASE_PENCE"] = "500"
+    try:
+        body = api.get(f"/api/weeks/{week.id}").json()
+        assert body["base_pence"] == 100
+        assert body["total_pence"] == 550
+    finally:
+        os.environ["WEEKLY_BASE_PENCE"] = "100"
+        get_settings.cache_clear()
+
+
+def test_the_base_is_configuration_not_a_constant():
+    from app.services.settlement import propose
+
+    import inspect
+
+    assert "base_pence" in inspect.signature(propose).parameters

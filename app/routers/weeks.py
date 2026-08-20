@@ -53,6 +53,7 @@ class ProposalView(BaseModel):
     end_date: str
     status: str
     base_pence: int
+    chore_pay_at_stake_pence: int
     chore_pay_pence: int
     chore_pay_awarded: bool
     bonus_pence: int
@@ -73,6 +74,7 @@ class ProposalView(BaseModel):
             end_date=proposal.end_date.isoformat(),
             status=WeekStatus.OPEN.value,
             base_pence=proposal.base_pence,
+            chore_pay_at_stake_pence=proposal.chore_pay_at_stake_pence,
             chore_pay_pence=proposal.chore_pay_pence,
             chore_pay_awarded=proposal.chore_pay_awarded,
             bonus_pence=proposal.bonus_pence,
@@ -111,6 +113,7 @@ class SettledWeekView(BaseModel):
     start_date: str
     end_date: str
     status: str
+    base_pence: int | None
     chore_pay_pence: int | None
     bonus_pence: int | None
     reward_pence: int | None
@@ -129,6 +132,7 @@ class SettledWeekView(BaseModel):
             start_date=week.start_date.isoformat(),
             end_date=week.end_date.isoformat(),
             status=figures["status"],
+            base_pence=figures["base_pence"],
             chore_pay_pence=figures["chore_pay_pence"],
             bonus_pence=figures["bonus_pence"],
             reward_pence=figures["reward_pence"],
@@ -277,7 +281,9 @@ def void_week(
     week = _load(session, week_id)
 
     try:
-        settlement.void(session, week, authorisation, reason=body.reason)
+        settlement.void(
+            session, week, authorisation, reason=body.reason, tz=get_settings().tzinfo
+        )
         session.commit()
     except NotOpen as exc:
         session.rollback()

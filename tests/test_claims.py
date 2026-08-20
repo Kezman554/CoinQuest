@@ -107,7 +107,8 @@ def test_claiming_something_that_does_not_exist_is_a_404(api):
 
 def test_a_closed_week_refuses_a_claim(api, session, week, instances):
     week.status = WeekStatus.SETTLED
-    week.settled_basic_pence = 0
+    week.settled_base_pence = 0
+    week.settled_chore_pay_pence = 0
     week.settled_bonus_pence = 0
     week.settled_reward_pence = 0
     week.settled_total_pence = 0
@@ -292,7 +293,8 @@ def test_a_batch_touching_a_closed_week_applies_none_of_it(
     for instance in instances:
         claim(api, instance)
     week.status = WeekStatus.VOIDED
-    week.settled_basic_pence = 0
+    week.settled_base_pence = 0
+    week.settled_chore_pay_pence = 0
     week.settled_bonus_pence = 0
     week.settled_reward_pence = 0
     week.settled_total_pence = 0

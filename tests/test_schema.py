@@ -121,7 +121,8 @@ def settle(session, week: Week, definition: ChoreDefinition) -> None:
         )
     )
     week.status = WeekStatus.SETTLED
-    week.settled_basic_pence = definition.amount_pence * 7
+    week.settled_base_pence = 0
+    week.settled_chore_pay_pence = definition.amount_pence * 7
     week.settled_bonus_pence = 0
     week.settled_reward_pence = 0
     week.settled_total_pence = definition.amount_pence * 7
@@ -149,7 +150,7 @@ def test_changing_a_definition_leaves_a_settled_week_untouched(session):
 
     # Not one figure in the closed week has moved.
     week = session.get(Week, week.id)
-    assert week.settled_basic_pence == 350
+    assert week.settled_chore_pay_pence == 350
     assert week.settled_total_pence == 350
 
     (line,) = week.settlement_lines
@@ -261,7 +262,8 @@ def test_a_voided_week_pays_nothing_but_keeps_its_instances(session):
 
     week.status = WeekStatus.VOIDED
     week.void_reason = "Away all week"
-    week.settled_basic_pence = 0
+    week.settled_base_pence = 0
+    week.settled_chore_pay_pence = 0
     week.settled_bonus_pence = 0
     week.settled_reward_pence = 0
     week.settled_total_pence = 0
@@ -278,7 +280,8 @@ def test_a_voided_week_pays_nothing_but_keeps_its_instances(session):
 def test_a_voided_week_may_not_pay_anything(session):
     week = make_week(session)
     week.status = WeekStatus.VOIDED
-    week.settled_basic_pence = 100
+    week.settled_base_pence = 0
+    week.settled_chore_pay_pence = 100
     week.settled_bonus_pence = 0
     week.settled_reward_pence = 0
     week.settled_total_pence = 100
@@ -324,7 +327,8 @@ def test_an_open_week_may_not_carry_figures(session):
 def test_a_closed_week_totals_must_add_up(session):
     week = make_week(session)
     week.status = WeekStatus.SETTLED
-    week.settled_basic_pence = 100
+    week.settled_base_pence = 0
+    week.settled_chore_pay_pence = 100
     week.settled_bonus_pence = 50
     week.settled_reward_pence = 0
     week.settled_total_pence = 200  # not 150
@@ -704,7 +708,8 @@ def test_instants_are_stored_as_utc_and_come_back_aware(session):
 def test_a_naive_instant_is_refused(session):
     week = make_week(session)
     week.status = WeekStatus.SETTLED
-    week.settled_basic_pence = 0
+    week.settled_base_pence = 0
+    week.settled_chore_pay_pence = 0
     week.settled_bonus_pence = 0
     week.settled_reward_pence = 0
     week.settled_total_pence = 0

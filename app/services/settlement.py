@@ -26,6 +26,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.models.base import utcnow
 from app.models.chores import ChoreDefinition, ChoreInstance
 from app.models.enums import (
@@ -96,17 +97,23 @@ class ProposedLine:
 class Proposal:
     """What a week is worth, computed and applied to nothing.
 
-    `base_pence` is the chore pay the week put at stake — everything the basic
-    chores were worth. `chore_pay_pence` is what it actually comes to: the
-    whole of the base, or nothing at all. It is not apportioned. A week whose
-    misses cannot be recovered pays no chore pay, which is the rule the
-    recovery route exists to soften.
+    Four components, and the first two are easy to confuse:
+
+    `base_pence` is the weekly allowance. It is paid every week regardless of
+    how the chores went — a bad week at the hoover never touches it — and only
+    a voided week removes it.
+
+    `chore_pay_at_stake_pence` is what the basic chores were collectively
+    worth, and `chore_pay_pence` is what that came to: all of it or nothing. It
+    is never apportioned. A week whose misses cannot be recovered pays no chore
+    pay at all, which is the rule the recovery route exists to soften.
     """
 
     week_id: int
     start_date: date
     end_date: date
     base_pence: int
+    chore_pay_at_stake_pence: int
     chore_pay_pence: int
     bonus_pence: int
     reward_pence: int
@@ -120,7 +127,7 @@ class Proposal:
 
     @property
     def chore_pay_awarded(self) -> bool:
-        return self.chore_pay_pence > 0 or self.base_pence == 0
+        return self.chore_pay_pence > 0 or self.chore_pay_at_stake_pence == 0
 
     @property
     def misses_outstanding(self) -> int:
@@ -131,7 +138,14 @@ def week_period(week: Week, tz) -> Period:
     return Period(start=week.start_date, end=week.end_date, tz=tz)
 
 
-def propose(session: Session, week: Week, tz, *, cap: int = RECOVERY_CAP) -> Proposal:
+def propose(
+    session: Session,
+    week: Week,
+    tz,
+    *,
+    cap: int = RECOVERY_CAP,
+    base_pence: int | None = None,
+) -> Proposal:
     """Work out what an open week is worth. Writes nothing.
 
     Refuses a closed week. That refusal is the whole guarantee: a settled
@@ -143,6 +157,9 @@ def propose(session: Session, week: Week, tz, *, cap: int = RECOVERY_CAP) -> Pro
             f"Week {week.start_date.isoformat()} is {week.status.value}."
             " A closed week is read, never recomputed."
         )
+
+    if base_pence is None:
+        base_pence = get_settings().weekly_base_pence
 
     definitions = session.query(ChoreDefinition).all()
     waivers = session.query(Waiver).all()
@@ -159,11 +176,12 @@ def propose(session: Session, week: Week, tz, *, cap: int = RECOVERY_CAP) -> Pro
         week_id=week.id,
         start_date=week.start_date,
         end_date=week.end_date,
-        base_pence=assessment.basic_pay_pence,
+        base_pence=base_pence,
+        chore_pay_at_stake_pence=assessment.chore_pay_at_stake_pence,
         chore_pay_pence=assignment.chore_pay_pence,
         bonus_pence=assignment.bonus_pay_pence,
         reward_pence=assignment.reward_pence,
-        total_pence=assignment.total_pence,
+        total_pence=base_pence + assignment.total_pence,
         misses=assessment.misses,
         recoveries=recoveries,
         requirements=assessment.requirements,
@@ -306,7 +324,8 @@ def settle(
         )
 
     week.status = WeekStatus.SETTLED
-    week.settled_basic_pence = proposal.chore_pay_pence
+    week.settled_base_pence = proposal.base_pence
+    week.settled_chore_pay_pence = proposal.chore_pay_pence
     week.settled_bonus_pence = proposal.bonus_pence
     week.settled_reward_pence = proposal.reward_pence
     week.settled_total_pence = proposal.total_pence
@@ -363,17 +382,23 @@ def void(
     authorisation: Authorisation,
     *,
     reason: str,
+    tz=None,
 ) -> Week:
-    """Close a week paying nothing, without erasing what was done.
+    """Close a week paying nothing it had to earn, without erasing anything.
 
-    Every instance stays exactly as it is: the claims, the confirmations and
-    the misses are the record of the week, and voiding is a statement about
-    the money rather than about the work.
+    A void takes away the three things that were contingent on the week going
+    well: the base allowance, the chore pay and the bonuses. It does not take
+    away rewards. Those were earned by something happening — an award, a
+    kindness, a job nobody asked for — and a bad week does not unhappen them.
 
-    Rewards already earned are not touched. They were earned by something
-    happening, not by the week going well, so they are written to the earnings
-    ledger in their own right — the week's own figures are all zero, and the
-    reward survives the week paying nothing.
+    So rewards settle here through exactly the same path as an ordinary
+    settlement, and a voided week's total is whatever they came to. The
+    alternative, writing them to the earnings ledger as a special case at
+    void-time, would pay them twice if the void were ever lifted and the week
+    then settled normally — and an append-only ledger cannot take that back.
+
+    Every instance stays exactly as it is. Voiding is a statement about the
+    money, not about the work.
     """
     if week.status is not WeekStatus.OPEN:
         raise NotOpen(f"Week {week.start_date.isoformat()} is already closed.")
@@ -381,43 +406,48 @@ def void(
     if not reason or not reason.strip():
         raise ValueError("Voiding a week is unusual enough to want a reason.")
 
-    for entry in _rewards_earned(session, week):
-        session.add(entry)
+    proposal = propose(session, week, tz or get_settings().tzinfo)
+
+    # The reward lines survive; everything else about the week is set aside.
+    for line in proposal.lines:
+        if line.category is not Category.REWARD:
+            continue
+        session.add(
+            SettlementLine(
+                week_id=week.id,
+                chore_name=line.chore_name,
+                category=line.category,
+                cadence=line.cadence,
+                unit_amount_pence=line.unit_amount_pence,
+                quantity=line.quantity,
+                amount_pence=line.amount_pence,
+                source_definition_id=line.definition_id,
+                note="earned before the week was voided",
+            )
+        )
 
     week.status = WeekStatus.VOIDED
-    week.settled_basic_pence = 0
+    week.settled_base_pence = 0
+    week.settled_chore_pay_pence = 0
     week.settled_bonus_pence = 0
-    week.settled_reward_pence = 0
-    week.settled_total_pence = 0
+    week.settled_reward_pence = proposal.reward_pence
+    week.settled_total_pence = proposal.reward_pence
     week.closed_at = authorisation.at
     week.void_reason = reason.strip()
 
+    if proposal.reward_pence:
+        session.add(
+            EarningEntry(
+                entry_type=EarningType.WEEK_SETTLEMENT,
+                amount_pence=proposal.reward_pence,
+                week_id=week.id,
+                occurred_on=week.end_date,
+                reason=f"Week {week.start_date.isoformat()} voided; rewards stand",
+            )
+        )
+
     session.flush()
     return week
-
-
-def _rewards_earned(session: Session, week: Week) -> list[EarningEntry]:
-    """Rewards confirmed during a week, as ledger entries in their own right."""
-    rows = (
-        session.query(ChoreInstance, ChoreDefinition)
-        .join(ChoreDefinition, ChoreInstance.definition_id == ChoreDefinition.id)
-        .filter(
-            ChoreInstance.week_id == week.id,
-            ChoreInstance.state == InstanceState.CONFIRMED,
-            ChoreDefinition.category == Category.REWARD,
-        )
-        .all()
-    )
-    return [
-        EarningEntry(
-            entry_type=EarningType.REWARD,
-            amount_pence=definition.amount_pence,
-            week_id=week.id,
-            occurred_on=instance.due_date or week.end_date,
-            reason=f"{definition.name}, earned in a week that was voided",
-        )
-        for instance, definition in rows
-    ]
 
 
 def stored_figures(week: Week) -> dict[str, int | str | None]:
@@ -429,7 +459,8 @@ def stored_figures(week: Week) -> dict[str, int | str | None]:
     """
     return {
         "status": week.status.value,
-        "chore_pay_pence": week.settled_basic_pence,
+        "base_pence": week.settled_base_pence,
+        "chore_pay_pence": week.settled_chore_pay_pence,
         "bonus_pence": week.settled_bonus_pence,
         "reward_pence": week.settled_reward_pence,
         "total_pence": week.settled_total_pence,
