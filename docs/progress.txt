@@ -434,3 +434,42 @@ thing in this schema.
 Tests: 306 pass, including a reward for a settled week, for a voided week,
 with no open week available, three rewards not creating duplicate weeks, and
 a carried reward still being owed and paid.
+
+2026-08-20 — Session P: attempt limiting on the PIN
+
+app/services/lockout.py. In-memory, per source address, cooling off on its
+own. PIN_ATTEMPT_LIMIT (5) and PIN_COOL_OFF_SECONDS (300) are configuration.
+
+The trade-off, decided rather than avoided: counting per source means a device
+that guesses wrong locks only itself, so nobody can lock the parent out of
+their own app by guessing wrong on purpose — which a single global counter
+would allow, with no administrator to appeal to. What it costs is that an
+attacker with several devices, or one that can change its address, gets a
+fresh budget for each. That turns seconds into a long evening rather than
+making guessing impossible, which for this app is the right end of the trade.
+
+The address comes from the socket. Nothing the caller says about itself is
+read — a limiter keyed on a claim limits nobody. Behind a reverse proxy every
+request would arrive from the proxy, so this degrades to a global counter with
+the lockout risk that implies; that is the point at which somebody has to
+decide which proxy header to trust. Written up in the module docstring.
+
+The lockout is checked before the PIN is looked at, so a correct guess cannot
+open the window early. A wrong PIN is still told nothing; a lockout is told
+plainly how long remains, because the likeliest reader is a parent who
+mistyped. Retry-After carries the same number.
+
+Found while testing: alembic's fileConfig disables every existing logger by
+default, so running a migration in-process silenced coinquest.authorisation —
+the logger whose entire job is recording failed attempts. env.py now passes
+disable_existing_loggers=False.
+
+Also: the limiter is process-global by design, so tests reset it between
+cases via an autouse fixture. Without that, one test's wrong PIN locked out
+every test after it.
+
+Tests: 331 pass, with a fake clock so the suite never waits. Verified live
+against a running server: four wrong PINs, then 429 with "Try again in 10
+seconds", a correct PIN refused while cooling off, the stated wait counting
+down, and the correct PIN accepted at ten seconds without a restart. The log
+shows each failure and the lockout.

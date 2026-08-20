@@ -23,7 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
@@ -235,10 +235,12 @@ def list_presets() -> list[PresetView]:
 
 @router.post("", response_model=RewardView, status_code=status.HTTP_201_CREATED)
 def record_reward(
-    body: RewardRequest, session: Session = Depends(get_session)
+    request: Request,
+    body: RewardRequest,
+    session: Session = Depends(get_session),
 ) -> RewardView:
     """Record a reward. Money, so it carries the PIN."""
-    authorise(body)
+    authorise(request, body)
     day = body.occurred_on or today(get_settings().tzinfo)
 
     try:
@@ -260,14 +262,17 @@ def record_reward(
     "/presets/{key}", response_model=RewardView, status_code=status.HTTP_201_CREATED
 )
 def record_preset(
-    key: str, body: PresetRequest, session: Session = Depends(get_session)
+    key: str,
+    request: Request,
+    body: PresetRequest,
+    session: Session = Depends(get_session),
 ) -> RewardView:
     """Record a reward from a preset, at the preset's amount.
 
     There is no limit on how many times: the school decides how often it hands
     one out, and the scheme pays for each of them.
     """
-    authorise(body)
+    authorise(request, body)
 
     preset = REWARD_PRESETS.get(key)
     if preset is None:

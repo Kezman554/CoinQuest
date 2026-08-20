@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -249,11 +249,12 @@ def get_week(week_id: int, session: Session = Depends(get_session)):
 @router.post("/{week_id}/settle", response_model=SettledWeekView)
 def settle_week(
     week_id: int,
+    request: Request,
     body: SettleRequest,
     session: Session = Depends(get_session),
 ) -> SettledWeekView:
     """Close a week on figures the parent has read and agreed."""
-    authorisation = authorise(body)
+    authorisation = authorise(request, body)
     week = _load(session, week_id)
 
     try:
@@ -282,11 +283,12 @@ def settle_week(
 @router.post("/{week_id}/void", response_model=SettledWeekView)
 def void_week(
     week_id: int,
+    request: Request,
     body: VoidRequest,
     session: Session = Depends(get_session),
 ) -> SettledWeekView:
     """Close a week paying nothing, keeping the record of what was done."""
-    authorisation = authorise(body)
+    authorisation = authorise(request, body)
     week = _load(session, week_id)
 
     try:
@@ -359,7 +361,9 @@ def list_outstanding(session: Session = Depends(get_session)) -> list[OwedView]:
 
 @router.post("/payments", response_model=PaymentView)
 def record_payment(
-    body: PaymentRequest, session: Session = Depends(get_session)
+    request: Request,
+    body: PaymentRequest,
+    session: Session = Depends(get_session),
 ) -> PaymentView:
     """Mark weeks paid, and bank what the child chose to keep back.
 
@@ -367,7 +371,7 @@ def record_payment(
     week is worth and handing the money over are two different statements, and
     days apart in practice.
     """
-    authorisation = authorise(body)
+    authorisation = authorise(request, body)
     weeks = [_load(session, week_id) for week_id in body.week_ids]
     day = body.occurred_on or today(get_settings().tzinfo)
 
@@ -452,10 +456,12 @@ def get_savings(session: Session = Depends(get_session)) -> SavingsView:
     "/opening-balance", response_model=SavingsEntryView, status_code=status.HTTP_201_CREATED
 )
 def record_opening_balance(
-    body: OpeningBalanceRequest, session: Session = Depends(get_session)
+    request: Request,
+    body: OpeningBalanceRequest,
+    session: Session = Depends(get_session),
 ) -> SavingsEntryView:
     """What was already in the account on the day this started. Once only."""
-    authorise(body)
+    authorise(request, body)
     day = body.occurred_on or today(get_settings().tzinfo)
 
     try:

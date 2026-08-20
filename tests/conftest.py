@@ -16,6 +16,22 @@ os.environ.setdefault("TZ", "Europe/London")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+@pytest.fixture(autouse=True)
+def fresh_limiter():
+    """A clean attempt limiter per test.
+
+    The limiter is process-global by design — it is the one thing in this
+    service that has to remember something between requests. Tests that send a
+    wrong PIN would otherwise leave a cooling-off in place for every test
+    after them.
+    """
+    from app.services.lockout import reset_limiter
+
+    reset_limiter()
+    yield
+    reset_limiter()
+
+
 @pytest.fixture()
 def client():
     from fastapi.testclient import TestClient

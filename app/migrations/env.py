@@ -22,7 +22,11 @@ from app.models import Base
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers defaults to True, which switches off every
+    # logger already created — including coinquest.authorisation, whose whole
+    # job is to leave a record of failed PIN attempts. Running a migration in
+    # the same process would otherwise silence it.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
 

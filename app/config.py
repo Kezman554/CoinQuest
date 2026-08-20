@@ -48,6 +48,22 @@ class Settings:
             raise ConfigError(f"WEEKLY_BASE_PENCE must be whole pence, got {base!r}.")
         self.weekly_base_pence: int = int(base)
 
+        # How many consecutive wrong PINs a source gets, and how long it is
+        # then refused for. A four-digit PIN typed in front of a child is
+        # guessable by anything that can reach the port; this is what stands
+        # in the way.
+        limit = _get("PIN_ATTEMPT_LIMIT", "5")
+        if not limit.isdigit() or int(limit) < 1:
+            raise ConfigError(f"PIN_ATTEMPT_LIMIT must be at least 1, got {limit!r}.")
+        self.pin_attempt_limit: int = int(limit)
+
+        cool_off = _get("PIN_COOL_OFF_SECONDS", "300")
+        if not cool_off.isdigit() or int(cool_off) < 1:
+            raise ConfigError(
+                f"PIN_COOL_OFF_SECONDS must be at least 1, got {cool_off!r}."
+            )
+        self.pin_cool_off_seconds: int = int(cool_off)
+
         port = _get("COINQUEST_PORT", "8600")
         if not port.isdigit():
             raise ConfigError(f"COINQUEST_PORT must be a number, got {port!r}.")

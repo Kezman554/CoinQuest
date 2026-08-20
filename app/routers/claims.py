@@ -22,7 +22,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
@@ -183,6 +183,7 @@ def claim(body: ClaimRequest, session: Session = Depends(get_session)) -> Instan
 
 @router.post("/claims/review", response_model=ReviewResult)
 def review(
+    request: Request,
     body: ReviewRequest,
     session: Session = Depends(get_session),
 ) -> ReviewResult:
@@ -194,7 +195,7 @@ def review(
     item stopped it — so they can fix that one and resubmit the same batch
     rather than work out which half went through.
     """
-    authorisation = authorise(body)
+    authorisation = authorise(request, body)
 
     confirmed: list[int] = []
     rejected: list[int] = []
@@ -235,6 +236,7 @@ def review(
 @router.post("/instances/{instance_id}/missed", response_model=InstanceView)
 def mark_missed(
     instance_id: int,
+    request: Request,
     body: MissedRequest,
     session: Session = Depends(get_session),
 ) -> InstanceView:
@@ -243,7 +245,7 @@ def mark_missed(
     This is what makes the recovery window usable: told on Tuesday that
     Monday was missed, the child has the rest of the week to work it back.
     """
-    authorisation = authorise(body)
+    authorisation = authorise(request, body)
 
     if body.instance_id != instance_id:
         raise HTTPException(
