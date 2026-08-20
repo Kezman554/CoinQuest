@@ -112,6 +112,14 @@ class ChoreInstance(Base):
     #: confirm several at once.
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
+    #: Which slot this is, for a chore due n times in a week: 1 of 3, 2 of 3.
+    #: One for every other cadence. It exists so the n slots of a weekly-count
+    #: chore are separately claimable and separately unique, rather than one
+    #: row with a quantity nobody can point at.
+    sequence: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
+
     claimed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     confirmed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     missed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
@@ -132,6 +140,7 @@ class ChoreInstance(Base):
 
     __table_args__ = (
         CheckConstraint("quantity > 0", name="quantity_positive"),
+        CheckConstraint("sequence > 0", name="sequence_positive"),
         CheckConstraint(
             "(state = 'claimed' AND claimed_at IS NOT NULL)"
             " OR (state = 'confirmed' AND confirmed_at IS NOT NULL)"
@@ -151,11 +160,14 @@ class ChoreInstance(Base):
             unique=True,
             sqlite_where=due_date.isnot(None),
         ),
-        # ...and a week-scoped one, at most one per week.
+        # ...and a week-scoped one, at most one per slot. A weekly-count chore
+        # legitimately has several in a week, numbered 1..n; a weekly condition
+        # has exactly one, which is slot 1.
         Index(
-            "uq_chore_instances_definition_week",
+            "uq_chore_instances_definition_week_sequence",
             "definition_id",
             "week_id",
+            "sequence",
             unique=True,
             sqlite_where=due_date.is_(None),
         ),

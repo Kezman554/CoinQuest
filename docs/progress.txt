@@ -111,3 +111,44 @@ against an empty file, not create_all, because the triggers exist only in the
 migration. The central case asserts that renaming, repricing, recategorising
 and withdrawing a chore leaves a settled week's stored figures untouched, and
 that deleting the definition outright does too.
+
+2026-08-20 — Session D: generating a week's assessable instances
+
+app/services/instances.py. Pure: it reads no clock, writes nothing, and takes
+a Period, the definitions and the waivers.
+
+  - DAILY produces one instance per day the week contains — seven, including
+    in the 169-hour October week.
+  - WEEKLY_COUNT produces n instances tied to no day, numbered 1..n so each
+    is separately claimable.
+  - WEEKLY_CONDITION produces no instance at all. It appears in the plan as a
+    deferred judgement, made once at settlement: a condition held all week
+    cannot be assessed before the week has finished happening.
+  - ONE_OFF and EVENT are not derived from a week. Both are created by a
+    parent when they happen and neither is predictable from a definition.
+
+Waivers: a waived day removes that day's daily instances; a chore waived for
+the week is removed whatever its cadence; a day waiver outside the week or a
+chore waiver for another week is ignored. A week-long condition is not made
+of days, so waiving one does not reduce it.
+
+The scaling table is data, in WEEKLY_COUNT_BANDS: (up_to_days_waived,
+reduce_by, waives_entirely). 0-2 full count, 3-4 one occasion off, 5-7 not
+assessed. Every function takes the bands as an argument, and a test replaces
+the whole table with a harsher one and asserts the logic is untouched. Days
+outside the table raise rather than being guessed at.
+
+Schema change this card forced (revision b743007f1216): the first migration
+allowed one week-scoped instance per chore per week, which is right for a
+condition and wrong for a chore due three times a week. Added a `sequence`
+column and moved the partial unique index to
+(definition_id, week_id, sequence). Verified the batch rebuild left all eight
+triggers in place.
+
+sync_week_instances writes a plan to the database. It never touches an
+instance the plan still wants, and removes one it no longer wants only if it
+is still UNTOUCHED — waiving Monday after the child's claim was confirmed
+leaves the claim standing for a parent to decide about.
+
+Tests: 171 pass. The three cases the card asks for — 0, 3 and 6 waived days —
+assert 7/2/3, 4/1/2 and 1/0/0 respectively.

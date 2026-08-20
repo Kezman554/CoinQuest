@@ -452,7 +452,7 @@ def test_a_day_chore_gets_one_instance_per_day(session):
     session.rollback()
 
 
-def test_a_week_scoped_chore_gets_one_instance_per_week(session):
+def test_a_week_scoped_chore_gets_one_instance_per_slot(session):
     definition = make_definition(
         session, name="Room tidy all week", cadence=Cadence.WEEKLY_CONDITION
     )
@@ -461,12 +461,32 @@ def test_a_week_scoped_chore_gets_one_instance_per_week(session):
         ChoreInstance(definition_id=definition.id, week_id=week.id, due_date=None)
     )
     session.commit()
-    with pytest.raises(IntegrityError):
+    with pytest.raises(IntegrityError):  # slot 1 twice
         session.add(
             ChoreInstance(definition_id=definition.id, week_id=week.id, due_date=None)
         )
         session.commit()
     session.rollback()
+
+
+def test_a_weekly_count_chore_may_hold_several_slots_in_one_week(session):
+    # Three separately claimable occasions, numbered. The first migration
+    # allowed only one, which was right for a condition and wrong for a count.
+    definition = make_definition(
+        session, name="Hoover", cadence=Cadence.WEEKLY_COUNT, times_per_week=3
+    )
+    week = make_week(session)
+    for slot in (1, 2, 3):
+        session.add(
+            ChoreInstance(
+                definition_id=definition.id,
+                week_id=week.id,
+                due_date=None,
+                sequence=slot,
+            )
+        )
+    session.commit()
+    assert len(week.instances) == 3
 
 
 # --- Waivers ---------------------------------------------------------------
