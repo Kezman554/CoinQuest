@@ -55,6 +55,15 @@ class ChoreDefinition(Base):
     #: it and the record of what was done has to survive.
     is_available: Mapped[bool] = mapped_column(nullable=False, default=True)
 
+    #: Whether a parent marks this one directly rather than the child claiming
+    #: it — the clock test, not the bed. Orthogonal to cadence: an administered
+    #: chore still has a cadence and a normal frequency (see the make-good pool
+    #: in the rules doc, where it sits beside chores the child claims), the
+    #: difference is only who initiates the "done". Nothing in this schema
+    #: enforces that yet — this column records the fact; the claim endpoint
+    #: does not read it.
+    is_administered: Mapped[bool] = mapped_column(nullable=False, default=False)
+
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         UtcDateTime, nullable=False, default=utcnow

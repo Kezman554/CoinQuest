@@ -141,6 +141,34 @@ export type Preset = {
   amount: string
 }
 
+export type Cadence =
+  | 'daily'
+  | 'weekly_count'
+  | 'weekly_condition'
+  | 'one_off'
+  | 'event'
+
+export type ChoreDefinition = {
+  id: number
+  name: string
+  category: 'basic' | 'bonus' | 'reward'
+  cadence: Cadence
+  times_per_week: number | null
+  amount_pence: number
+  is_administered: boolean
+  is_available: boolean
+}
+
+/** What create and edit both send — the rule, without the id or the PIN. */
+export type ChoreWrite = {
+  name: string
+  category: string
+  cadence: string
+  times_per_week: number | null
+  amount_pence: number
+  is_administered: boolean
+}
+
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let detail = `The app returned ${response.status}`
@@ -182,6 +210,7 @@ export const loadSavings = () => get<Savings>('/api/savings')
 export const loadWaivers = () => get<Waiver[]>('/api/waivers')
 export const loadPresets = () => get<Preset[]>('/api/rewards/presets')
 export const loadCurrentWeek = () => get<WeekView>('/api/week')
+export const loadChores = () => get<ChoreDefinition[]>('/api/chores')
 
 /** What a batch would do. Applies nothing, so it carries no PIN. */
 export const previewReview = (decisions: DecisionIn[]) =>
@@ -262,3 +291,12 @@ export const recordOpeningBalance = (pin: string, amount: number) =>
     pin,
     amount_pence: amount,
   })
+
+export const createChore = (pin: string, chore: ChoreWrite) =>
+  send<ChoreDefinition>('/api/chores', { pin, ...chore })
+
+export const editChore = (pin: string, id: number, chore: ChoreWrite) =>
+  send<ChoreDefinition>(`/api/chores/${id}`, { pin, ...chore })
+
+export const retireChore = (pin: string, id: number) =>
+  send<ChoreDefinition>(`/api/chores/${id}/retire`, { pin })

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { WeekView } from './api'
 import type {
+  ChoreDefinition,
   Consequence,
   DecisionIn,
   Owed,
@@ -26,6 +27,7 @@ import type {
   WeekSummary,
 } from './parentApi'
 import {
+  loadChores,
   loadCurrentWeek,
   loadOwed,
   loadPresets,
@@ -34,6 +36,7 @@ import {
   loadWeeks,
   submitReview,
 } from './parentApi'
+import { Chores } from './components/parent/Chores'
 import { ClosedWeeks } from './components/parent/ClosedWeeks'
 import { Payday, Rewards, SavingsPanel } from './components/parent/Money'
 import type { PinAct } from './components/parent/PinDialog'
@@ -49,6 +52,7 @@ type Everything = {
   owed: Owed[]
   savings: Savings
   presets: Preset[]
+  chores: ChoreDefinition[]
 }
 
 export function ParentView() {
@@ -58,17 +62,18 @@ export function ParentView() {
 
   const refresh = useCallback(async () => {
     try {
-      const [queue, weeks, owed, savings, presets] = await Promise.all([
+      const [queue, weeks, owed, savings, presets, chores] = await Promise.all([
         loadQueue(),
         loadWeeks(),
         loadOwed(),
         loadSavings(),
         loadPresets(),
+        loadChores(),
       ])
       // The current week may not be open, or may not exist yet. Neither is an
       // error, and neither should empty the rest of the screen.
       const week = await loadCurrentWeek().catch(() => null)
-      setData({ queue, week, weeks, owed, savings, presets })
+      setData({ queue, week, weeks, owed, savings, presets, chores })
       setError(null)
     } catch (problem) {
       setError((problem as Error).message)
@@ -130,6 +135,7 @@ export function ParentView() {
       <Rewards presets={data.presets} ask={ask} />
       <Payday owed={data.owed} ask={ask} />
       <SavingsPanel savings={data.savings} ask={ask} />
+      <Chores chores={data.chores} ask={ask} />
       <ClosedWeeks weeks={data.weeks} />
 
       <p className="pin-note">

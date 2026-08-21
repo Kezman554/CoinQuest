@@ -924,3 +924,77 @@ Two things the drill on real hardware caught that a file review could not:
 
 Pushed on the strength of everything else passing; the seeded-data drill is
 recorded as open in DEPLOY.md's checklist rather than closed early.
+
+2026-08-21 — Session N: a parent screen for the chores themselves
+
+Every chore up to now was seeded straight into the database by a test or a
+migration; there was no way to add, change or retire one over HTTP or from
+the app at all. This card closes that gap for the five cadences the scheme
+actually uses, and deliberately not for a sixth.
+
+Read app/models/chores.py and both rules docs before writing anything, per
+the card's own instruction. Two questions came out of that and were put to
+the user rather than guessed:
+
+  "Specific weekdays" as a cadence turned out not to exist anywhere — not in
+  the schema, not in pocket-money-rules.md, where every chore is daily,
+  N-times-a-week or week-long. Building it properly needs a new Cadence
+  member, a weekdays column, a plan_week() branch, and a real answer for
+  whether it belongs in ON_DEMAND_CADENCES and WEEK_DERIVED_CADENCES — none
+  of which the rules doc answers, because nothing uses it yet. Deferred by
+  choice (recorded in docs/scribble.md) rather than half-built as a form
+  option that would silently generate no instances.
+
+  "Administered" was safe to add now: a plain is_administered boolean,
+  orthogonal to cadence — the clock test still has a normal frequency, the
+  difference is only that a parent marks it rather than the child claiming
+  it. Revision 9dbe9580e290 adds the column, server_default '0' so every
+  existing chore stays exactly what it always was. The claim endpoint does
+  not read the flag yet; today it is a fact the parent screen can show and
+  set, nothing more.
+
+app/routers/chores.py — POST/GET /api/chores, POST /api/chores/{id} (edit —
+POST, not PUT, matching the fact that no other endpoint in this API uses
+anything but GET and POST), POST /api/chores/{id}/retire. All three writes
+carry the PIN, the same AuthorisedRequest/authorise() pair every other write
+in this app uses — no second mechanism. Retiring sets is_available false and
+refuses a second retirement (409) rather than a silent no-op; there is no
+delete endpoint at all, matching "a definition that was ever claimed against
+must never be removed" — and since nothing distinguishes "never claimed"
+from "claimed" at this layer, retire is simply the one operation offered.
+
+The one design decision beyond CRUD: every write re-syncs *today's* open
+week immediately (mirroring waivers.py), so a created, edited or retired
+chore appears on the current week's view without anyone reopening it. Other
+open weeks pick up the change the next time they're touched, which was
+already true before this card — plan_week() always reads live definitions.
+
+frontend/src/components/parent/Chores.tsx — a panel wired into ParentView
+alongside Rewards/Payday/SavingsPanel/ClosedWeeks, on the same data-refresh
+cycle and the same ask()/PinDialog every other act on that screen uses. A
+create form and a per-chore edit form share one component; cadence's
+shape-specific field (times_per_week) shows only for weekly_count, mirroring
+the CHECK constraint the server enforces anyway. Amount is typed as pounds
+and parsed client-side with the existing parsePence, the same pattern Payday
+and the withdrawal form already use, sent to the API as a plain amount_pence
+integer — the router does not accept a pounds string for this one, unlike
+/api/rewards, since the card asked for pence and there was no reason to
+reopen that design question.
+
+Tests: 451 pass (428 + 23 new in tests/test_chores.py), including the card's
+two named cases — a created chore appearing on the current week's view with
+no reopen, and retiring a chore that a settled week already paid for leaving
+that week's stored figures and its settlement lines byte-for-byte unchanged,
+proved through the retire endpoint itself rather than by editing the model
+directly. One unrelated pre-existing flake seen once in the full run
+(test_parent.py::test_previewing_changes_nothing) and not reproduced on
+three subsequent full runs or in isolation — not touched by this card.
+
+Verified live against a running server, not just TestClient: PIN gating (no
+pin -> 422, wrong pin -> 401 with the lockout logging its usual "1 of 5"
+line, correct pin -> 201), a daily chore appearing on all seven days of the
+already-open current week with no reopen call in between, an administered
+weekly-count bonus chore, editing its amount, retiring it, a second retire
+refused with 409, and the retired chore still listed rather than gone.
+
+npm run build (tsc -b + vite build) clean.

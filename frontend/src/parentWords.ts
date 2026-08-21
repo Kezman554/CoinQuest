@@ -16,7 +16,7 @@
  */
 
 import { money } from './api'
-import type { Consequence, Figures, Pending } from './parentApi'
+import type { Cadence, Consequence, Figures, Pending } from './parentApi'
 import { list, plural, shortDate } from './words'
 
 export function weekLabel(start: string, end: string): string {
@@ -138,6 +138,26 @@ export function pendingLabel(claim: Pending): string {
 
 function ordinal(sequence: number): string {
   return sequence === 1 ? 'st' : sequence === 2 ? 'nd' : sequence === 3 ? 'rd' : 'th'
+}
+
+/** How a chore's cadence reads on the management screen, its own shape included. */
+export function cadenceLabel(cadence: Cadence, timesPerWeek: number | null): string {
+  switch (cadence) {
+    case 'daily':
+      return 'Every day'
+    case 'weekly_count':
+      return timesPerWeek === 1
+        ? 'Once a week'
+        : `${timesPerWeek ?? '?'} times a week`
+    case 'weekly_condition':
+      return 'All week, judged on Sunday'
+    case 'one_off':
+      return 'One-off'
+    case 'event':
+      return 'Logged by a parent when it happens'
+    default:
+      return cadence
+  }
 }
 
 /** How long a claim has been waiting, for a queue that is worked on Sundays. */

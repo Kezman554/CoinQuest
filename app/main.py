@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import run_migrations
 from app.frontend import mount_frontend
 from app.routers import (
+    chores,
     claims,
     parent,
     rewards,
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="CoinQuest", version="0.1.0", lifespan=lifespan)
+app.include_router(chores.router)
 app.include_router(claims.router)
 app.include_router(weeks.router)
 app.include_router(weeks.savings_router)
