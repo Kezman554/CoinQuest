@@ -15,6 +15,7 @@ from app.routers import (
     claims,
     parent,
     rewards,
+    settings as settings_router,
     summary,
     waivers,
     week_view,
@@ -42,6 +43,7 @@ app.include_router(week_view.router)
 app.include_router(parent.router)
 app.include_router(waivers.router)
 app.include_router(summary.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/health")

@@ -89,9 +89,25 @@ def instances_for(definition, confirmed=0, missed=0, untouched=0, start=100):
     return rows
 
 
-def assess(definitions, instances, waivers=(), cap=RECOVERY_CAP):
+def assess(
+    definitions,
+    instances,
+    waivers=(),
+    cap=RECOVERY_CAP,
+    weekly_basic_pay_pence=BEDS.amount_pence,
+):
+    # Defaulted to BEDS's own amount, not because that means anything under
+    # the pot model, but because it is what every "350" in this file already
+    # expects — one place to keep that true rather than fixture-era numbers
+    # scattered through every assertion below.
     plan = plan_week(WEEK, definitions, waivers, week_id=1)
-    return assess_week(plan, definitions, instances, cap=cap)
+    return assess_week(
+        plan,
+        definitions,
+        instances,
+        weekly_basic_pay_pence=weekly_basic_pay_pence,
+        cap=cap,
+    )
 
 
 # --- 1. Establishing the week's misses --------------------------------------
@@ -370,6 +386,49 @@ def test_weekdays_is_predictable_from_the_definition_alone():
     }
 
 
+# --- 6b. The basic chores share one pot, not a sum of their own amounts -----
+
+
+def test_chore_pay_at_stake_is_the_configured_pot_not_a_sum():
+    # Three basic chores, none carrying its own amount any more (all 0),
+    # against a pot explicitly set to 200 — the figure must be 200, not the
+    # sum of three zeroes and not any of the chores' own retired amount.
+    bed = FakeDefinition(20, "Make bed", Cadence.DAILY, Category.BASIC, 0)
+    lunchbox = FakeDefinition(21, "Lunchbox and cups", Cadence.DAILY, Category.BASIC, 0)
+    hoover = FakeDefinition(
+        22, "Hoover", Cadence.WEEKLY_COUNT, Category.BASIC, 0, times_per_week=2
+    )
+    rows = (
+        instances_for(bed, confirmed=7)
+        + instances_for(lunchbox, confirmed=7, start=200)
+        + instances_for(hoover, confirmed=2, start=300)
+    )
+    assessment = assess([bed, lunchbox, hoover], rows, weekly_basic_pay_pence=200)
+    assert assessment.chore_pay_at_stake_pence == 200
+
+
+def test_chore_pay_at_stake_is_zero_when_no_basic_chore_is_assessed():
+    # Only a bonus chore this week — nothing gates the pot, so it is not at
+    # stake at all, whatever it is configured to.
+    assessment = assess(
+        [HOOVER], instances_for(HOOVER, confirmed=2), weekly_basic_pay_pence=200
+    )
+    assert assessment.chore_pay_at_stake_pence == 0
+
+
+def test_chore_pay_at_stake_does_not_grow_with_more_basic_chores():
+    # The whole point: adding a second basic chore must not add a second
+    # pot's worth on top of the first.
+    one = assess([BEDS], instances_for(BEDS, confirmed=7), weekly_basic_pay_pence=200)
+    other = FakeDefinition(23, "Wash up", Cadence.DAILY, Category.BASIC, 0)
+    two = assess(
+        [BEDS, other],
+        instances_for(BEDS, confirmed=7) + instances_for(other, confirmed=7, start=200),
+        weekly_basic_pay_pence=200,
+    )
+    assert one.chore_pay_at_stake_pence == two.chore_pay_at_stake_pence == 200
+
+
 # --- 5. The best assignment, computed --------------------------------------
 
 
@@ -410,12 +469,13 @@ def test_the_greedy_assignment_pays_less_than_the_best_one():
 
 def test_the_best_answer_is_sometimes_to_recover_nothing():
     # A cheap chore pay and an expensive bonus: rescuing the pay costs more
-    # than it is worth, so the bonus is kept and the pay is let go.
+    # than it is worth, so the bonus is kept and the pay is let go. "Cheap"
+    # is now the pot, not the chore's own (retired) amount — set explicitly.
     small = FakeDefinition(10, "Small basics", Cadence.DAILY, Category.BASIC, 50)
     rows = instances_for(small, confirmed=6, untouched=1) + instances_for(
         SHED, confirmed=1, start=300
     )
-    assessment = assess([small, SHED], rows)
+    assessment = assess([small, SHED], rows, weekly_basic_pay_pence=50)
 
     best = best_assignment(assessment)
     assert best.spent_definition_ids == ()
@@ -568,7 +628,7 @@ def test_an_inferred_miss_is_written_without_an_author(session):
     session.commit()
 
     plan = plan_week(WEEK, [definition], week_id=week.id)
-    assessment = assess_week(plan, [definition], week.instances)
+    assessment = assess_week(plan, [definition], week.instances, weekly_basic_pay_pence=350)
     assert len(assessment.misses) == 7
 
     written = record_inferred_misses(session, assessment.misses)
@@ -610,7 +670,7 @@ def test_an_inferred_miss_does_not_inherit_the_name_of_whoever_rejected(session)
     session.commit()
 
     plan = plan_week(WEEK, [definition], week_id=week.id)
-    assessment = assess_week(plan, [definition], [instance])
+    assessment = assess_week(plan, [definition], [instance], weekly_basic_pay_pence=350)
     record_inferred_misses(session, assessment.misses)
     session.commit()
     session.expire_all()

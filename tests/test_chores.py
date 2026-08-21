@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.models import Cadence, Category, ChoreDefinition, ChoreInstance, InstanceState, Week
+from app.services import scheme_settings
 from app.services.calendar import current_week
 
 PIN = "0000"
@@ -106,7 +107,6 @@ def test_a_duplicate_name_is_refused(api):
             "name": "Water houseplants",
             "category": "basic",
             "cadence": "daily",
-            "amount_pence": 10,
         },
     )
     assert response.status_code == 409
@@ -165,6 +165,100 @@ def test_a_negative_amount_is_refused(api):
             "category": "basic",
             "cadence": "daily",
             "amount_pence": -10,
+        },
+    )
+    assert response.status_code == 422
+
+
+# --- The basic chores share one pot: no amount of their own -------------------
+
+
+def test_a_basic_chore_defaults_its_amount_to_zero(api):
+    body = api.post(
+        "/api/chores",
+        json={"pin": PIN, "name": "Make bed", "category": "basic", "cadence": "daily"},
+    ).json()
+    assert body["amount_pence"] == 0
+
+
+def test_a_basic_chore_with_amount_zero_is_also_fine(api):
+    body = api.post(
+        "/api/chores",
+        json={
+            "pin": PIN,
+            "name": "Make bed",
+            "category": "basic",
+            "cadence": "daily",
+            "amount_pence": 0,
+        },
+    ).json()
+    assert body["amount_pence"] == 0
+
+
+def test_a_basic_chore_with_a_nonzero_amount_is_refused(api):
+    """The exact bug this session fixes: a typed-in amount must not be
+    silently discarded — that would just be the £4-instead-of-£2 mistake
+    wearing a different disguise."""
+    response = api.post(
+        "/api/chores",
+        json={
+            "pin": PIN,
+            "name": "Make bed",
+            "category": "basic",
+            "cadence": "daily",
+            "amount_pence": 200,
+        },
+    )
+    assert response.status_code == 422
+    assert "no amount of its own" in response.text
+    assert api.get("/api/chores").json() == []  # nothing was created either
+
+
+def test_editing_a_basic_chore_to_a_nonzero_amount_is_refused(api):
+    body = create(
+        api,
+        name="Make bed",
+        category="basic",
+        cadence="daily",
+        times_per_week=None,
+        amount_pence=None,
+    )
+    response = api.post(
+        f"/api/chores/{body['id']}",
+        json={
+            "pin": PIN,
+            "name": "Make bed",
+            "category": "basic",
+            "cadence": "daily",
+            "amount_pence": 200,
+        },
+    )
+    assert response.status_code == 422
+    assert api.get("/api/chores").json()[0]["amount_pence"] == 0  # unchanged
+
+
+def test_bonus_still_needs_its_own_amount(api):
+    response = api.post(
+        "/api/chores",
+        json={
+            "pin": PIN,
+            "name": "Water houseplants",
+            "category": "bonus",
+            "cadence": "weekly_count",
+            "times_per_week": 2,
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_reward_still_needs_its_own_amount(api):
+    response = api.post(
+        "/api/chores",
+        json={
+            "pin": PIN,
+            "name": "School award",
+            "category": "reward",
+            "cadence": "event",
         },
     )
     assert response.status_code == 422
@@ -236,7 +330,6 @@ def test_editing_an_unknown_chore_is_404(api):
             "name": "Nothing",
             "category": "basic",
             "cadence": "daily",
-            "amount_pence": 10,
         },
     )
     assert response.status_code == 404
@@ -318,7 +411,14 @@ def test_a_created_chore_appears_on_the_current_weeks_view(api, week_dates):
 
 def test_a_daily_chore_appears_on_every_day(api):
     assert api.post("/api/week/open").status_code == 200
-    create(api, name="Make your bed", category="basic", cadence="daily", times_per_week=None)
+    create(
+        api,
+        name="Make your bed",
+        category="basic",
+        cadence="daily",
+        times_per_week=None,
+        amount_pence=None,
+    )
 
     week = api.get("/api/week").json()
     for day in week["days"]:
@@ -399,10 +499,12 @@ def test_retiring_leaves_a_settled_weeks_historical_rows_unchanged(api, session)
         name="Hoover downstairs",
         cadence=Cadence.WEEKLY_COUNT,
         category=Category.BASIC,
-        amount_pence=180,
+        amount_pence=0,
         times_per_week=2,
     )
     session.add(definition)
+    session.flush()
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 180
     session.commit()
 
     week = Week(start_date=FIRST_SUNDAY, end_date=FIRST_SATURDAY)
@@ -434,18 +536,18 @@ def test_retiring_leaves_a_settled_weeks_historical_rows_unchanged(api, session)
     retire = api.post(f"/api/chores/{definition.id}/retire", json={"pin": PIN})
     assert retire.status_code == 200
 
-    # Repricing the retired chore too, for good measure — the same edit that
+    # Repricing the pot too, for good measure — the same guarantee
     # test_settlement.py already proves is inert against a settled week.
-    session.refresh(definition)
-    definition.amount_pence = 999
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 999
     session.commit()
 
     after = api.get(f"/api/weeks/{week.id}").json()
     assert after == before
 
     named = {line["chore_name"]: line for line in after["lines"]}
-    assert named["Hoover downstairs"]["unit_amount_pence"] == 180
-    assert named["Hoover downstairs"]["amount_pence"] == 180
+    assert named["Hoover downstairs"]["amount_pence"] == 0  # never carries one
+    assert named["Weekly basic pay"]["unit_amount_pence"] == 180
+    assert named["Weekly basic pay"]["amount_pence"] == 180
 
     # And the definition itself survives, retired rather than gone.
     survivor = session.get(ChoreDefinition, definition.id)
@@ -463,7 +565,7 @@ def weekdays_chore(api, **overrides) -> dict:
         "cadence": "weekdays",
         "times_per_week": None,
         "weekdays": ["tuesday", "friday"],
-        "amount_pence": 50,
+        "amount_pence": None,  # basic — no amount of its own
         **overrides,
     }
     return create(api, **fields)
@@ -564,7 +666,7 @@ def test_editing_a_weekdays_chores_days_reflects_immediately_no_reopen(api):
     body = weekdays_chore(api)
     assert api.post("/api/week/open").status_code == 200
 
-    api.post(
+    edited = api.post(
         f"/api/chores/{body['id']}",
         json={
             "pin": PIN,
@@ -572,9 +674,9 @@ def test_editing_a_weekdays_chores_days_reflects_immediately_no_reopen(api):
             "category": "basic",
             "cadence": "weekdays",
             "weekdays": ["monday", "wednesday", "saturday"],
-            "amount_pence": 50,
         },
     )
+    assert edited.status_code == 200, edited.text
 
     week = api.get("/api/week").json()
     due_on = {
@@ -649,9 +751,10 @@ def test_a_week_settled_before_this_card_shipped_is_untouched_by_it(api, session
         name="Make your bed",
         cadence=Cadence.DAILY,
         category=Category.BASIC,
-        amount_pence=350,
+        amount_pence=0,
     )
     session.add(definition)
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 350
     session.commit()
 
     week = Week(start_date=FIRST_SUNDAY, end_date=FIRST_SATURDAY)

@@ -72,7 +72,9 @@ class ChoreWriteRequest(AuthorisedRequest):
     #: Required for, and only for, weekdays — day names (see WEEKDAY_TOKENS),
     #: any case, any order, at least one. Mirrors that CHECK too.
     weekdays: list[str] | None = None
-    amount_pence: int = Field(ge=0)
+    #: Retired for BASIC — see category_carries_its_own_amount below. Still
+    #: required for BONUS and REWARD, which keep their own individual amount.
+    amount_pence: int | None = Field(default=None, ge=0)
     is_administered: bool = False
 
     @model_validator(mode="after")
@@ -119,6 +121,29 @@ class ChoreWriteRequest(AuthorisedRequest):
             raise ValueError("weekdays only applies to a weekdays chore.")
         return self
 
+    @model_validator(mode="after")
+    def category_carries_its_own_amount(self) -> "ChoreWriteRequest":
+        """A basic chore gates the shared pot; it does not carry a price.
+
+        Omitting amount_pence for a basic chore is the normal case — the
+        stored value becomes 0. A nonzero one is refused rather than
+        silently discarded: silently ignoring a figure someone typed is how
+        the original bug happened (two basic chores at £2 each read as £4),
+        and the fix is not another silent number.
+        """
+        if self.category == Category.BASIC.value:
+            if self.amount_pence not in (None, 0):
+                raise ValueError(
+                    "A basic chore has no amount of its own — it gates the"
+                    " shared weekly basic pay (see POST /api/settings)."
+                    " Leave amount_pence unset or 0."
+                )
+        elif self.amount_pence is None:
+            raise ValueError(
+                "A bonus or reward chore needs its own amount_pence."
+            )
+        return self
+
 
 class RetireRequest(AuthorisedRequest):
     """Nothing but the PIN — retiring states no new fact beyond "not any more"."""
@@ -158,6 +183,13 @@ def _weekdays_value(body: ChoreWriteRequest) -> str | None:
     if body.cadence != Cadence.WEEKDAYS.value:
         return None
     return format_weekdays(parse_weekday_tokens(body.weekdays))
+
+
+def _amount_pence_value(body: ChoreWriteRequest) -> int:
+    """0 for a basic chore — it has no amount of its own — the body's value otherwise."""
+    if body.category == Category.BASIC.value:
+        return 0
+    return body.amount_pence  # validated non-None for bonus/reward
 
 
 # --- Re-syncing today's week --------------------------------------------------
@@ -213,7 +245,7 @@ def create_chore(
         cadence=Cadence(body.cadence),
         times_per_week=body.times_per_week,
         weekdays=_weekdays_value(body),
-        amount_pence=body.amount_pence,
+        amount_pence=_amount_pence_value(body),
         is_administered=body.is_administered,
     )
     session.add(definition)
@@ -265,7 +297,7 @@ def edit_chore(
     definition.cadence = Cadence(body.cadence)
     definition.times_per_week = body.times_per_week
     definition.weekdays = _weekdays_value(body)
-    definition.amount_pence = body.amount_pence
+    definition.amount_pence = _amount_pence_value(body)
     definition.is_administered = body.is_administered
 
     try:

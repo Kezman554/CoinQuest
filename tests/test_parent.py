@@ -25,6 +25,7 @@ from app.models import (
     Waiver,
     Week,
 )
+from app.services import scheme_settings
 from app.services.calendar import current_week
 
 PIN = "0000"
@@ -55,13 +56,13 @@ def scheme(session) -> dict[str, ChoreDefinition]:
             name="Make your bed",
             cadence=Cadence.DAILY,
             category=Category.BASIC,
-            amount_pence=50,
+            amount_pence=0,
         ),
         "hoover": ChoreDefinition(
             name="Hoover downstairs",
             cadence=Cadence.WEEKLY_COUNT,
             category=Category.BASIC,
-            amount_pence=90,
+            amount_pence=0,
             times_per_week=2,
         ),
         "car": ChoreDefinition(
@@ -73,6 +74,9 @@ def scheme(session) -> dict[str, ChoreDefinition]:
         ),
     }
     session.add_all(definitions.values())
+    # The shared pot the two basic chores gate — "50 + 90" throughout this
+    # file's assertions, matching test_week_view.py's own fixture.
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 50 + 90
     session.commit()
     return definitions
 
@@ -357,10 +361,12 @@ def test_waiving_a_chore_for_the_week(api, scheme, week_dates):
 
     after = api.get("/api/week").json()
     assert all(card["name"] != "Hoover downstairs" for card in after["weekly"])
-    # And the week no longer puts that chore's money at stake.
+    # The pot is unchanged: "bed" still gates it, and waiving one of several
+    # basic chores does not shrink a pot that was never that chore's own —
+    # only waiving every basic chore for the week would take it to 0.
     assert after["totals"]["chore_pay_at_stake_pence"] == view["totals"][
         "chore_pay_at_stake_pence"
-    ] - 90
+    ]
 
 
 def test_waiving_needs_the_pin_and_a_coherent_scope(api, scheme, week_dates):

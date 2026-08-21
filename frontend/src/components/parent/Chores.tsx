@@ -1,5 +1,6 @@
 /**
- * Managing the chores themselves — create, edit, retire.
+ * Managing the chores themselves — create, edit, retire — and the one
+ * figure the basic ones share.
  *
  * A definition is the rule; the child's screen and every figure the app
  * computes read it live. Editing here changes what happens from here on and
@@ -13,12 +14,33 @@
  * screen offers for a chore nobody wants any more, and — like everything
  * else on this page — it goes through the same PIN dialog as a settle or a
  * void, never a second mechanism of its own.
+ *
+ * A BASIC chore carries no amount of its own. "Make bed" at £2 and
+ * "Lunchbox and cups" at £2 never meant £4 — the rules describe one shared
+ * weekly basic pay, and each basic chore only gates whether it is earned.
+ * So the amount field is gone from this form for that category, and the
+ * one figure that replaces it — the pot itself — has its own control at the
+ * top of the section, edited the same PIN-gated way as everything else
+ * here. BONUS and REWARD are untouched: they still carry, and still ask
+ * for, their own individual amount.
  */
 
 import { useState } from 'react'
 import { money, parsePence } from '../../api'
-import type { Cadence, ChoreDefinition, ChoreWrite, Weekday } from '../../parentApi'
-import { WEEKDAYS, createChore, editChore, retireChore } from '../../parentApi'
+import type {
+  Cadence,
+  ChoreDefinition,
+  ChoreWrite,
+  SchemeSettings,
+  Weekday,
+} from '../../parentApi'
+import {
+  WEEKDAYS,
+  createChore,
+  editChore,
+  retireChore,
+  updateSchemeSettings,
+} from '../../parentApi'
 import { cadenceLabel, weekdayLabel } from '../../parentWords'
 import type { PinAct } from './PinDialog'
 
@@ -39,7 +61,11 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: 'reward', label: 'Reward — pays its own amount' },
 ]
 
-export function Chores({ ask, chores }: Ask & { chores: ChoreDefinition[] }) {
+export function Chores({
+  ask,
+  chores,
+  schemeSettings,
+}: Ask & { chores: ChoreDefinition[]; schemeSettings: SchemeSettings }) {
   const active = chores.filter((chore) => chore.is_available)
   const retired = chores.filter((chore) => !chore.is_available)
   const [creating, setCreating] = useState(false)
@@ -52,6 +78,8 @@ export function Chores({ ask, chores }: Ask & { chores: ChoreDefinition[] }) {
         keeps its own figures whatever a chore is renamed, repriced or
         retired to afterwards — nothing here ever recomputes one.
       </p>
+
+      <WeeklyBasicPay settings={schemeSettings} ask={ask} />
 
       {active.length === 0 && (
         <p className="nothing">No chores yet.</p>
@@ -98,6 +126,97 @@ export function Chores({ ask, chores }: Ask & { chores: ChoreDefinition[] }) {
   )
 }
 
+/**
+ * The one figure every basic chore gates rather than earns its own slice
+ * of. Shown once, at the top of the section, so "how much are the basics
+ * worth" has one answer on the screen rather than one per chore.
+ */
+function WeeklyBasicPay({ settings, ask }: Ask & { settings: SchemeSettings }) {
+  const [editing, setEditing] = useState(false)
+  const [amount, setAmount] = useState(money(settings.weekly_basic_pay_pence))
+
+  const pence = parsePence(amount)
+  const ready = pence !== null && pence >= 0
+
+  if (!editing) {
+    return (
+      <div className="act chore-basic-pay">
+        <h3>Weekly basic pay</h3>
+        <p className="act-note">
+          What the basic chores are collectively worth for the week, all or
+          nothing — not a total of their own amounts, which they no longer
+          carry.
+        </p>
+        <div className="act-row">
+          <span className="chore-basic-pay-amount">
+            {settings.weekly_basic_pay}
+          </span>
+          <button
+            type="button"
+            className="button button-quiet"
+            onClick={() => {
+              setAmount(money(settings.weekly_basic_pay_pence))
+              setEditing(true)
+            }}
+          >
+            Edit
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="act chore-basic-pay">
+      <h3>Weekly basic pay</h3>
+      <div className="act-row">
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="Amount, e.g. £2"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+        />
+        <button
+          type="button"
+          className="button button-quiet"
+          onClick={() => setEditing(false)}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="button button-do"
+          disabled={!ready}
+          onClick={() => {
+            if (!ready || pence === null) return
+            ask({
+              title: 'Change the weekly basic pay',
+              summary: `${settings.weekly_basic_pay} → ${money(pence)}`,
+              lines: [
+                'Every basic chore gates this one figure — none of them carry an amount of their own.',
+                'A week already settled keeps its own figures; this only changes what happens from here on.',
+              ],
+              confirmLabel: 'Save',
+              run: (pin) =>
+                updateSchemeSettings(pin, pence).then(() => {
+                  setEditing(false)
+                }),
+            })
+          }}
+        >
+          Save
+        </button>
+      </div>
+      {amount !== '' && pence === null && (
+        <p className="dialog-error">
+          That is not an amount that can be paid in coins.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function ChoreDefRow({ chore, ask }: Ask & { chore: ChoreDefinition }) {
   const [editing, setEditing] = useState(false)
 
@@ -125,7 +244,13 @@ function ChoreDefRow({ chore, ask }: Ask & { chore: ChoreDefinition }) {
       {chore.is_administered && (
         <span className="chore-def-admin">Marked by a parent, not claimed</span>
       )}
-      <span className="chore-def-amount">{money(chore.amount_pence)}</span>
+      {chore.category === 'basic' ? (
+        <span className="chore-def-amount chore-def-amount-shared">
+          shares the weekly basic pay
+        </span>
+      ) : (
+        <span className="chore-def-amount">{money(chore.amount_pence)}</span>
+      )}
       <span className="chore-def-actions">
         <button
           type="button"
@@ -174,17 +299,19 @@ function ChoreForm({
     initial?.times_per_week ? String(initial.times_per_week) : '',
   )
   const [weekdays, setWeekdays] = useState<Weekday[]>(initial?.weekdays ?? [])
-  const [amount, setAmount] = useState(initial ? money(initial.amount_pence) : '')
+  const [amount, setAmount] = useState(
+    initial && initial.category !== 'basic' ? money(initial.amount_pence) : '',
+  )
   const [administered, setAdministered] = useState(initial?.is_administered ?? false)
 
+  const isBasic = category === 'basic'
   const pence = parsePence(amount)
   const needsCount = cadence === 'weekly_count'
   const needsWeekdays = cadence === 'weekdays'
   const count = needsCount ? Number(timesPerWeek) : null
   const ready =
     name.trim().length > 0 &&
-    pence !== null &&
-    pence >= 0 &&
+    (isBasic || (pence !== null && pence >= 0)) &&
     (!needsCount || (count !== null && count > 0)) &&
     (!needsWeekdays || weekdays.length > 0)
 
@@ -197,19 +324,21 @@ function ChoreForm({
   }
 
   const submit = () => {
-    if (!ready || pence === null) return
+    if (!ready) return
     const chore: ChoreWrite = {
       name: name.trim(),
       category,
       cadence,
       times_per_week: needsCount ? count : null,
       weekdays: needsWeekdays ? weekdays : null,
-      amount_pence: pence,
+      // A basic chore has no amount of its own — see the module note.
+      amount_pence: isBasic ? null : pence,
       is_administered: administered,
     }
+    const shape = cadenceLabel(cadence, chore.times_per_week, needsWeekdays ? weekdays : null)
     ask({
       title: initial ? `Save changes to ${initial.name}` : `Add ${chore.name}`,
-      summary: `${cadenceLabel(cadence, chore.times_per_week, needsWeekdays ? weekdays : null)} — ${money(pence)}`,
+      summary: isBasic ? shape : `${shape} — ${money(pence as number)}`,
       confirmLabel: submitLabel,
       run: (pin) =>
         (initial
@@ -263,14 +392,23 @@ function ChoreForm({
             onChange={(event) => setTimesPerWeek(event.target.value)}
           />
         )}
-        <input
-          type="text"
-          inputMode="decimal"
-          placeholder="Amount, e.g. £0.50"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-        />
+        {!isBasic && (
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="Amount, e.g. £0.50"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+          />
+        )}
       </div>
+
+      {isBasic && (
+        <p className="act-note">
+          No amount of its own — it gates the shared weekly basic pay, set
+          once at the top of this section.
+        </p>
+      )}
 
       {needsWeekdays && (
         <div className="chore-form-weekdays" role="group" aria-label="Which days">
@@ -296,7 +434,7 @@ function ChoreForm({
         Nick marks this one directly — the child does not claim it
       </label>
 
-      {amount !== '' && pence === null && (
+      {!isBasic && amount !== '' && pence === null && (
         <p className="dialog-error">
           That is not an amount that can be paid in coins.
         </p>

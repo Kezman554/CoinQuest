@@ -24,6 +24,7 @@ from app.models import (
     WaiverScope,
     Waiver,
 )
+from app.services import scheme_settings
 from app.services.calendar import current_week, today
 
 PIN = "0000"
@@ -49,19 +50,24 @@ def week_dates(session) -> tuple[date, date]:
 
 @pytest.fixture()
 def scheme(session, week_dates) -> dict[str, ChoreDefinition]:
-    """Four chores, one of each shape the screen has to tell apart."""
+    """Four chores, one of each shape the screen has to tell apart.
+
+    "50 + 90" appears throughout this file as the basic chore pay — that is
+    the shared pot now, set explicitly below, not a sum of bed's and
+    hoover's own (retired) amounts.
+    """
     definitions = {
         "bed": ChoreDefinition(
             name="Make your bed",
             cadence=Cadence.DAILY,
             category=Category.BASIC,
-            amount_pence=50,
+            amount_pence=0,
         ),
         "hoover": ChoreDefinition(
             name="Hoover downstairs",
             cadence=Cadence.WEEKLY_COUNT,
             category=Category.BASIC,
-            amount_pence=90,
+            amount_pence=0,
             times_per_week=3,
         ),
         "car": ChoreDefinition(
@@ -73,18 +79,23 @@ def scheme(session, week_dates) -> dict[str, ChoreDefinition]:
         ),
     }
     session.add_all(definitions.values())
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 50 + 90
     session.commit()
     return definitions
 
 
 @pytest.fixture()
 def condition(session, scheme) -> ChoreDefinition:
-    """A week-long condition, which is judged once and never claimed."""
+    """A week-long condition, which is judged once and never claimed.
+
+    Basic, like bed and hoover — a third gate on the same pot, not a fourth
+    figure added to it, so it carries no amount of its own either.
+    """
     definition = ChoreDefinition(
         name="Keep your room tidy",
         cadence=Cadence.WEEKLY_CONDITION,
         category=Category.BASIC,
-        amount_pence=60,
+        amount_pence=0,
     )
     session.add(definition)
     session.commit()
@@ -448,7 +459,9 @@ def test_a_week_long_condition_counts_against_the_week_until_it_is_judged(
 
     # The condition is still counted against the week, and the bonus paid for
     # it: 100p of "Wash the car" spent, unpaid, on a miss nobody can clear.
-    assert view["totals"]["chore_pay_pence"] == 50 + 90 + 60
+    # The pot is flat regardless of how many basic chores gate it — a third
+    # one (the condition) does not add its own retired amount on top.
+    assert view["totals"]["chore_pay_pence"] == 50 + 90
     assert view["totals"]["bonus_pence"] == 0
 
 

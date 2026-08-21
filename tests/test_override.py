@@ -23,6 +23,7 @@ from app.models import (
     Week,
     WeekStatus,
 )
+from app.services import scheme_settings
 
 PIN = "0000"
 WRONG = "9999"
@@ -44,13 +45,17 @@ def api(session):
 
 @pytest.fixture()
 def scheme(session):
-    """350p of basics, and three bonus chores at 100p, 300p and 200p."""
+    """350p of basics, and three bonus chores at 100p, 300p and 200p.
+
+    "350p of basics" is the shared pot, set explicitly below — beds carries
+    no amount of its own any more.
+    """
     definitions = {
         "beds": ChoreDefinition(
             name="Make bed",
             cadence=Cadence.DAILY,
             category=Category.BASIC,
-            amount_pence=350,
+            amount_pence=0,
         ),
         "hoover": ChoreDefinition(
             name="Hoover",
@@ -80,6 +85,7 @@ def scheme(session):
         ),
     }
     session.add_all(definitions.values())
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 350
     session.commit()
     return definitions
 

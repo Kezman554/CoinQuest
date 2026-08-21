@@ -1073,3 +1073,109 @@ editing the chore afterward to Monday/Thursday added those as new untouched
 instances while leaving Tuesday's already-missed one exactly as it was —
 "never destroy work" holding for the new cadence without any code written
 specifically to make it do so; it was already the rule.
+
+2026-08-21 — Session P: one shared pot, not one price per basic chore
+
+Real use surfaced a real gap: "Make bed" at £2 basic and "Lunchbox and cups"
+at £2 basic read as £4 owed, when pocket-money-rules.md §2 describes one
+£2 pot the basic chores collectively gate. ChoreDefinition.amount_pence's
+own comment already said "for a basic chore this is its share of the weekly
+chore pay" — nothing enforced the "share" part; recovery.py just summed
+every assessed basic requirement's own amount.
+
+app/models/settings.py — SchemeSettings, one row, seeded to 200 (£2) by
+revision a4a5f729d606. Named apart from app.config.get_settings()
+deliberately: that is env-var configuration needing a restart; this is
+reviewed and edited through the app, in the database, like a chore
+definition is. app/services/scheme_settings.py reads it (get_row,
+weekly_basic_pay_pence) — the one place both settlement.py and the new
+router touch the table, so there is nowhere for the two to disagree about
+its shape.
+
+app/routers/settings.py — GET /api/settings (no PIN, same as every other
+read), POST /api/settings (PIN-gated, the usual AuthorisedRequest/
+authorise() pair). No re-sync on write, unlike chores.py: this figure is
+read live at proposal time, never baked into a stored instance, so the next
+GET already sees it.
+
+recovery.py: WeekAssessment gained weekly_basic_pay_pence, required with no
+default — a wrong silent default here is a wrong figure of real money.
+chore_pay_at_stake_pence returns the configured pot when at least one basic
+requirement is_assessed, else 0 — not a sum of amount_pence any more. Every
+caller of assess_week() had to start supplying the new argument, which is
+what forced the audit that found how far the old per-chore-amount reading
+had spread.
+
+app/routers/chores.py: amount_pence is now optional, and category-gated —
+omitted or 0 for basic (the stored value becomes 0 either way), refused
+outright if a basic chore is given a nonzero one rather than silently
+discarded. Silently ignoring a typed-in figure is exactly the shape of bug
+this session exists to fix, just wearing a different disguise. Still
+required for bonus and reward, unchanged.
+
+The blast radius that made this a bigger session than it looked: grepping
+every use of chore_pay_at_stake_pence found four existing tests
+(test_settlement.py, test_week_view.py) that asserted the OLD sum as
+correct — the bug, encoded as a passing test. Fixing those surfaced a second,
+undocumented gap the card's own prompt hadn't named: settlement.py's
+_lines() built each basic chore's settlement line from its own
+amount_pence too (`paid = requirement.amount_pence if chore_pay_pence else
+0`), which — now that amount_pence is 0 for every basic chore — would have
+made every basic line read "£0.00" even in a week the pot fully paid,
+silently breaking test_every_stored_amount_is_an_integer_number_of_pence's
+enforced invariant that stored lines sum to the non-base total. Fixed with
+one more line per settled week: "Weekly basic pay", tied to no single
+definition (ProposedLine.definition_id loosened to int | None, mirroring
+SettlementLine.source_definition_id's existing nullability for a deleted
+chore), cadence=WEEKLY_CONDITION as the closest true description of what is
+happening to it — judged once, at settlement — not because it is one. Every
+individual basic chore's own line now reads 0 with a status note; the pot's
+own line carries what it actually paid. Verified live: a settled week's
+lines read "Make bed 0p / Lunchbox and cups 0p / Hoover downstairs 0p /
+Weekly basic pay 200p" — summing correctly, and readable as an honest record
+of who did what plus what it was worth.
+
+Test fixtures across test_settlement.py, test_week_view.py, test_payday.py,
+test_override.py and test_parent.py all constructed a "basic chore worth
+Np" and expected N in the total — every one updated to zero the chore's own
+amount and configure scheme_settings.weekly_basic_pay_pence to N instead,
+preserving each file's existing arithmetic rather than rewriting every
+downstream assertion. One genuine behaviour change beyond bookkeeping:
+test_parent.py's waiver test used to assert that waiving one of two basic
+chores reduced chore_pay_at_stake_pence by that chore's amount — under the
+pot model waiving one of several basic chores that still leaves at least
+one assessed changes nothing, which is the correct new behaviour and the
+test now says so.
+
+Tests: 488 pass (469 + 19 new) — tests/test_scheme_settings.py for the
+endpoint (seeded default, PIN required to write and not to read, negative
+refused, zero allowed), new coverage in test_recovery.py for
+chore_pay_at_stake_pence directly (the configured pot regardless of how
+many basic chores or their own retired amounts, zero when nothing basic is
+assessed, does not grow with a second basic chore), three
+test_settlement.py cases matching the card's own test plan verbatim (three
+basic chores paying the pot once and not three times, an unrecovered basic
+miss still paying nothing, bonus and reward chores paying their own amount
+untouched), and six in test_chores.py for the router's validation (basic
+defaults to 0, basic with 0 is fine, basic with a nonzero amount refused on
+both create and edit with nothing created, bonus and reward still refused
+without their own amount).
+
+frontend: Chores.tsx's amount field is gone from the form for basic
+category — hidden, not disabled, and `ready` no longer requires a valid
+amount when the category is basic. A new WeeklyBasicPay control sits at the
+top of the chores section: the current pot, an Edit toggle, and a PIN-gated
+save through the same ask()/PinDialog as every other act on this screen.
+Each basic chore's row now reads "shares the weekly basic pay" rather than
+a per-chore amount that would always show £0.00. parentApi.ts's
+ChoreWrite.amount_pence is now nullable to carry the "no amount" case
+through the same shape create and edit already share.
+
+Verified live against a running server, the whole path end to end: three
+basic chores created with no amount field sent, a bare nonzero amount for
+one of them refused (422) before it ever reached a definition, all three
+confirmed, chore_pay_pence read 200 (not 600), settled, and the settlement
+lines read exactly as designed. A bonus and a reward chore created
+afterward still required and kept their own individual amount, unaffected.
+
+npm run build clean. pytest 488 passed.

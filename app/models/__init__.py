@@ -22,6 +22,7 @@ from app.models.enums import (
     WeekStatus,
 )
 from app.models.ledgers import EarningEntry, SavingsEntry
+from app.models.settings import SchemeSettings
 from app.models.waivers import Waiver
 from app.models.weeks import SettlementLine, Week
 
@@ -40,6 +41,7 @@ __all__ = [
     "MissOrigin",
     "SavingsEntry",
     "SavingsType",
+    "SchemeSettings",
     "SettlementLine",
     "UtcDateTime",
     "Waiver",

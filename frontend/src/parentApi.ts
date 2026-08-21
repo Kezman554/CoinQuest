@@ -181,15 +181,27 @@ export type ChoreDefinition = {
   is_available: boolean
 }
 
-/** What create and edit both send — the rule, without the id or the PIN. */
+/** What create and edit both send — the rule, without the id or the PIN.
+ *
+ * amount_pence is nullable: a basic chore has none of its own — it gates
+ * the shared weekly basic pay (see SchemeSettings below) — so the form
+ * sends null for one and the server stores 0. Bonus and reward still need
+ * a real figure.
+ */
 export type ChoreWrite = {
   name: string
   category: string
   cadence: string
   times_per_week: number | null
   weekdays: string[] | null
-  amount_pence: number
+  amount_pence: number | null
   is_administered: boolean
+}
+
+/** The scheme's own settings — currently the one figure the basic chores share. */
+export type SchemeSettings = {
+  weekly_basic_pay_pence: number
+  weekly_basic_pay: string
 }
 
 async function json<T>(response: Response): Promise<T> {
@@ -234,6 +246,7 @@ export const loadWaivers = () => get<Waiver[]>('/api/waivers')
 export const loadPresets = () => get<Preset[]>('/api/rewards/presets')
 export const loadCurrentWeek = () => get<WeekView>('/api/week')
 export const loadChores = () => get<ChoreDefinition[]>('/api/chores')
+export const loadSchemeSettings = () => get<SchemeSettings>('/api/settings')
 
 /** What a batch would do. Applies nothing, so it carries no PIN. */
 export const previewReview = (decisions: DecisionIn[]) =>
@@ -323,3 +336,9 @@ export const editChore = (pin: string, id: number, chore: ChoreWrite) =>
 
 export const retireChore = (pin: string, id: number) =>
   send<ChoreDefinition>(`/api/chores/${id}/retire`, { pin })
+
+export const updateSchemeSettings = (pin: string, weeklyBasicPayPence: number) =>
+  send<SchemeSettings>('/api/settings', {
+    pin,
+    weekly_basic_pay_pence: weeklyBasicPayPence,
+  })

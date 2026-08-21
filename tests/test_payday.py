@@ -20,6 +20,7 @@ from app.models import (
     Week,
     WeekStatus,
 )
+from app.services import scheme_settings
 
 PIN = "0000"
 WRONG = "9999"
@@ -44,9 +45,11 @@ def api(session):
 @pytest.fixture()
 def beds(session) -> ChoreDefinition:
     definition = ChoreDefinition(
-        name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=350
+        name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=0
     )
     session.add(definition)
+    # The shared pot beds gates — "350p chore pay" throughout this file.
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 350
     session.commit()
     return definition
 

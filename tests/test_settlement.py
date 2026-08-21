@@ -26,6 +26,7 @@ from app.models import (
     Week,
     WeekStatus,
 )
+from app.services import scheme_settings
 
 PIN = "0000"
 WRONG = "9999"
@@ -48,9 +49,14 @@ def api(session):
 
 @pytest.fixture()
 def scheme(session):
-    """350p of basics, a 100p bonus and a 250p reward — plus the 100p base."""
+    """350p of basics, a 100p bonus and a 250p reward — plus the 100p base.
+
+    "350p of basics" is the shared pot now, not beds's own amount — a basic
+    chore carries none any more. Set on scheme_settings explicitly, which is
+    what every "350" below actually reads.
+    """
     beds = ChoreDefinition(
-        name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=350
+        name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=0
     )
     hoover = ChoreDefinition(
         name="Hoover",
@@ -66,6 +72,7 @@ def scheme(session):
         amount_pence=250,
     )
     session.add_all([beds, hoover, award])
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 350
     session.commit()
     return {"beds": beds, "hoover": hoover, "award": award}
 
@@ -497,23 +504,91 @@ def test_changing_a_chores_amount_leaves_the_settled_figures_unchanged(
     a_perfect_week(session, scheme, week)
     api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
-    # The scheme is reviewed. Everything about both chores changes.
-    scheme["beds"].amount_pence = 900
+    # The scheme is reviewed. Everything about both chores changes, and so
+    # does the shared pot itself — the reprice that actually matters under
+    # this card, standing in for the old per-chore amount change.
     scheme["beds"].name = "Make bed properly"
     scheme["hoover"].amount_pence = 5
     scheme["hoover"].is_available = False
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 900
     session.commit()
 
     body = api.get(f"/api/weeks/{week.id}").json()
-    assert body["total_pence"] == 550        # not 1005
+    assert body["total_pence"] == 550        # not 1105
     assert body["chore_pay_pence"] == 350    # not 900
     assert body["bonus_pence"] == 100        # not 5
 
     # And the lines still read as they did that week.
     named = {line["chore_name"]: line for line in body["lines"]}
-    assert named["Make bed"]["amount_pence"] == 350
+    assert named["Make bed"]["amount_pence"] == 0  # a basic line never carries one
+    assert named["Weekly basic pay"]["amount_pence"] == 350
+    assert named["Weekly basic pay"]["unit_amount_pence"] == 350  # not 900
     assert named["Hoover"]["unit_amount_pence"] == 100
     assert "Make bed properly" not in named
+
+
+def test_three_basic_chores_done_pay_the_pot_once_not_three_times(api, session):
+    """The exact bug this session fixes: £2 + £2 + £2 must not read as £6."""
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 200  # £2
+    bed = ChoreDefinition(
+        name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=0
+    )
+    lunchbox = ChoreDefinition(
+        name="Lunchbox and cups",
+        cadence=Cadence.DAILY,
+        category=Category.BASIC,
+        amount_pence=0,
+    )
+    hoover = ChoreDefinition(
+        name="Hoover",
+        cadence=Cadence.WEEKLY_COUNT,
+        category=Category.BASIC,
+        amount_pence=0,
+        times_per_week=2,
+    )
+    session.add_all([bed, lunchbox, hoover])
+    session.commit()
+
+    week = make_week(session)
+    add_instances(session, week, bed, confirmed=7)
+    add_instances(session, week, lunchbox, confirmed=7)
+    add_instances(session, week, hoover, confirmed=2)
+
+    body = api.get(f"/api/weeks/{week.id}/proposal").json()
+    assert body["chore_pay_at_stake_pence"] == 200  # not 600
+    assert body["chore_pay_pence"] == 200            # not 600
+    assert body["total_pence"] == 100 + 200          # base + the one pot
+
+
+def test_an_unrecovered_basic_miss_still_pays_nothing(api, session):
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 200
+    bed = ChoreDefinition(
+        name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=0
+    )
+    session.add(bed)
+    session.commit()
+
+    week = make_week(session)
+    add_instances(session, week, bed, confirmed=6, untouched=1)  # one short, no recovery route
+
+    body = api.get(f"/api/weeks/{week.id}/proposal").json()
+    assert body["chore_pay_at_stake_pence"] == 200  # the pot was on offer
+    assert body["chore_pay_pence"] == 0             # but not earned
+    assert body["total_pence"] == 100               # base only
+
+
+def test_bonus_and_reward_chores_pay_their_own_amount_unaffected(api, session, scheme):
+    """The pot only replaces BASIC's arithmetic — the other two are untouched."""
+    week = make_week(session)
+    add_instances(session, week, scheme["beds"], confirmed=7)
+    add_instances(session, week, scheme["hoover"], confirmed=2)
+    add_instances(session, week, scheme["award"], confirmed=1)
+
+    body = api.get(f"/api/weeks/{week.id}/proposal").json()
+    # All-or-nothing per §5: the bonus pays once for completing the
+    # frequency, not per instance — 100p, not 200p for two confirmed.
+    assert body["bonus_pence"] == scheme["hoover"].amount_pence
+    assert body["reward_pence"] == scheme["award"].amount_pence  # its own figure, once
 
 
 def test_no_path_recomputes_a_settled_week(api, session, scheme):
@@ -521,7 +596,7 @@ def test_no_path_recomputes_a_settled_week(api, session, scheme):
     a_perfect_week(session, scheme, week)
     api.post(f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 550})
 
-    scheme["beds"].amount_pence = 900
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 900
     session.commit()
 
     # The proposal endpoint refuses outright rather than answering with a
@@ -556,7 +631,8 @@ def test_a_settled_week_survives_its_chores_being_deleted(api, session, scheme):
     body = api.get(f"/api/weeks/{week.id}").json()
     assert body["total_pence"] == 550
     named = {line["chore_name"]: line for line in body["lines"]}
-    assert named["Make bed"]["amount_pence"] == 350
+    assert named["Make bed"]["amount_pence"] == 0  # a basic line never carries one
+    assert named["Weekly basic pay"]["amount_pence"] == 350
 
     lines = session.query(SettlementLine).all()
     assert all(line.source_definition_id is None for line in lines)  # provenance gone

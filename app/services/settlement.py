@@ -49,6 +49,7 @@ from app.models.ledgers import EarningEntry
 from app.models.waivers import Waiver
 from app.models.weeks import SettlementLine, Week
 from app.services.authorisation import Authorisation
+from app.services import scheme_settings
 from app.services.calendar import Period
 from app.services.instances import plan_week
 from app.services.recovery import (
@@ -102,9 +103,16 @@ class Recovery:
 
 @dataclass(frozen=True)
 class ProposedLine:
-    """One line of the week's figures, ready to be frozen into the record."""
+    """One line of the week's figures, ready to be frozen into the record.
 
-    definition_id: int
+    definition_id is usually one chore's, but not always: the weekly basic
+    pay is one pot several chores gate rather than any one chore's own
+    amount, so its line names none of them — see _lines() below. Null here
+    means the same thing SettlementLine.source_definition_id already means
+    for a deleted definition: provenance absent, not a chore that vanished.
+    """
+
+    definition_id: int | None
     chore_name: str
     category: Category
     cadence: Cadence
@@ -184,6 +192,7 @@ def propose(
     *,
     cap: int = RECOVERY_CAP,
     base_pence: int | None = None,
+    weekly_basic_pay_pence: int | None = None,
     override: Sequence[SuppliedRecovery] | None = None,
 ) -> Proposal:
     """Work out what an open week is worth. Writes nothing.
@@ -206,12 +215,21 @@ def propose(
     if base_pence is None:
         base_pence = get_settings().weekly_base_pence
 
+    if weekly_basic_pay_pence is None:
+        weekly_basic_pay_pence = scheme_settings.weekly_basic_pay_pence(session)
+
     definitions = session.query(ChoreDefinition).all()
     waivers = session.query(Waiver).all()
     instances = session.query(ChoreInstance).filter(ChoreInstance.week_id == week.id).all()
 
     plan = plan_week(week_period(week, tz), definitions, waivers, week_id=week.id)
-    assessment = assess_week(plan, definitions, instances, cap=cap)
+    assessment = assess_week(
+        plan,
+        definitions,
+        instances,
+        weekly_basic_pay_pence=weekly_basic_pay_pence,
+        cap=cap,
+    )
 
     optimum = best_assignment(assessment)
     if override is None:
@@ -304,19 +322,39 @@ def _lines(assessment: WeekAssessment, assignment: Assignment) -> tuple[Proposed
     Zero-value lines are kept. A basic chore that was missed, and a bonus
     chore worked and spent on a recovery, both happened, and a record that
     only lists what paid is not a record of the week.
+
+    A basic chore's own line never carries an amount any more — it gates the
+    shared pot rather than earning a slice of it, so nothing here is its
+    "share". One further line, tied to no single chore, carries the pot
+    itself (see _basic_pay_line below), so the record still explains where
+    the chore pay came from and the lines still sum to the total — the same
+    invariant test_every_stored_amount_is_an_integer_number_of_pence checks.
     """
     lines: list[ProposedLine] = []
+    basic_requirements: list[Requirement] = []
 
     for requirement in assessment.requirements:
         if not requirement.is_assessed:
             continue
 
         if requirement.category is Category.BASIC:
-            paid = requirement.amount_pence if assignment.chore_pay_pence else 0
-            note = None if paid else "no chore pay this week"
+            basic_requirements.append(requirement)
             if not requirement.met:
-                note = "missed" if not paid else "missed, recovered"
-            lines.append(_line(requirement, quantity=1, amount=paid, note=note))
+                note = "missed, recovered" if assignment.chore_pay_pence else "missed"
+            else:
+                note = None if assignment.chore_pay_pence else "the weekly basic pay was not earned"
+            lines.append(
+                ProposedLine(
+                    definition_id=requirement.definition_id,
+                    chore_name=requirement.name,
+                    category=requirement.category,
+                    cadence=requirement.cadence,
+                    unit_amount_pence=0,
+                    quantity=1,
+                    amount_pence=0,
+                    note=note,
+                )
+            )
 
         elif requirement.category is Category.BONUS:
             if not requirement.met:
@@ -346,7 +384,34 @@ def _lines(assessment: WeekAssessment, assignment: Assignment) -> tuple[Proposed
                 )
             )
 
+    if basic_requirements:
+        lines.append(_basic_pay_line(assessment, assignment))
+
     return tuple(lines)
+
+
+def _basic_pay_line(assessment: WeekAssessment, assignment: Assignment) -> ProposedLine:
+    """The shared pot itself, as its own line — tied to no single chore.
+
+    Named apart from any definition (definition_id=None) because it is not
+    one: it is what the basic chores collectively earned, or did not, and
+    attributing it to any one of them would be exactly the invented fraction
+    this whole change exists to stop doing. cadence=WEEKLY_CONDITION because
+    that is the closest true description of what is happening to it — judged
+    once, at settlement, the same as any week-long condition — not because it
+    is one.
+    """
+    paid = assignment.chore_pay_pence
+    return ProposedLine(
+        definition_id=None,
+        chore_name="Weekly basic pay",
+        category=Category.BASIC,
+        cadence=Cadence.WEEKLY_CONDITION,
+        unit_amount_pence=assessment.weekly_basic_pay_pence,
+        quantity=1,
+        amount_pence=paid,
+        note=None if paid else "not earned this week",
+    )
 
 
 def _line(requirement: Requirement, *, quantity: int, amount: int, note=None) -> ProposedLine:

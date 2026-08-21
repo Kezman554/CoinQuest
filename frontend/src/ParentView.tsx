@@ -23,6 +23,7 @@ import type {
   Owed,
   Pending,
   Preset,
+  SchemeSettings,
   Savings,
   WeekSummary,
 } from './parentApi'
@@ -33,6 +34,7 @@ import {
   loadPresets,
   loadQueue,
   loadSavings,
+  loadSchemeSettings,
   loadWeeks,
   submitReview,
 } from './parentApi'
@@ -53,6 +55,7 @@ type Everything = {
   savings: Savings
   presets: Preset[]
   chores: ChoreDefinition[]
+  schemeSettings: SchemeSettings
 }
 
 export function ParentView() {
@@ -62,18 +65,19 @@ export function ParentView() {
 
   const refresh = useCallback(async () => {
     try {
-      const [queue, weeks, owed, savings, presets, chores] = await Promise.all([
+      const [queue, weeks, owed, savings, presets, chores, schemeSettings] = await Promise.all([
         loadQueue(),
         loadWeeks(),
         loadOwed(),
         loadSavings(),
         loadPresets(),
         loadChores(),
+        loadSchemeSettings(),
       ])
       // The current week may not be open, or may not exist yet. Neither is an
       // error, and neither should empty the rest of the screen.
       const week = await loadCurrentWeek().catch(() => null)
-      setData({ queue, week, weeks, owed, savings, presets, chores })
+      setData({ queue, week, weeks, owed, savings, presets, chores, schemeSettings })
       setError(null)
     } catch (problem) {
       setError((problem as Error).message)
@@ -135,7 +139,7 @@ export function ParentView() {
       <Rewards presets={data.presets} ask={ask} />
       <Payday owed={data.owed} ask={ask} />
       <SavingsPanel savings={data.savings} ask={ask} />
-      <Chores chores={data.chores} ask={ask} />
+      <Chores chores={data.chores} schemeSettings={data.schemeSettings} ask={ask} />
       <ClosedWeeks weeks={data.weeks} />
 
       <p className="pin-note">

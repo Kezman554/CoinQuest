@@ -145,6 +145,13 @@ class WeekAssessment:
     requirements: tuple[Requirement, ...]
     misses: tuple[Miss, ...]
     reward_pence: int
+    #: The household's one weekly basic pot, in pence — see
+    #: chore_pay_at_stake_pence. Required, not defaulted: a wrong silent
+    #: default here is a wrong figure of real money, so every caller supplies
+    #: it deliberately (app.services.settlement.propose reads it from
+    #: app.models.settings.SchemeSettings when the caller does not override
+    #: it, the same pattern base_pence already uses).
+    weekly_basic_pay_pence: int
     cap: int = RECOVERY_CAP
     _by_id: dict[int, Requirement] = field(default_factory=dict, repr=False)
 
@@ -157,12 +164,19 @@ class WeekAssessment:
 
         Not the base allowance, which is paid every week whatever happens here
         and is not the recovery rules' business.
+
+        Not a sum of the individual basic chores' own amounts, either. A
+        basic chore carries no amount of its own any more — it only gates
+        whether the household's one weekly basic pot pays out. "Make bed" and
+        "Lunchbox and cups" both being basic chores never meant £2 + £2; the
+        rules describe one £2, and the definitions collectively decide
+        whether it is earned. See app.models.settings.SchemeSettings.
         """
-        return sum(
-            requirement.amount_pence
+        any_assessed = any(
+            requirement.category is Category.BASIC and requirement.is_assessed
             for requirement in self.requirements
-            if requirement.category is Category.BASIC and requirement.is_assessed
         )
+        return self.weekly_basic_pay_pence if any_assessed else 0
 
     @property
     def completed_bonuses(self) -> tuple[Requirement, ...]:
@@ -189,12 +203,14 @@ def assess_week(
     definitions: Iterable,
     instances: Iterable,
     *,
+    weekly_basic_pay_pence: int,
     cap: int = RECOVERY_CAP,
 ) -> WeekAssessment:
     """Work out what the week asked for, what it got, and what it missed.
 
     Pure. `plan` carries the requirement — already reduced by whatever the
-    waivers did — and `instances` carries what happened.
+    waivers did — and `instances` carries what happened. `weekly_basic_pay_pence`
+    has no default on purpose — see WeekAssessment's own field.
     """
     definitions = list(definitions)  # read twice below; a generator would empty
     confirmed: dict[int, int] = {}
@@ -263,6 +279,7 @@ def assess_week(
         requirements=tuple(requirements),
         misses=tuple(misses),
         reward_pence=reward_pence,
+        weekly_basic_pay_pence=weekly_basic_pay_pence,
         cap=cap,
         _by_id={requirement.definition_id: requirement for requirement in requirements},
     )
