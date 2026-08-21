@@ -7,7 +7,15 @@ from datetime import datetime
 from fastapi import FastAPI
 
 from app.config import get_settings
-from app.routers import claims, parent, rewards, waivers, week_view, weeks
+from app.routers import (
+    claims,
+    parent,
+    rewards,
+    summary,
+    waivers,
+    week_view,
+    weeks,
+)
 
 app = FastAPI(title="CoinQuest", version="0.1.0")
 app.include_router(claims.router)
@@ -17,6 +25,7 @@ app.include_router(rewards.router)
 app.include_router(week_view.router)
 app.include_router(parent.router)
 app.include_router(waivers.router)
+app.include_router(summary.router)
 
 
 @app.get("/health")

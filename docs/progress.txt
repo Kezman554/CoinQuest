@@ -787,3 +787,62 @@ run against the Vite dev server. The WEEKLY_CONDITION gap from Session I is
 untouched — it is a settlement problem and the parent view is where the
 judgement would have to be made, so it is now overdue rather than merely
 recorded.
+
+2026-08-21 — Session K: the summary endpoint
+
+GET /api/summary. Seven fields, 195 bytes on the wire, unauthenticated,
+written for a tile on somebody else's dashboard rather than for a page.
+
+  week_start, week_end, status, projected_total_pence, projected_total,
+  recovery_outstanding, recovery_deadline, days_remaining
+
+app/services/summary.py. Derived from week_view.build rather than computed
+beside it. If this said a recovery was outstanding while the kitchen screen
+said the week was fine, the tile would be worse than no tile at all — so
+there is one definition of "outstanding" and this reads it.
+
+Four decisions, all of them consequences of what reads this:
+
+  1. The figure is the payable total, rewards included: the tile answers "how
+     is he doing", not "what will a parent agree to on Sunday". Those two are
+     different numbers and Session J made the difference explicit.
+
+  2. days_remaining is always present, outstanding or not. The week runs
+     Sunday to Saturday in Europe/London and contains a clock change twice a
+     year; a consumer counting days from a date string gets that wrong every
+     autumn and never finds out. It goes through calendar.elapsed and is
+     floored at zero, so the last day reads 0 rather than a negative.
+
+  3. A week nothing has happened in has no row, and the endpoint answers
+     anyway rather than 404ing. A tile that errors every Sunday morning until
+     somebody opens the app is a tile nobody trusts by the third week. The
+     figure reported is the base allowance, which is not a stand-in: it is
+     exactly what propose() returns for a freshly opened week, since
+     everything untouched is a prospective miss and the chore pay fails.
+     status is "not_started" so a consumer can tell the difference, and asking
+     brings no week into being — it is a GET and it writes nothing.
+
+  4. A closed week reads from its own stored columns, and nothing is
+     outstanding in a week that is over.
+
+recovery_deadline is the only nullable field, and it is null for exactly one
+reason: there is nothing outstanding to have a deadline. Everything else is
+present every time, so a tile never has to branch on which keys arrived.
+
+Nothing about authorisation and nothing chore-level, asserted rather than
+assumed: a test greps the response body for "pin", "parent", "locked",
+"attempt", "instance", "chore" and the names of the chores in the fixture.
+The tests assert the whole key set as a set, not the fields they happen to
+care about — a key quietly added or renamed is precisely the change that
+breaks a consumer nobody in this repository can see.
+
+Tests: 428 pass, 14 of them new. The card's three weeks: a clean one, one with
+a recovery outstanding and its deadline, and the last day of one — the last
+driven through the service with the clock supplied, since a test cannot wait
+for Saturday evening. Sunday morning of a seven-day week reads 6 days,
+Saturday evening reads 0, and past the end it stays 0.
+
+Verified live: not_started before anything existed, then a clean week, then a
+parent-marked miss turning recovery_outstanding true with the deadline, then
+the bonus worked and both going back to false and null with the total moving
+£1.00 to £2.00.
