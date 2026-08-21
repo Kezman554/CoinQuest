@@ -5,7 +5,12 @@
 # AlfredHomeHub's docker/docker-compose.yml, which builds this repo as a
 # sibling checkout. See this repo's DEPLOY.md for both routes.
 #
-# Deploy: git pull && docker compose -f docker/docker-compose.yml up -d --build
+# Deploy: git pull && docker compose -f docker/docker-compose.yml --env-file .env up -d --build
+#
+# --env-file .env is not optional: compose's own .env auto-discovery looks in
+# the directory holding this file (docker/), not the directory the command is
+# run from, so without the flag every ${VAR} below resolves empty and
+# CHILD_NAME/PARENT_PIN refuse to start. See DEPLOY.md.
 
 services:
   coinquest:

@@ -897,3 +897,30 @@ or drill-restore the container — every file above is written and the compose
 YAML parses, but the acceptance checklist in DEPLOY.md is unchecked. That is
 the next thing to run, on a machine with Docker (ideally the Pi itself), before
 this is considered deployed.
+
+2026-08-21 — Session L addendum: verified on the Pi, two fixes
+
+Build, health check, LAN reach, persistence, backup, and the restore drill's
+negative test all passed on real ARM64 hardware. DEPLOY.md's acceptance
+checklist now records it.
+
+Two things the drill on real hardware caught that a file review could not:
+
+1. DEPLOY.md claimed compose picks up this repo's root .env automatically
+   when invoked from the repo root. Wrong: compose's project directory is the
+   directory holding the -f file (docker/), not the caller's working
+   directory, so every ${VAR} silently resolved empty and CHILD_NAME/
+   PARENT_PIN refused to start even with the file sitting one level up. Fixed
+   by adding --env-file .env to every documented command rather than moving
+   the file — the root .env is already the one uvicorn, pytest and npm read,
+   and splitting it would leave two files to keep in sync for no reason.
+
+2. The restore drill that passed ran against an empty database — that was all
+   that existed at deploy time. It proves the mechanics (extract, open,
+   integrity-check, restart) but not that real rows survive. Left open on the
+   checklist rather than ticked: it needs a real run with data seeded across
+   all seven tables before the backup can be trusted, the same standard
+   KitchenSync's own drill was held to.
+
+Pushed on the strength of everything else passing; the seeded-data drill is
+recorded as open in DEPLOY.md's checklist rather than closed early.

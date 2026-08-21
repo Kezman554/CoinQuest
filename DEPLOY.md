@@ -42,8 +42,18 @@ git push
 # on the Pi
 cd ~/projects/CoinQuest
 git pull
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose -f docker/docker-compose.yml --env-file .env up -d --build
 ```
+
+`--env-file .env` is not optional here. Compose's *project directory* — where
+it looks for a bare `.env` on its own — is the directory holding the `-f`
+file, i.e. `docker/`, not the directory you ran the command from. Without the
+flag it silently finds no `.env`, substitutes empty strings for every
+`${VAR}`, and `CHILD_NAME`/`PARENT_PIN` fail closed with `set … in .env` even
+though the file is sitting right there one level up. `--env-file` is resolved
+relative to the working directory you run the command from, which is why this
+works from the repo root and would need `--env-file ../.env` if run from
+inside `docker/`.
 
 That is the whole thing. Migrations run on startup — see the caveat below
 before the *first* build over real data.
@@ -74,7 +84,7 @@ moment to discover the tar was empty or the permissions were wrong.
 
 ```bash
 # stop the app so nothing writes mid-copy
-docker compose -f docker/docker-compose.yml stop coinquest
+docker compose -f docker/docker-compose.yml --env-file .env stop coinquest
 
 # copy the whole volume out
 docker run --rm \
@@ -82,7 +92,7 @@ docker run --rm \
   -v "$PWD":/backup \
   busybox tar czf /backup/coinquest-$(date +%F).tar.gz -C /data .
 
-docker compose -f docker/docker-compose.yml start coinquest
+docker compose -f docker/docker-compose.yml --env-file .env start coinquest
 ```
 
 Restore is the same in reverse, into a stopped container's volume — and doing
@@ -127,12 +137,12 @@ docker buildx build --platform linux/arm64 -t coinquest:latest --load .
 ## Checking it
 
 ```bash
-docker compose -f docker/docker-compose.yml ps   # healthy only once migrations finish
+docker compose -f docker/docker-compose.yml --env-file .env ps   # healthy only once migrations finish
 
 curl http://localhost:8600/health          # {"status":"ok","timezone":"Europe/London",...}
 curl http://localhost:8600/api/summary     # the dashboard tile's figures
 curl -I http://localhost:8600/parent       # 200 text/html — SPA deep link
-docker compose -f docker/docker-compose.yml logs -f coinquest
+docker compose -f docker/docker-compose.yml --env-file .env logs -f coinquest
 ```
 
 `/health` is deliberately bare and outside `/api`: a probe should not have to
@@ -141,9 +151,13 @@ grace on first boot so migrations can finish.
 
 ## Configuration
 
-Set in `docker/docker-compose.yml`; override in a `.env` beside it (this
-repo's root `.env`, the same one `docs/coinquest_PRD.md` and `.env.example`
-describe — compose reads it automatically when invoked from the repo root).
+Set in `docker/docker-compose.yml`; overridden by this repo's root `.env` —
+the same one `docs/coinquest_PRD.md` and `.env.example` describe — via
+`--env-file .env` on every `docker compose` command above. That flag is
+load-bearing: compose's own `.env` auto-discovery looks in the directory
+holding the `-f` file (`docker/`), not the directory the command is run from,
+so without it every `${VAR}` in the compose file resolves empty and
+`CHILD_NAME`/`PARENT_PIN` refuse to start.
 
 | Variable | Container value | Why |
 | -------- | --------------- | --- |
@@ -163,36 +177,43 @@ describe — compose reads it automatically when invoked from the repo root).
 
 ## Deploy acceptance
 
-Not yet run for real. The checklist below is what a first deploy on the Pi
-needs to clear before this file can say it happened, mirroring the drill
-KitchenSync's `DEPLOY.md` records — copy that structure here once it is done.
+**Verified on the Pi, 2026-08-21** (real ARM64, not emulated). The image had
+never been built before this; everything below marked done was run for real.
 
 **The container**
 
-- [ ] Image builds; both stages resolve to `linux/arm64`.
-- [ ] Container starts and reaches **healthy**.
-- [ ] uid 1000 writes the volume.
+- [x] Image builds; both stages resolve to `linux/arm64`.
+- [x] Container starts and reaches **healthy**.
+- [x] uid 1000 writes the volume.
 
 **The app**
 
-- [ ] `/health` bare JSON; `/docs` serves Swagger.
-- [ ] `/` loads the app; a hard reload on a deep link serves the shell, not JSON.
-- [ ] `/api/summary` returns data.
-- [ ] An unknown `/api/*` path is a **404 `application/json`**, not the shell.
-- [ ] Reachable across the LAN, not just from the Pi itself.
+- [x] `/health` bare JSON; `/docs` serves Swagger.
+- [x] `/` loads the app; a hard reload on a deep link serves the shell, not JSON.
+- [x] `/api/summary` returns data.
+- [x] An unknown `/api/*` path is a **404 `application/json`**, not the shell.
+- [x] **Reachable across the LAN**, not just from the Pi itself.
 
 **Persistence**
 
-- [ ] Data survives `compose rm -sf` and `up` (volume intact); migrations do
+- [x] Data survives `compose rm -sf` and `up` (volume intact); migrations do
       not re-run against an already-current database.
-- [ ] Migrations ran empty → head, Alembic, no `create_all`.
-- [ ] Backup produces a non-empty, readable archive containing the DB.
+- [x] Migrations ran empty → head, Alembic, no `create_all`.
+- [x] Backup produces a non-empty, readable archive containing the DB.
 
-**Backup + restore drill — the gate**
+**Backup + restore drill**
 
-- [ ] Test data across all seven tables → backup → restore into a **scratch**
-      volume → DB opens, `integrity_check` ok, schema at head, rows present
-      everywhere expected.
-- [ ] **Negative test**: a deliberately corrupted or truncated archive fails
+- [x] Backup → restore into a **scratch** volume → DB opens, `integrity_check`
+      ok, schema at head.
+- [x] **Negative test**: a deliberately corrupted or truncated archive fails
       the drill (non-zero exit) — the check has teeth rather than passing
       vacuously.
+- [ ] **Still open — the gate this checklist exists for.** The drill above ran
+      against an **empty** database, because that was all that existed at
+      deploy time: it proves the mechanics (extract, open, integrity-check,
+      restart) but not that real rows survive. Before this item can be ticked,
+      seed test data across all seven tables (`chore_definitions`,
+      `chore_instances`, `weeks`, `settlement_lines`, `waivers`,
+      `earnings_ledger`, `savings_ledger`), back up, restore into a scratch
+      volume, and confirm every table's row count comes back — the same
+      standard KitchenSync's drill was held to before its backup was trusted.
