@@ -1179,3 +1179,29 @@ lines read exactly as designed. A bonus and a reward chore created
 afterward still required and kept their own individual amount, unaffected.
 
 npm run build clean. pytest 488 passed.
+
+2026-08-21 — Session Q: a colourful restyle for the child's screen
+
+CSS only — no component touched. The child's screen is now a bright,
+kid-facing "game" surface: a two-colour gradient hero card for the projected
+total (the one figure the whole screen exists to answer), a colour per
+weekday on the day cards (purely decorative — the heading already names the
+day, so nothing is read through colour alone), a gradient masthead, and a
+warmer fill on the one tappable thing on the page. The parent screen picked
+up the same accent family — a soft top strip on every panel, an indigo
+primary button — but stayed dense and calm; it is a PIN-gated working
+screen, not a toy. Every existing rule held: colour is never the only
+carrier (state labels are still words first), the done/todo/urgent/away
+semantics are untouched, dark mode is fully defined alongside light, and no
+tap target or type size moved.
+
+Verified live rather than by reading the CSS: migrated a scratch database,
+ran the real backend and Vite dev server, seeded chores through the API,
+drove a claim through to confirm/reject with Playwright, and screenshotted
+both screens in light and dark. That caught one real contrast fault — the
+"Bonus" tile in the totals card read lower-contrast than "Every week"
+because a light overlay washed out on the coral end of the gradient — fixed
+by switching to a dark overlay, which holds contrast consistently across
+the whole gradient regardless of which end a tile sits on.
+
+npm run build clean.

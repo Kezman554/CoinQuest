@@ -8,20 +8,38 @@
 :root {
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
 
-  --bg: #f4f5f9;
+  --bg: #eef2ff;
   --panel: #ffffff;
-  --ink: #14161c;
-  --ink-soft: #5a6072;
-  --line: #dfe2ea;
+  --ink: #191934;
+  --ink-soft: #5c5e80;
+  --line: #dbdcf5;
 
-  --done: #1a7f45;
-  --done-bg: #e7f5ec;
-  --todo: #8a5a00;
-  --todo-bg: #fdf3dd;
-  --urgent: #a3261c;
-  --urgent-bg: #fdeceb;
-  --away: #4a4f8a;
-  --away-bg: #eceefb;
+  /* Two brand accents, used for the header, the totals card, the tappable
+     chore and the general sense that this is a game, not a spreadsheet. */
+  --accent: #6a4cff;
+  --accent-soft: #efeaff;
+  --accent-2: #ff6f59;
+  --accent-2-soft: #ffe6de;
+  --coin: #ffb703;
+
+  /* A colour per weekday, purely decorative — the day's own heading and date
+     already say which day it is, so this never has to be read to be understood. */
+  --day-1: #ff6f59;
+  --day-2: #ffb703;
+  --day-3: #14b881;
+  --day-4: #2ec4f1;
+  --day-5: #6a4cff;
+  --day-6: #e64bd6;
+  --day-7: #ff8fa3;
+
+  --done: #128a4f;
+  --done-bg: #d8f7e6;
+  --todo: #9a5b00;
+  --todo-bg: #fff0c2;
+  --urgent: #c62828;
+  --urgent-bg: #ffe1de;
+  --away: #6a3fc7;
+  --away-bg: #ede3ff;
 
   font: 20px/1.4 var(--sans);
   color: var(--ink);
@@ -31,20 +49,23 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #12141a;
-    --panel: #1c1f27;
-    --ink: #f2f4f8;
-    --ink-soft: #a4abbd;
-    --line: #2e323d;
+    --bg: #14131f;
+    --panel: #201f30;
+    --ink: #f4f3fb;
+    --ink-soft: #ada9c9;
+    --line: #35324a;
 
-    --done: #67d99a;
-    --done-bg: #14301f;
-    --todo: #f0c469;
-    --todo-bg: #33280e;
+    --accent-soft: #2a2247;
+    --accent-2-soft: #3a2419;
+
+    --done: #6fe0a3;
+    --done-bg: #123424;
+    --todo: #f3c56b;
+    --todo-bg: #382a0c;
     --urgent: #ff8f85;
     --urgent-bg: #3a1512;
-    --away: #aeb6f5;
-    --away-bg: #1e2140;
+    --away: #bcb2ff;
+    --away-bg: #241d47;
   }
 }
 
@@ -54,8 +75,17 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  min-height: 100vh;
   color: var(--ink);
+  background-color: var(--bg);
+  /* A couple of soft, fixed colour blobs behind the page — a kitchen wall
+     screen gets to feel like a poster, not a form. Content sits in solid
+     panels above this, so it never touches legibility. */
+  background-image:
+    radial-gradient(55rem 38rem at 100% -8%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 60%),
+    radial-gradient(48rem 34rem at -8% 12%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 h1,

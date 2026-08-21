@@ -25,6 +25,10 @@
 .masthead h1 {
   font-size: clamp(2rem, 5vw, 3rem);
   letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .dates {
@@ -49,18 +53,24 @@
 
 /* --- The projected total ------------------------------------------------- */
 
+/* The projected total is the one figure the child came to the screen for, so
+   it gets the loudest treatment on the page — a bright, gradient "prize
+   card" rather than another white panel. */
 .total {
-  background: var(--panel);
-  border-radius: 1.25rem;
-  padding: 1.5rem;
-  border: 1px solid var(--line);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: #fff;
+  border-radius: 1.5rem;
+  padding: 1.75rem 1.5rem;
+  border: none;
+  box-shadow: 0 1rem 2.5rem -1rem color-mix(in srgb, var(--accent) 65%, transparent);
 }
 
 .total-label {
   font-size: 1.1rem;
-  color: var(--ink-soft);
+  color: rgba(255, 255, 255, 0.85);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  font-weight: 700;
 }
 
 .total-amount {
@@ -69,6 +79,7 @@
   line-height: 1;
   letter-spacing: -0.03em;
   margin: 0.25rem 0 1rem;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
 .breakdown {
@@ -80,14 +91,17 @@
 
 .breakdown > div {
   flex: 1 1 8rem;
-  background: var(--bg);
+  /* A dark overlay rather than a light one: the card behind it is a
+     two-colour gradient, and a dark tint keeps the same contrast for white
+     text on both the purple and the coral end of it. */
+  background: rgba(0, 0, 0, 0.16);
   border-radius: 0.75rem;
   padding: 0.75rem 1rem;
 }
 
 .breakdown dt {
   font-size: 1rem;
-  color: var(--ink-soft);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .breakdown dd {
@@ -97,18 +111,19 @@
 }
 
 .breakdown .at-risk {
-  background: var(--todo-bg);
+  background: var(--coin);
 }
 
 .breakdown .at-risk dd,
 .breakdown .at-risk dt {
-  color: var(--todo);
+  color: #4a2e00;
 }
 
 .total-note {
   margin-top: 1rem;
   font-size: 1.1rem;
-  color: var(--ink-soft);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 600;
 }
 
 /* --- The recovery notice ------------------------------------------------- */
@@ -146,6 +161,20 @@
   color: var(--done);
 }
 
+/* A small icon on the headline — decoration on top of a message the words
+   already carry in full, never a substitute for them. */
+.notice-todo h2::before {
+  content: '⏳ ';
+}
+
+.notice-urgent h2::before {
+  content: '⚠️ ';
+}
+
+.notice-sorted h2::before {
+  content: '✅ ';
+}
+
 /* --- Panels -------------------------------------------------------------- */
 
 .panel h2 {
@@ -163,12 +192,40 @@
 .weekly-card {
   background: var(--panel);
   border: 1px solid var(--line);
+  border-top: 6px solid var(--line);
   border-radius: 1rem;
   padding: 1rem;
 }
 
+/* A colour per day of the week — decorative only. The heading above each
+   card already names the day; this just makes the row of seven read as a
+   week rather than seven identical boxes. */
+.days > .day:nth-child(7n + 1) {
+  border-top-color: var(--day-1);
+}
+.days > .day:nth-child(7n + 2) {
+  border-top-color: var(--day-2);
+}
+.days > .day:nth-child(7n + 3) {
+  border-top-color: var(--day-3);
+}
+.days > .day:nth-child(7n + 4) {
+  border-top-color: var(--day-4);
+}
+.days > .day:nth-child(7n + 5) {
+  border-top-color: var(--day-5);
+}
+.days > .day:nth-child(7n + 6) {
+  border-top-color: var(--day-6);
+}
+.days > .day:nth-child(7n + 7) {
+  border-top-color: var(--day-7);
+}
+
 .day-today {
-  border: 3px solid var(--ink);
+  border: 3px solid var(--accent);
+  border-top-width: 6px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .day-past:not(.day-waived) {
@@ -248,7 +305,7 @@
 .chore-amount {
   font-size: 1.1rem;
   font-weight: 700;
-  color: var(--ink-soft);
+  color: color-mix(in srgb, var(--coin) 70%, var(--ink));
 }
 
 .chore-state {
@@ -266,14 +323,14 @@
 /* The one thing on this page that does anything. */
 .chore-claimable {
   cursor: pointer;
-  background: var(--panel);
-  border-color: var(--ink);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .chore-claimable .chore-state {
   font-weight: 700;
   font-size: 1.15rem;
-  color: var(--ink);
+  color: var(--accent);
 }
 
 .chore-claimable:active {
@@ -327,13 +384,13 @@
 }
 
 .tag-bonus {
-  background: var(--away-bg);
-  color: var(--away);
+  background: color-mix(in srgb, var(--coin) 25%, var(--panel));
+  color: color-mix(in srgb, var(--coin) 55%, black);
 }
 
 .tag-today {
-  background: var(--ink);
-  color: var(--panel);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: #fff;
 }
 
 /* --- The week's own chores ----------------------------------------------- */
@@ -398,9 +455,9 @@
 }
 
 .button-do {
-  background: var(--ink);
-  color: var(--panel);
-  border-color: var(--ink);
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
 .button-quiet {
@@ -434,6 +491,7 @@
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
+  border-top: 4px solid var(--accent-soft);
   border-radius: 1rem;
   padding: 1.25rem;
 }
