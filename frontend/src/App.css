@@ -1,6 +1,363 @@
-main {
-  max-width: 40rem;
+/* The week view.
+ *
+ * Three rules, all of them about being read from four feet away:
+ *
+ *  - Nothing smaller than 1rem, and the things that matter are much bigger.
+ *    The projected total is the largest thing on the page because it is the
+ *    question the child came to the screen with.
+ *  - Every tappable thing is a full-width row at least 3.5rem tall. A child in
+ *    a hurry does not aim.
+ *  - Colour is never the only carrier. "Done", "Missed" and "Day off" are
+ *    words first; the colour behind them is confirmation, not the message.
+ */
+
+.page {
+  max-width: 68rem;
   margin: 0 auto;
-  padding: 2rem 1rem;
-  font-family: system-ui, sans-serif;
+  padding: 1.5rem 1rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* --- Masthead ------------------------------------------------------------ */
+
+.masthead h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: -0.02em;
+}
+
+.dates {
+  color: var(--ink-soft);
+  font-size: 1.1rem;
+  margin-top: 0.25rem;
+}
+
+.loading,
+.problem {
+  background: var(--panel);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  font-size: 1.25rem;
+}
+
+.problem {
+  background: var(--urgent-bg);
+  color: var(--urgent);
+  font-weight: 600;
+}
+
+/* --- The projected total ------------------------------------------------- */
+
+.total {
+  background: var(--panel);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+}
+
+.total-label {
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.total-amount {
+  font-size: clamp(3.5rem, 12vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin: 0.25rem 0 1rem;
+}
+
+.breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.breakdown > div {
+  flex: 1 1 8rem;
+  background: var(--bg);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.breakdown dt {
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+
+.breakdown dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.breakdown .at-risk {
+  background: var(--todo-bg);
+}
+
+.breakdown .at-risk dd,
+.breakdown .at-risk dt {
+  color: var(--todo);
+}
+
+.total-note {
+  margin-top: 1rem;
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+}
+
+/* --- The recovery notice ------------------------------------------------- */
+
+.notice {
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  border: 3px solid transparent;
+}
+
+.notice h2 {
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  margin-bottom: 0.5rem;
+}
+
+.notice p {
+  font-size: 1.25rem;
+}
+
+.notice-todo {
+  background: var(--todo-bg);
+  border-color: var(--todo);
+  color: var(--todo);
+}
+
+.notice-urgent {
+  background: var(--urgent-bg);
+  border-color: var(--urgent);
+  color: var(--urgent);
+}
+
+.notice-sorted {
+  background: var(--done-bg);
+  border-color: var(--done);
+  color: var(--done);
+}
+
+/* --- Panels -------------------------------------------------------------- */
+
+.panel h2 {
+  font-size: 1.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+
+.day,
+.weekly-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.day-today {
+  border: 3px solid var(--ink);
+}
+
+.day-past:not(.day-waived) {
+  background: color-mix(in srgb, var(--panel) 80%, var(--bg));
+}
+
+.day h3,
+.weekly-card h3 {
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.day-date {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.75rem;
+}
+
+.nothing {
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  padding: 0.5rem 0;
+}
+
+/* A day away reads as a day away, in its own colour and its own words. */
+.waived {
+  background: var(--away-bg);
+  color: var(--away);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.waived strong {
+  font-size: 1.25rem;
+}
+
+.waived span {
+  font-size: 1rem;
+}
+
+/* --- One chore ----------------------------------------------------------- */
+
+.chore {
+  width: 100%;
+  min-height: 3.5rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 2px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.chore-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.chore-side {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chore-amount {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.chore-state {
+  grid-column: 1 / -1;
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+}
+
+.chore-note {
+  grid-column: 1 / -1;
+  font-size: 1rem;
+  color: var(--todo);
+}
+
+/* The one thing on this page that does anything. */
+.chore-claimable {
+  cursor: pointer;
+  background: var(--panel);
+  border-color: var(--ink);
+}
+
+.chore-claimable .chore-state {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
+.chore-claimable:active {
+  transform: scale(0.99);
+}
+
+.chore-claimable:disabled {
+  opacity: 0.6;
+}
+
+.chore-confirmed {
+  background: var(--done-bg);
+  border-color: var(--done);
+}
+
+.chore-confirmed .chore-state,
+.chore-confirmed .chore-amount {
+  color: var(--done);
+  font-weight: 700;
+}
+
+.chore-claimed {
+  background: var(--todo-bg);
+  border-color: var(--todo);
+}
+
+.chore-claimed .chore-state {
+  color: var(--todo);
+  font-weight: 600;
+}
+
+.chore-missed {
+  background: var(--urgent-bg);
+  border-color: var(--urgent);
+}
+
+.chore-missed .chore-state {
+  color: var(--urgent);
+  font-weight: 700;
+}
+
+/* --- Tags ---------------------------------------------------------------- */
+
+.tag {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+.tag-bonus {
+  background: var(--away-bg);
+  color: var(--away);
+}
+
+.tag-today {
+  background: var(--ink);
+  color: var(--panel);
+}
+
+/* --- The week's own chores ----------------------------------------------- */
+
+.weekly {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.75rem;
+}
+
+.weekly-side {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.weekly-progress {
+  margin-top: 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.weekly-waived {
+  background: color-mix(in srgb, var(--panel) 80%, var(--bg));
 }

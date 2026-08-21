@@ -578,3 +578,97 @@ forever. open_week_for() carries that reasoning, and five tests cover it.
 Tests: 375 pass. Verified live: computed 500p, override 450p with 50p
 foregone, refused without a reason, void-with-override refused, and settled
 with a reason recording both figures.
+
+2026-08-21 — Session I: the week view
+
+The child's screen, and the endpoint it needed. There was no way to read a
+week's instances over HTTP at all: /api/weeks/{id} carries the figures and
+says nothing about what is on the list.
+
+app/services/week_view.py — pure presentation of facts the scheme services
+already worked out. It decides no money: the figures come from
+settlement.propose, the requirement from instances.plan_week, and what
+happened from the stored instances.
+
+  Two groupings, because they are two different things:
+    - A daily chore belongs to a day, and an empty Tuesday is a question
+      about Tuesday.
+    - A weekly-count chore belongs to the week. Laying "three times before
+      Saturday" out as seven boxes with four greyed out invents an absence on
+      four days the scheme never asked about.
+    - A week-long condition is a third thing again: no occasions, nothing to
+      tap, judged once at settlement.
+
+  Every day of the week appears, including waived ones. Dropping a waived day
+  makes the week look six days long; showing it empty makes it read as a day
+  nothing was done on. It is neither, and it says "Day off" and why.
+
+  An untouched instance on a day already past is still claimable, because it
+  is still provisional. "You did not tick Monday" must not read as "Monday is
+  lost" while it is not.
+
+app/routers/week_view.py — GET /api/week, GET /api/week/{id} and
+POST /api/week/open. None carries a PIN: reading changes nothing, and opening
+a week asserts nothing about what was done. Opening is a write on purpose —
+a week exists as a row only once something has happened in it, so the first
+load of a Sunday would otherwise show an empty screen with no way to fix it.
+It is idempotent and the frontend calls it on every load.
+
+The recovery panel counts only misses a parent has actually ruled, and works
+out coverage itself rather than reading proposal.recoveries. The difference
+is not cosmetic: mid-week the proposal counts every untouched instance as a
+prospective miss, so on Monday it exceeds the cap and correctly declines to
+recover anything. Right for the money, wrong for the screen — what the child
+needs to know is whether the miss he was told about is put right. Settlement
+still decides the money, on the week that actually happened, and is not bound
+by anything the screen said.
+
+frontend/: api.ts (types and the two calls), words.ts (all the wording, in one
+place), components/ and App.tsx.
+
+  - The wording changes with the time left rather than getting louder. "Do
+    the car or the path to put it right, you have 3 more days — until
+    Saturday" while there is a tomorrow to act in; "Today is the last day to
+    fix Make your bed. The week ends tonight" inside the last 24 hours; and
+    when no bonus chore is left, it says so and drops the clock entirely
+    rather than pointing at one for a race already over.
+  - Amounts are written as they are said: 40p, £1, £4.50. Never £0.40.
+  - Counts never read "1 times", lists are "A, B and C", options are "or".
+  - A refused claim says "Have another go" and "Not accepted 2 times". The
+    state is UNTOUCHED, which is right and unreadable on its own.
+  - Every tappable thing is a full-width row at least 3.5rem tall, nothing is
+    smaller than 1rem, and colour never carries a meaning by itself.
+
+Found while testing, and left alone deliberately: a WEEKLY_CONDITION can
+never be confirmed. It produces no instance, so nothing can be claimed and
+nothing confirmed, and assess_week counts it required-and-not-confirmed from
+the first minute of the week — a standing miss no one can clear. The miss is
+inferred rather than ruled, so it appears nowhere in the recovery panel
+(correctly: there is nothing the child could do), while the optimiser quietly
+spends a completed bonus chore covering it. A week in which everything was
+done reads as chore pay in full and the bonus gone; the live drive showed the
+panel saying "Put right" while the chore pay sat at zero, because the
+condition was the other miss.
+
+That is a hole in settlement, not in the view, and the fix belongs with the
+parent view where the judgement would be made — most likely a confirmable
+instance created for the condition at settlement, so a parent rules on it the
+way they rule on anything else. Recorded in
+test_a_week_long_condition_counts_against_the_week_until_it_is_judged so it
+cannot be lost. Until then the card says "Kept up all week. Checked on
+Saturday", which at least makes the figure explicable.
+
+Tests: 392 + 17 = 409. The card's week — a miss, a recovery still available,
+and a waived day — is driven end to end: the miss is ruled, the panel names
+it with the deadline, the bonus is worked, the panel reads covered, the rest
+of the week is completed and the chore pay comes back at 140p for 100p of
+bonus given up.
+
+Verified live against a running server and a seeded week: the week opened
+twice with the same instance ids, a claim through the Vite proxy, and the
+components rendered against the real payload to read the actual words —
+which is how the £0.40, the "0 of 1 done", and the chore name printed twice
+in four inches were caught.
+
+Not done: the API still does not serve the built bundle, and there is no
+parent view, so confirming a claim needs a request by hand.
