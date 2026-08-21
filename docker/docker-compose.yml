@@ -1,0 +1,68 @@
+# CoinQuest, standalone — for building, testing and running this repo on its
+# own, without the rest of the household stack.
+#
+# In the household deployment this service is instead defined in
+# AlfredHomeHub's docker/docker-compose.yml, which builds this repo as a
+# sibling checkout. See this repo's DEPLOY.md for both routes.
+#
+# Deploy: git pull && docker compose -f docker/docker-compose.yml up -d --build
+
+services:
+  coinquest:
+    container_name: coinquest
+    build:
+      # The repo root: the Dockerfile needs both app/ and frontend/.
+      context: ..
+      dockerfile: Dockerfile
+
+    environment:
+      # The child is configuration — see CLAUDE.md. Neither this nor the PIN
+      # has a default; an unset value fails the container at startup with a
+      # named error rather than serving with a placeholder.
+      CHILD_NAME: ${CHILD_NAME:?set CHILD_NAME in .env}
+      PARENT_PIN: ${PARENT_PIN:?set PARENT_PIN in .env}
+
+      # Absolute, matching the volume mount below. A relative path would
+      # resolve against the working directory and be lost with the container.
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/coinquest.db}
+
+      # Every week boundary, payday and monthly period depends on this. The
+      # container clock is UTC; without it "today" is wrong between midnight
+      # and 01:00 BST.
+      TZ: ${TZ:-Europe/London}
+
+    volumes:
+      # HOUSEHOLD DATA — the only thing this service reads or writes outside
+      # its own image. Survives `docker compose down`, a rebuild and an image
+      # change; `down -v` destroys it. Nothing here is recoverable from git.
+      #
+      # Named volume by default; set COINQUEST_DATA_PATH to a host directory
+      # instead if you would rather back it up with ordinary tools. A bind
+      # mount needs to be writable by uid 1000, the container's user.
+      - ${COINQUEST_DATA_PATH:-coinquest-data}:/data
+      # Nothing else is mounted. This service has no dependency on any other
+      # service or filesystem on the host — see CLAUDE.md.
+
+    ports:
+      - "${COINQUEST_PORT:-8600}:8600"
+
+    healthcheck:
+      # /health is deliberately unauthenticated and outside any prefix — a
+      # probe should not need to know the API's layout. Healthy only once the
+      # app answers, which is after migrations have run.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8600/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Generous: the first boot on a fresh volume runs every migration.
+      start_period: 40s
+
+    # Restart on crash and on Pi reboot, but stay down if stopped by hand.
+    restart: unless-stopped
+
+volumes:
+  # Named explicitly so the volume is `coinquest-data`, not prefixed with the
+  # compose project name. The backup script mounts it by name from outside
+  # compose — a project-prefixed name would silently back up nothing.
+  coinquest-data:
+    name: coinquest-data

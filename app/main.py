@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
 
 from app.config import get_settings
+from app.db import run_migrations
+from app.frontend import mount_frontend
 from app.routers import (
     claims,
     parent,
@@ -17,7 +20,18 @@ from app.routers import (
     weeks,
 )
 
-app = FastAPI(title="CoinQuest", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Applies pending migrations on boot, so `docker compose up` after a pull
+    # is the whole deploy — there is no separate step to forget. Idempotent,
+    # so re-running it here against an already-migrated test database is a
+    # no-op.
+    run_migrations()
+    yield
+
+
+app = FastAPI(title="CoinQuest", version="0.1.0", lifespan=lifespan)
 app.include_router(claims.router)
 app.include_router(weeks.router)
 app.include_router(weeks.savings_router)
@@ -37,3 +51,9 @@ def health() -> dict[str, str]:
         "timezone": settings.timezone,
         "local_time": datetime.now(settings.tzinfo).isoformat(),
     }
+
+
+# LAST, because it matches every remaining path. Every API route and /health
+# are already registered, so none of them can be shadowed. A no-op when there
+# is no built bundle, which is how dev and the test suite run.
+mount_frontend(app, get_settings().frontend_dir)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import load_dotenv
@@ -79,6 +80,13 @@ class Settings:
         if not port.isdigit():
             raise ConfigError(f"COINQUEST_PORT must be a number, got {port!r}.")
         self.port: int = int(port)
+
+        # The built React bundle, served at / when present (see app.frontend).
+        # Absent in dev and in the test suite, where Vite serves the app and
+        # the dev proxy stands in for same-origin. The Dockerfile points this
+        # at the bundle it builds; resolved to absolute so it is stable
+        # whatever the process's working directory turns out to be.
+        self.frontend_dir: Path = Path(_get("FRONTEND_DIR", "frontend/dist")).resolve()
 
         # The container clock is UTC. Every week boundary, payday and monthly
         # period is computed in this zone, set explicitly rather than inherited.

@@ -846,3 +846,54 @@ Verified live: not_started before anything existed, then a clean week, then a
 parent-marked miss turning recovery_outstanding true with the deadline, then
 the bonus worked and both going back to false and null with the total moving
 £1.00 to £2.00.
+
+2026-08-21 — Session L: the Dockerfile and the deployment entry
+
+app/frontend.py — SPAStaticFiles (falls back to index.html for an unmatched
+path outside /api, so a hard reload or a deep link works) and mount_frontend,
+mounted last in app/main.py so every API route and /health match first. A
+no-op when there is no built bundle, which is how dev and the test suite run.
+
+app/main.py gained a lifespan that runs app.db.run_migrations() before the
+app serves anything — alembic upgrade head, idempotent, so `docker compose up`
+after a pull is the whole deploy. app/config.py gained frontend_dir
+(FRONTEND_DIR, defaulting to frontend/dist, resolved absolute). Verified safe
+against the existing test suite: the plain `client` fixture never triggers the
+lifespan (no context manager), and every fixture that does trigger it
+(`with TestClient(app) as client`) already runs behind the real migration via
+the `migrated_database`/`session` fixtures, so the startup migration is a
+no-op there too. 428 pass, unchanged.
+
+Dockerfile — two stages. node:24-bookworm-slim builds the frontend;
+python:3.13-slim-bookworm runs it, with FRONTEND_DIR, DATABASE_URL and TZ set
+as image defaults. No git, no openssh-client: unlike KitchenSync this service
+has no vault snapshot and reads no filesystem beyond its own database
+(CLAUDE.md: "no external filesystem access, no dependency on any other
+service"). Non-root uid 1000, /data created and chowned for the volume mount.
+CHILD_NAME and PARENT_PIN are deliberately absent from the image — no default
+exists anywhere in the repo, which is public, and the container refuses to
+start without both supplied at deployment.
+
+docker/docker-compose.yml — standalone service, one named volume
+(coinquest-data) and nothing else mounted, a healthcheck against /health with
+a 40s start_period for first-boot migrations, CHILD_NAME/PARENT_PIN required
+via `:?` (this compose file is this repo's own — a missing secret failing the
+whole `up` is the right behaviour here, unlike the household stack below).
+
+The household stack: AlfredHomeHub's docker/docker-compose.yml gained a
+coinquest service (port 8600), built from this repo cloned as a sibling —
+../../CoinQuest, override with COINQUEST_REPO_PATH — exactly like kitchensync
+and kanban-api. Its four variables are documented in that repo's DEPLOY.md
+under a new CoinQuest section, alongside scripts/coinquest-backup.sh,
+restore-coinquest.sh and setup-coinquest-backup.sh (mirroring the KitchenSync
+three, adapted to one table-free volume and no vault mount), and a nightly
+backup cron slot at 03:57 — the next free one after KitchenSync's own backup.
+The restore drill checks integrity, the Alembic revision, and row counts
+across all seven tables (chore_definitions, chore_instances, weeks,
+settlement_lines, waivers, earnings_ledger, savings_ledger).
+
+Not done: no Docker available in this environment to actually build, bring up
+or drill-restore the container — every file above is written and the compose
+YAML parses, but the acceptance checklist in DEPLOY.md is unchecked. That is
+the next thing to run, on a machine with Docker (ideally the Pi itself), before
+this is considered deployed.
