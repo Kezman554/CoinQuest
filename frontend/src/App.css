@@ -361,3 +361,522 @@
 .weekly-waived {
   background: color-mix(in srgb, var(--panel) 80%, var(--bg));
 }
+
+/* --- The parent's screen -------------------------------------------------
+ *
+ * Denser than the child's on purpose. This one is read leaning in, at a
+ * keyboard, by somebody working a list — the opposite posture from the wall
+ * screen, and the same generous type would put three items on a page.
+ *
+ * The exceptions are the two figures that matter: what a batch does, and what
+ * a week is about to settle at. Those stay large, because the whole point of
+ * the parent view is that nobody agrees to a number they did not read.
+ */
+
+.switcher {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.button {
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 0.6rem;
+  border: 2px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.button-do {
+  background: var(--ink);
+  color: var(--panel);
+  border-color: var(--ink);
+}
+
+.button-quiet {
+  color: var(--ink-soft);
+}
+
+.button-danger {
+  border-color: var(--urgent);
+  color: var(--urgent);
+}
+
+.button-yes.chosen {
+  background: var(--done-bg);
+  border-color: var(--done);
+  color: var(--done);
+}
+
+.button-no.chosen {
+  background: var(--urgent-bg);
+  border-color: var(--urgent);
+  color: var(--urgent);
+}
+
+.act-note {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  max-width: 46rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+
+/* The day and weekly grids sit inside .panel on the child's screen and must
+   not carry the panel background twice. */
+.days .day,
+.weekly .weekly-card {
+  background: var(--bg);
+}
+
+input[type='text'],
+select {
+  font: inherit;
+  font-size: 1rem;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.6rem;
+  border: 2px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.act {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.act h3 {
+  font-size: 1.15rem;
+  margin-bottom: 0.35rem;
+}
+
+.act-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+/* --- The queue ----------------------------------------------------------- */
+
+.queue {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.queue-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  border: 2px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--bg);
+}
+
+.queue-item.ruled-confirm {
+  border-color: var(--done);
+  background: var(--done-bg);
+}
+
+.queue-item.ruled-reject {
+  border-color: var(--urgent);
+  background: var(--urgent-bg);
+}
+
+.queue-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  display: block;
+}
+
+.queue-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.queue-rule {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.tag-again {
+  background: var(--todo-bg);
+  color: var(--todo);
+}
+
+.tag-settled {
+  background: var(--done-bg);
+  color: var(--done);
+}
+
+.tag-voided {
+  background: var(--away-bg);
+  color: var(--away);
+}
+
+/* --- What the batch does ------------------------------------------------- */
+
+.batch {
+  border-top: 2px solid var(--line);
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.batch-action {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.effect {
+  width: 100%;
+  background: var(--bg);
+  border-radius: 0.75rem;
+  padding: 0.9rem 1.1rem;
+}
+
+.effect h3 {
+  font-size: 1rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.4rem;
+}
+
+.effect ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.effect li {
+  font-size: 1.1rem;
+}
+
+/* --- The week's figures -------------------------------------------------- */
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.figure {
+  background: var(--bg);
+  border-radius: 0.7rem;
+  padding: 0.6rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 8rem;
+}
+
+.figure-label {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.figure-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.figure-big {
+  flex-basis: 100%;
+}
+
+.figure-big .figure-value {
+  font-size: 2.5rem;
+}
+
+.figure-warn {
+  background: var(--todo-bg);
+}
+
+.figure-warn .figure-value,
+.figure-warn .figure-label {
+  color: var(--todo);
+}
+
+.figure-note {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+/* --- Closing a week ------------------------------------------------------ */
+
+.closing {
+  border-top: 2px solid var(--line);
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+}
+
+.closing-note {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.75rem;
+  max-width: 46rem;
+}
+
+.closing-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.void-week {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1 1 20rem;
+}
+
+/* --- Payday and savings -------------------------------------------------- */
+
+.owed {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.owed label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  flex-wrap: wrap;
+}
+
+.owed input {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.owed-week {
+  font-weight: 600;
+}
+
+.owed-amount {
+  font-weight: 700;
+}
+
+.owed-note,
+.queue-when {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
+
+.ledger td {
+  padding: 0.4rem 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.ledger-amount,
+.ledger-balance {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ledger-balance {
+  font-weight: 700;
+}
+
+.reconciled-ok {
+  margin-top: 0.6rem;
+  color: var(--done);
+  font-weight: 600;
+}
+
+.reconciled-off {
+  margin-top: 0.6rem;
+  color: var(--todo);
+  font-weight: 600;
+}
+
+.presets {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+/* --- Closed weeks -------------------------------------------------------- */
+
+.closed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.closed-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--line);
+  padding: 0.75rem 0;
+  cursor: pointer;
+}
+
+.closed-dates {
+  flex: 1;
+  font-weight: 600;
+}
+
+.closed-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.closed-detail {
+  background: var(--bg);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.closed-note,
+.closed-paid,
+.closed-override,
+.closed-void {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.6rem;
+}
+
+.closed-void {
+  color: var(--away);
+  font-weight: 600;
+}
+
+/* --- The PIN dialog ------------------------------------------------------ */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 10;
+}
+
+.dialog {
+  background: var(--panel);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  width: min(32rem, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialog h2 {
+  font-size: 1.4rem;
+}
+
+.dialog-summary {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.dialog-lines {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--ink-soft);
+}
+
+.dialog-permanent {
+  background: var(--todo-bg);
+  color: var(--todo);
+  font-weight: 700;
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.8rem;
+}
+
+.pin-label {
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.pin-input {
+  font: inherit;
+  font-size: 1.75rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: 0.6rem;
+  border: 2px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.dialog-error {
+  color: var(--urgent);
+  font-weight: 600;
+}
+
+.dialog-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.pin-note {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  text-align: center;
+}

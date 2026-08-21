@@ -672,3 +672,118 @@ in four inches were caught.
 
 Not done: the API still does not serve the built bundle, and there is no
 parent view, so confirming a claim needs a request by hand.
+
+2026-08-21 — Session J: the parent view
+
+The queue, what a batch does, the acts, and a closed week that reads as closed.
+
+app/services/review.py — the batch logic, lifted out of the claims router
+because two callers need it now and they must not drift apart. The commit
+applies it for real; the parent view asks what it *would* do first. A preview
+computed by different code from the commit is not a preview, it is a second
+opinion, and the moment the two disagree the figure a parent agreed to is not
+the figure that happened.
+
+app/services/parent.py — pending(), and preview().
+
+  preview() answers the question a parent actually has in front of a list of
+  ticks: what does agreeing to this do? It applies the batch for real inside a
+  SAVEPOINT, proposes each affected week from the result, and rolls the
+  savepoint back in a finally. Applying it is the only way to be certain the
+  preview and the commit agree — they are then the same code over the same
+  data — and the rollback is what makes that safe.
+
+  What comes back is per week and in the week's terms: misses before and
+  after, which bonus chore is about to be spent covering which miss, whether
+  the chore pay is rescued or lost, and the total either side. "7 items" is a
+  fact about the screen. None of the above is derivable from it.
+
+  The author recorded during a preview is "preview", not "parent". Nothing
+  written under it survives the savepoint, and using the real string would put
+  the record one bug away from being unable to tell a rehearsal from the
+  thing itself.
+
+app/routers/parent.py — GET /api/parent/queue and POST
+/api/parent/review/preview. Neither carries a PIN. The preview writes and
+then throws the write away, and what it exposes is what a proposal already
+exposes: what a week would be worth. The PIN guards the act, not the
+arithmetic. Confirming for real is still POST /api/claims/review, one PIN,
+one transaction, all or nothing.
+
+app/routers/waivers.py — new; there was no way to record a waiver over HTTP
+at all. POST re-plans the week it lands in through sync_week_instances, which
+removes an occasion the plan no longer wants only while it is still
+UNTOUCHED. Waiving Monday after the child's claim was confirmed leaves the
+claim standing. A waiver is not a way in through the back door to deleting
+somebody's confirmed work. Refused for a closed week: a closed week is not
+re-planned, its figures are stored.
+
+Savings gained the two endpoints the parent view needed: POST
+/api/savings/withdrawals, and POST /api/savings/reconcile.
+
+  Reconcile records nothing, and that is the design rather than an omission.
+  The ledger is append-only with four entry types, none of which means "the
+  books were wrong". A fifth would make the balance agree while destroying
+  the only information the difference carries — that something happened to
+  the account nobody wrote down — and the monthly match is computed from the
+  lowest balance a month reached, so an invented adjustment silently moves
+  money the scheme is about to pay a match on. Instead the response names the
+  difference and which existing act closes it: money missing is a withdrawal
+  nobody logged; money extra has no act yet, and it says so plainly rather
+  than pretending otherwise.
+
+A real gap found while testing, and fixed. A parent-entered reward is an
+earnings-ledger entry, not a chore instance, so it never appears in
+settlement's reward_pence and never appeared on the week view at all — the
+child's screen said "on track for £1" while £2.50 of reward sat against the
+week, owed to him and invisible. payments.ad_hoc_rewards is now public and
+the view carries two figures: total_pence, which is what the week settles at
+and what a parent agrees to, and payable_total_pence, which adds the rewards
+and is what he will actually be handed. The child's headline is the second.
+The distinction is real and had to be kept — a reward must not move with the
+chore result — but one of the two had to be on the screen, and it was not.
+
+frontend/: parentApi.ts, parentWords.ts, ParentView.tsx, and
+components/parent/.
+
+  The PIN is asked for per submission by a dialog that first states what is
+  about to happen, and is kept nowhere afterwards. It lives in that
+  component's own state, is cleared before the request is awaited, and the
+  component is unmounted when the act finishes. No unlocked mode, no
+  "remember for five minutes", no header set for later. The API refuses these
+  requests without it regardless — this is not what makes the app safe — but
+  a screen that stayed unlocked on a kitchen wall the child walks past would
+  make the server-side check irrelevant in practice.
+
+  Ruling on the queue decides nothing: it marks items. The consequence is
+  fetched, then the batch is submitted once. Changing any ruling clears the
+  consequence, because a stale one describes a batch nobody is about to send.
+
+  parentWords.ts phrases consequences and never calculates one. If it did
+  arithmetic of its own the sentence and the outcome could disagree, which is
+  the single failure this whole design exists to rule out.
+
+  Closed weeks render with no controls at all. Nothing in the app can edit a
+  settled week, so nothing there offers to.
+
+Tests: 414 pass, 22 of them new. The card's case is
+test_the_stated_consequence_is_what_actually_happens: the consequence is
+predicted, the batch is submitted, and the resulting proposal is compared
+field by field against what was predicted.
+
+Verified live against a running server, with the parent components rendered
+server-side against the real payload so the actual sentences could be read.
+A failing week with three claims waiting stated "The chore money comes back:
+£1.80, which was at risk. Outstanding misses go from 3 misses to no misses.
+The week goes from £1 to £2.80 — up £1.80", and after submitting: total 280,
+chore pay 180 awarded, no outstanding misses, queue empty. Also driven live:
+a reward typed as "£2.50" landing on the next open week because its own had
+settled, a waived day leaving confirmed work alone, settling at the figure
+read, paying with £2 banked, a withdrawal, an overdrawn withdrawal refused,
+a wrong PIN refused, and all three reconciliation outcomes.
+
+Not done: the API still does not serve the built bundle, so the two screens
+run against the Vite dev server. The WEEKLY_CONDITION gap from Session I is
+untouched — it is a settlement problem and the parent view is where the
+judgement would have to be made, so it is now overdue rather than merely
+recorded.

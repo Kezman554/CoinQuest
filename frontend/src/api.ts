@@ -72,8 +72,13 @@ export type Totals = {
   chore_pay_pence: number
   chore_pay_awarded: boolean
   bonus_pence: number
+  /** Rewards from REWARD-category chores, which settle with the week. */
   reward_pence: number
+  /** Rewards a parent entered, which are owed on top of the settled figure. */
+  ad_hoc_reward_pence: number
   total_pence: number
+  /** What he will actually be handed for this week: the two added up. */
+  payable_total_pence: number
 }
 
 export type WeekView = {
@@ -138,4 +143,32 @@ export function money(pence: number): string {
   const remainder = pence % 100
   if (remainder === 0) return `£${pounds}`
   return `£${pounds}.${String(remainder).padStart(2, '0')}`
+}
+
+/**
+ * Pounds as typed by a person, to integer pence. Null if it is not a number.
+ *
+ * Deliberately no `parseFloat`. The rule in this project is that no floating
+ * point touches currency anywhere, and it is not suspended because this side
+ * is TypeScript: 4.35 is not representable, and `Math.round(4.35 * 100)` is
+ * 435 only because the error happens to fall the right way. This splits the
+ * string and does integer arithmetic, so "4.35" is 435 by construction.
+ *
+ * A third decimal is refused rather than rounded, matching the API's own
+ * parser: an amount that cannot be paid in coins is a typing mistake, not a
+ * value to guess at.
+ */
+export function parsePence(text: string): number | null {
+  const cleaned = text.trim().replace(/^£/, '').replace(/,/g, '')
+  if (cleaned === '') return null
+
+  const asPence = cleaned.match(/^(\d+)p$/)
+  if (asPence) return Number(asPence[1])
+
+  const match = cleaned.match(/^(\d*)(?:\.(\d{1,2}))?$/)
+  if (!match) return null
+  const [, pounds, decimals] = match
+  if (!pounds && !decimals) return null
+
+  return Number(pounds || '0') * 100 + Number((decimals ?? '').padEnd(2, '0'))
 }

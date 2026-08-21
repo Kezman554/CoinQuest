@@ -577,3 +577,116 @@ def record_opening_balance(
         raise
 
     return _entry_view(entry)
+
+
+class WithdrawalRequest(AuthorisedRequest):
+    """Money out of the account, and what it went on.
+
+    Not a deduction: nothing is ever taken away from what the child earned.
+    This is his own money leaving his own account, and the reason is required
+    because a withdrawal with no reason is unanswerable the moment anybody
+    asks what happened to it.
+    """
+
+    amount_pence: int = Field(gt=0)
+    reason: str = Field(min_length=1)
+    occurred_on: date | None = None
+
+
+class ReconcileRequest(BaseModel):
+    """What the real account actually holds today.
+
+    No PIN, because this writes nothing at all — see the endpoint.
+    """
+
+    actual_balance_pence: int = Field(ge=0)
+
+
+class ReconciliationView(BaseModel):
+    recorded_balance_pence: int
+    actual_balance_pence: int
+    difference_pence: int
+    agrees: bool
+    #: What would close the gap, named as one of the two acts that exist.
+    put_right_by: str | None
+
+
+@savings_router.post(
+    "/withdrawals", response_model=SavingsEntryView, status_code=status.HTTP_201_CREATED
+)
+def record_withdrawal(
+    request: Request,
+    body: WithdrawalRequest,
+    session: Session = Depends(get_session),
+) -> SavingsEntryView:
+    """Log money taken out. The only entry that lowers the balance."""
+    authorise(request, body)
+    day = body.occurred_on or today(get_settings().tzinfo)
+
+    try:
+        entry = savings.record_withdrawal(
+            session,
+            amount_pence=body.amount_pence,
+            occurred_on=day,
+            reason=body.reason,
+        )
+        session.commit()
+    except SavingsError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from None
+    except Exception:
+        session.rollback()
+        raise
+
+    return _entry_view(entry)
+
+
+@savings_router.post("/reconcile", response_model=ReconciliationView)
+def reconcile(
+    body: ReconcileRequest, session: Session = Depends(get_session)
+) -> ReconciliationView:
+    """Compare the recorded balance with what the account really holds.
+
+    This deliberately records nothing, and that is the whole design rather
+    than an omission.
+
+    The ledger is append-only and has four entry types, none of which means
+    "the books were wrong". Inventing a fifth to paper over a difference would
+    make the balance agree while destroying the only information the
+    difference carries: that something happened to the account which nobody
+    wrote down. The monthly match is computed from the lowest balance a month
+    reached, so an unexplained adjustment silently moves money the scheme is
+    about to pay a match on.
+
+    A difference has a cause, and the cause is one of two things this app
+    already has an act for. Money missing is a withdrawal nobody logged. Money
+    extra is a deposit or a gift that never reached the ledger — and there is
+    no endpoint for that yet, which this response says plainly rather than
+    pretending otherwise.
+    """
+    recorded = savings.current_balance(session)
+    difference = body.actual_balance_pence - recorded
+
+    if difference == 0:
+        put_right_by = None
+    elif difference < 0:
+        put_right_by = (
+            f"{abs(difference)}p has left the account without being logged."
+            " Record it as a withdrawal, with what it went on."
+        )
+    else:
+        put_right_by = (
+            f"{difference}p is in the account that the ledger does not know"
+            " about. Nothing here records money arriving from outside a"
+            " payday, so this needs deciding rather than entering."
+        )
+
+    return ReconciliationView(
+        recorded_balance_pence=recorded,
+        actual_balance_pence=body.actual_balance_pence,
+        difference_pence=difference,
+        agrees=difference == 0,
+        put_right_by=put_right_by,
+    )

@@ -40,7 +40,7 @@ from app.models.enums import (
 )
 from app.models.waivers import Waiver
 from app.models.weeks import Week
-from app.services import settlement
+from app.services import payments, settlement
 from app.services.calendar import Period, elapsed, today
 from app.services.instances import WeekPlan, plan_week
 
@@ -141,13 +141,27 @@ class RecoveryView:
 
 @dataclass(frozen=True)
 class Totals:
+    """What the week comes to, in the two figures that are not the same.
+
+    `total_pence` is what the week would settle at — the figure a parent
+    agrees to, and the one the settlement path checks against.
+
+    `payable_total_pence` adds the rewards a parent entered against this week.
+    Those never touch the settled figures, deliberately: a bad week at the
+    hoover does not make an award smaller. But they are money owed for this
+    week and payday hands them over with the rest, so the figure the child
+    reads as "what this week is worth" has to include them.
+    """
+
     base_pence: int
     chore_pay_at_stake_pence: int
     chore_pay_pence: int
     chore_pay_awarded: bool
     bonus_pence: int
     reward_pence: int
+    ad_hoc_reward_pence: int
     total_pence: int
+    payable_total_pence: int
 
 
 @dataclass(frozen=True)
@@ -196,6 +210,7 @@ def build(
 
     cards = [_card(instance, definitions, open_week) for instance in instances]
     local_today = today(tz)
+    ad_hoc = payments.ad_hoc_rewards(session, week.id)
 
     return WeekView(
         child_name=get_settings().child_name,
@@ -215,7 +230,9 @@ def build(
             chore_pay_awarded=proposal.chore_pay_awarded,
             bonus_pence=proposal.bonus_pence,
             reward_pence=proposal.reward_pence,
+            ad_hoc_reward_pence=ad_hoc,
             total_pence=proposal.total_pence,
+            payable_total_pence=proposal.total_pence + ad_hoc,
         ),
     )
 

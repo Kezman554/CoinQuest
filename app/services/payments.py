@@ -57,10 +57,17 @@ def amount_owed(session: Session, week: Week) -> int:
     """
     if week.settled_total_pence is None:
         return 0
-    return week.settled_total_pence + _ad_hoc_rewards(session, week.id)
+    return week.settled_total_pence + ad_hoc_rewards(session, week.id)
 
 
-def _ad_hoc_rewards(session: Session, week_id: int) -> int:
+def ad_hoc_rewards(session: Session, week_id: int) -> int:
+    """Rewards entered against this week by a parent.
+
+    Public because the week view needs it too. A reward never touches the
+    week's settled figures — a bad week at the hoover does not make an award
+    smaller — but it is money the child is owed for that week, so a screen
+    that leaves it out of "what this week comes to" is wrong about the money.
+    """
     return sum(
         entry.amount_pence
         for entry in session.query(EarningEntry).filter(
@@ -88,7 +95,7 @@ def describe(session: Session, week: Week) -> Owed:
         start_date=week.start_date,
         end_date=week.end_date,
         settled_total_pence=week.settled_total_pence or 0,
-        reward_pence=_ad_hoc_rewards(session, week.id),
+        reward_pence=ad_hoc_rewards(session, week.id),
         owed_pence=amount_owed(session, week),
         is_paid=week.paid_at is not None,
     )

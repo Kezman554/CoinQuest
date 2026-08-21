@@ -6,6 +6,11 @@
  * have read. The breakdown is shown because a single number nobody can account
  * for is exactly the argument this app exists to end.
  *
+ * The headline is the payable total: the settled figure plus any reward a
+ * parent entered against the week. Those two are separate in the books for a
+ * good reason — a reward never moves with the chore result — but the child is
+ * asking what he will be handed, and that is the sum.
+ *
  * The chore pay is one pot, paid whole or not at all, so it gets a line of its
  * own saying which of the two it currently is. A child who can see that £1.40
  * is at stake and why has something he can act on; a total that quietly went
@@ -19,7 +24,7 @@ export function Total({ totals }: { totals: Totals }) {
   return (
     <section className="total">
       <p className="total-label">On track for</p>
-      <p className="total-amount">{money(totals.total_pence)}</p>
+      <p className="total-amount">{money(totals.payable_total_pence)}</p>
 
       <dl className="breakdown">
         <div>
@@ -38,10 +43,10 @@ export function Total({ totals }: { totals: Totals }) {
           <dt>Bonus</dt>
           <dd>{money(totals.bonus_pence)}</dd>
         </div>
-        {totals.reward_pence > 0 && (
+        {totals.reward_pence + totals.ad_hoc_reward_pence > 0 && (
           <div>
             <dt>Rewards</dt>
-            <dd>{money(totals.reward_pence)}</dd>
+            <dd>{money(totals.reward_pence + totals.ad_hoc_reward_pence)}</dd>
           </div>
         )}
       </dl>

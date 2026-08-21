@@ -125,7 +125,9 @@ class TotalsView(BaseModel):
     chore_pay_awarded: bool
     bonus_pence: int
     reward_pence: int
+    ad_hoc_reward_pence: int
     total_pence: int
+    payable_total_pence: int
 
 
 class WeekViewOut(BaseModel):
@@ -207,7 +209,9 @@ class WeekViewOut(BaseModel):
                 chore_pay_awarded=view.totals.chore_pay_awarded,
                 bonus_pence=view.totals.bonus_pence,
                 reward_pence=view.totals.reward_pence,
+                ad_hoc_reward_pence=view.totals.ad_hoc_reward_pence,
                 total_pence=view.totals.total_pence,
+                payable_total_pence=view.totals.payable_total_pence,
             ),
         )
 

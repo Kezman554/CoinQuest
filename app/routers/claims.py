@@ -31,7 +31,11 @@ from app.models.chores import ChoreInstance
 from app.models.enums import InstanceState, MissOrigin, WeekStatus
 from app.models.weeks import Week
 from app.routers.dependencies import AuthorisedRequest, authorise, get_session
-from app.services.authorisation import Authorisation
+from app.services.review import (
+    Decision as ServiceDecision,
+    ReviewError,
+    apply_decisions,
+)
 
 router = APIRouter(prefix="/api", tags=["claims"])
 
@@ -67,6 +71,14 @@ class ReviewRequest(AuthorisedRequest):
                 f"Instances appear more than once in this batch: {sorted(duplicates)}"
             )
         return decisions
+
+    def decided(self) -> list[ServiceDecision]:
+        return [
+            ServiceDecision(
+                instance_id=decision.instance_id, decision=decision.decision
+            )
+            for decision in self.decisions
+        ]
 
 
 class MissedRequest(AuthorisedRequest):
@@ -194,42 +206,37 @@ def review(
     applied, the whole submission is rolled back and the parent is told which
     item stopped it — so they can fix that one and resubmit the same batch
     rather than work out which half went through.
+
+    The applying itself lives in app.services.review, because the parent view
+    asks what a batch *would* do before this is called and the two answers
+    have to come from the same code. A preview that agrees with the commit
+    only by coincidence is not a preview.
     """
     authorisation = authorise(request, body)
 
-    confirmed: list[int] = []
-    rejected: list[int] = []
-
     try:
-        for decision in body.decisions:
-            instance = _load(session, decision.instance_id)
-            _refuse_closed_weeks(session, instance)
-
-            if instance.state is not InstanceState.CLAIMED:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=(
-                        f"Instance {instance.id} is {instance.state.value},"
-                        " not a pending claim. Nothing in this batch was applied."
-                    ),
-                )
-
-            if decision.decision == "confirm":
-                _confirm(instance, authorisation)
-                confirmed.append(instance.id)
-            else:
-                _reject(instance, authorisation)
-                rejected.append(instance.id)
-
+        applied = apply_decisions(session, body.decided(), authorisation)
         session.commit()
+    except ReviewError as exc:
+        # Including this one: a refusal must leave the database exactly as it
+        # found it.
+        session.rollback()
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+                if str(exc).startswith("No chore instance")
+                else status.HTTP_409_CONFLICT
+            ),
+            detail=str(exc),
+        ) from None
     except Exception:
-        # Including the HTTPException above: a refusal must leave the database
-        # exactly as it found it.
         session.rollback()
         raise
 
     return ReviewResult(
-        confirmed=confirmed, rejected=rejected, authorised_by=authorisation.party
+        confirmed=list(applied.confirmed),
+        rejected=list(applied.rejected),
+        authorised_by=authorisation.party,
     )
 
 
@@ -282,30 +289,3 @@ def mark_missed(
 
     session.refresh(instance)
     return InstanceView.of(instance)
-
-
-def _confirm(instance: ChoreInstance, authorisation: Authorisation) -> None:
-    instance.state = InstanceState.CONFIRMED
-    instance.confirmed_at = authorisation.at
-    # Who agreed it. There is one parent today; recording it anyway means the
-    # history is already right on the day there are two.
-    instance.authorised_by = authorisation.party
-
-
-def _reject(instance: ChoreInstance, authorisation: Authorisation) -> None:
-    """A rejected claim goes back to untouched, not to missed.
-
-    Not believing a claim is not the same as ruling the chore was not done,
-    and the difference matters: an untouched instance is provisional until
-    settlement, so the child can still do it, or claim it again, before the
-    week closes.
-
-    The rejection is recorded even though no rule reads it. Without it a
-    refused claim looks exactly like a tap that never registered, and the
-    child re-claims into the same refusal without ever being told why.
-    """
-    instance.state = InstanceState.UNTOUCHED
-    instance.claimed_at = None
-    instance.rejected_at = authorisation.at
-    instance.rejection_count += 1
-    instance.authorised_by = authorisation.party
