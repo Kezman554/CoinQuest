@@ -14,6 +14,7 @@ import pytest
 
 from app.models.enums import (
     ON_DEMAND_CADENCES,
+    WEEK_DERIVED_CADENCES,
     Cadence,
     Category,
     InstanceState,
@@ -42,6 +43,7 @@ class FakeDefinition:
     category: Category
     amount_pence: int
     times_per_week: int | None = None
+    weekdays: str | None = None
     is_available: bool = True
 
 
@@ -66,6 +68,9 @@ BINS = FakeDefinition(
 )
 TIDY = FakeDefinition(5, "Tidy all week", Cadence.WEEKLY_CONDITION, Category.BONUS, 500)
 AWARD = FakeDefinition(6, "School award", Cadence.EVENT, Category.REWARD, 250)
+BINS_OUT = FakeDefinition(
+    7, "Bins out", Cadence.WEEKDAYS, Category.BONUS, 60, weekdays="tuesday,friday"
+)
 
 
 def instances_for(definition, confirmed=0, missed=0, untouched=0, start=100):
@@ -312,12 +317,35 @@ def test_a_cadence_that_cannot_be_done_on_demand_is_not_a_recovery():
     assert best.total_pence == 500
 
 
+def test_a_completed_weekdays_bonus_recovers_a_miss_like_a_daily_one():
+    # Bins out is due Tuesday and Friday only — plan_week() asks for exactly
+    # those two, not seven, and once both are confirmed it is on the same
+    # footing as a daily bonus chore: on demand, so spendable.
+    rows = instances_for(BEDS, confirmed=6, untouched=1) + instances_for(
+        BINS_OUT, confirmed=2
+    )
+    assessment = assess([BEDS, BINS_OUT], rows)
+    assert assessment.requirement(BINS_OUT.id).required == 2  # not 7
+    assert [r.name for r in assessment.spendable_bonuses] == [BINS_OUT.name]
+
+    best = best_assignment(assessment)
+    assert best.misses_recovered == 1
+    assert best.misses_outstanding == 0
+    assert best.chore_pay_pence == BEDS.amount_pence  # rescued
+    assert best.bonus_pay_pence == 0                  # spent, not paid
+
+
 def test_eligibility_names_no_chore_anywhere():
     # The rule is a property of the cadence, so a new chore is covered the day
     # it is added without anyone editing the recovery logic.
     assert Cadence.WEEKLY_CONDITION not in ON_DEMAND_CADENCES
     assert Cadence.EVENT not in ON_DEMAND_CADENCES
-    assert ON_DEMAND_CADENCES == {Cadence.DAILY, Cadence.WEEKLY_COUNT, Cadence.ONE_OFF}
+    assert ON_DEMAND_CADENCES == {
+        Cadence.DAILY,
+        Cadence.WEEKDAYS,
+        Cadence.WEEKLY_COUNT,
+        Cadence.ONE_OFF,
+    }
 
     invented = FakeDefinition(
         99, "Something nobody has thought of", Cadence.ONE_OFF, Category.BONUS, 80
@@ -327,6 +355,19 @@ def test_eligibility_names_no_chore_anywhere():
     )
     assessment = assess([BEDS, invented], rows)
     assert [r.name for r in assessment.spendable_bonuses] == [invented.name]
+
+
+def test_weekdays_is_predictable_from_the_definition_alone():
+    # Same footing as DAILY: both are derivable from the definition and the
+    # week, so settlement asks the plan how many occasions were wanted rather
+    # than counting whatever rows happen to exist.
+    assert Cadence.WEEKDAYS in WEEK_DERIVED_CADENCES
+    assert WEEK_DERIVED_CADENCES == {
+        Cadence.DAILY,
+        Cadence.WEEKDAYS,
+        Cadence.WEEKLY_COUNT,
+        Cadence.WEEKLY_CONDITION,
+    }
 
 
 # --- 5. The best assignment, computed --------------------------------------

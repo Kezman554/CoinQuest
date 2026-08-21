@@ -13,6 +13,7 @@ class Cadence(str, enum.Enum):
     """How often a chore falls due."""
 
     DAILY = "daily"                        # one instance every day
+    WEEKDAYS = "weekdays"                  # one instance on chosen days of the week
     WEEKLY_COUNT = "weekly_count"          # n instances somewhere in the week
     WEEKLY_CONDITION = "weekly_condition"  # one week-long condition, judged once
     ONE_OFF = "one_off"                    # a single instance on a given day
@@ -27,8 +28,11 @@ WEEK_SCOPED_CADENCES = frozenset({Cadence.WEEKLY_COUNT, Cadence.WEEKLY_CONDITION
 #: exist are the requirement: somebody deliberately added each one. This is not
 #: a hole in "assess the requirement, never the rows" — it is what the
 #: requirement consists of when the scheme cannot know it in advance.
+#:
+#: WEEKDAYS belongs here on the same footing as DAILY: both are predictable
+#: from the definition alone, WEEKDAYS just asks for fewer of the week's days.
 WEEK_DERIVED_CADENCES = frozenset(
-    {Cadence.DAILY, Cadence.WEEKLY_COUNT, Cadence.WEEKLY_CONDITION}
+    {Cadence.DAILY, Cadence.WEEKDAYS, Cadence.WEEKLY_COUNT, Cadence.WEEKLY_CONDITION}
 )
 
 #: Cadences a child can decide to complete today, told this morning that
@@ -41,8 +45,14 @@ WEEK_DERIVED_CADENCES = frozenset(
 #: a condition held all week is either already true or already lost. An EVENT
 #: is excluded because the child does not decide when it happens; somebody
 #: else does, and a rule the child cannot act on is not a recovery route.
+#:
+#: WEEKDAYS belongs here too — on one of its own chosen days it is exactly as
+#: on-demand as DAILY is every day. Membership in this set does not promise a
+#: chore is doable on ANY day, only that when it is due, it is the child's to
+#: decide: there is simply no instance to claim on a day it is not due, which
+#: the ordinary "no instance, nothing to spend" check already handles.
 ON_DEMAND_CADENCES = frozenset(
-    {Cadence.DAILY, Cadence.WEEKLY_COUNT, Cadence.ONE_OFF}
+    {Cadence.DAILY, Cadence.WEEKDAYS, Cadence.WEEKLY_COUNT, Cadence.ONE_OFF}
 )
 
 

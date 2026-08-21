@@ -17,15 +17,16 @@
 
 import { useState } from 'react'
 import { money, parsePence } from '../../api'
-import type { Cadence, ChoreDefinition, ChoreWrite } from '../../parentApi'
-import { createChore, editChore, retireChore } from '../../parentApi'
-import { cadenceLabel } from '../../parentWords'
+import type { Cadence, ChoreDefinition, ChoreWrite, Weekday } from '../../parentApi'
+import { WEEKDAYS, createChore, editChore, retireChore } from '../../parentApi'
+import { cadenceLabel, weekdayLabel } from '../../parentWords'
 import type { PinAct } from './PinDialog'
 
 type Ask = { ask: (act: PinAct) => void }
 
 const CADENCES: { value: Cadence; label: string }[] = [
   { value: 'daily', label: 'Daily' },
+  { value: 'weekdays', label: 'Chosen days of the week' },
   { value: 'weekly_count', label: 'A number of times a week' },
   { value: 'weekly_condition', label: 'All week, judged on Sunday' },
   { value: 'one_off', label: 'One-off' },
@@ -119,7 +120,7 @@ function ChoreDefRow({ chore, ask }: Ask & { chore: ChoreDefinition }) {
       <span className="chore-def-name">{chore.name}</span>
       <span className={`tag tag-${chore.category}`}>{chore.category}</span>
       <span className="chore-def-cadence">
-        {cadenceLabel(chore.cadence, chore.times_per_week)}
+        {cadenceLabel(chore.cadence, chore.times_per_week, chore.weekdays)}
       </span>
       {chore.is_administered && (
         <span className="chore-def-admin">Marked by a parent, not claimed</span>
@@ -172,17 +173,28 @@ function ChoreForm({
   const [timesPerWeek, setTimesPerWeek] = useState(
     initial?.times_per_week ? String(initial.times_per_week) : '',
   )
+  const [weekdays, setWeekdays] = useState<Weekday[]>(initial?.weekdays ?? [])
   const [amount, setAmount] = useState(initial ? money(initial.amount_pence) : '')
   const [administered, setAdministered] = useState(initial?.is_administered ?? false)
 
   const pence = parsePence(amount)
   const needsCount = cadence === 'weekly_count'
+  const needsWeekdays = cadence === 'weekdays'
   const count = needsCount ? Number(timesPerWeek) : null
   const ready =
     name.trim().length > 0 &&
     pence !== null &&
     pence >= 0 &&
-    (!needsCount || (count !== null && count > 0))
+    (!needsCount || (count !== null && count > 0)) &&
+    (!needsWeekdays || weekdays.length > 0)
+
+  const toggleWeekday = (day: Weekday) => {
+    setWeekdays((current) =>
+      current.includes(day)
+        ? current.filter((each) => each !== day)
+        : [...current, day],
+    )
+  }
 
   const submit = () => {
     if (!ready || pence === null) return
@@ -191,12 +203,13 @@ function ChoreForm({
       category,
       cadence,
       times_per_week: needsCount ? count : null,
+      weekdays: needsWeekdays ? weekdays : null,
       amount_pence: pence,
       is_administered: administered,
     }
     ask({
       title: initial ? `Save changes to ${initial.name}` : `Add ${chore.name}`,
-      summary: `${cadenceLabel(cadence, chore.times_per_week)} — ${money(pence)}`,
+      summary: `${cadenceLabel(cadence, chore.times_per_week, needsWeekdays ? weekdays : null)} — ${money(pence)}`,
       confirmLabel: submitLabel,
       run: (pin) =>
         (initial
@@ -258,6 +271,21 @@ function ChoreForm({
           onChange={(event) => setAmount(event.target.value)}
         />
       </div>
+
+      {needsWeekdays && (
+        <div className="chore-form-weekdays" role="group" aria-label="Which days">
+          {WEEKDAYS.map((day) => (
+            <label key={day} className="chore-form-weekday">
+              <input
+                type="checkbox"
+                checked={weekdays.includes(day)}
+                onChange={() => toggleWeekday(day)}
+              />
+              {weekdayLabel(day)}
+            </label>
+          ))}
+        </div>
+      )}
 
       <label className="chore-form-administered">
         <input

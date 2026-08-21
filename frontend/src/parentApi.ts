@@ -143,10 +143,31 @@ export type Preset = {
 
 export type Cadence =
   | 'daily'
+  | 'weekdays'
   | 'weekly_count'
   | 'weekly_condition'
   | 'one_off'
   | 'event'
+
+/** date.weekday() order (Monday-first) — matches the server's WEEKDAY_TOKENS. */
+export type Weekday =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday'
+
+export const WEEKDAYS: Weekday[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+]
 
 export type ChoreDefinition = {
   id: number
@@ -154,6 +175,7 @@ export type ChoreDefinition = {
   category: 'basic' | 'bonus' | 'reward'
   cadence: Cadence
   times_per_week: number | null
+  weekdays: Weekday[] | null
   amount_pence: number
   is_administered: boolean
   is_available: boolean
@@ -165,6 +187,7 @@ export type ChoreWrite = {
   category: string
   cadence: string
   times_per_week: number | null
+  weekdays: string[] | null
   amount_pence: number
   is_administered: boolean
 }

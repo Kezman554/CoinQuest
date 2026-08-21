@@ -42,6 +42,7 @@ class FakeDefinition:
     category: Category = Category.BASIC
     amount_pence: int = 50
     times_per_week: int | None = None
+    weekdays: str | None = None
     is_available: bool = True
 
 
@@ -58,6 +59,9 @@ def day_waivers(*days: date, week_id: int = 1) -> list[FakeWaiver]:
 
 
 DAILY = FakeDefinition(id=1, name="Make bed", cadence=Cadence.DAILY)
+BINS_OUT = FakeDefinition(
+    id=10, name="Bins out", cadence=Cadence.WEEKDAYS, weekdays="tuesday,friday"
+)
 TWICE = FakeDefinition(
     id=2, name="Bins", cadence=Cadence.WEEKLY_COUNT, times_per_week=2
 )
@@ -86,6 +90,38 @@ def test_a_daily_chore_produces_seven_even_in_the_week_the_clocks_change():
     # The October week is 169 hours long. It is still seven days.
     october = week_containing(date(2026, 10, 25), LONDON)
     assert plan_week(october, [DAILY]).count_for(DAILY.id) == 7
+
+
+# --- 1b. Weekdays ------------------------------------------------------------
+#
+# The same day loop as DAILY, filtered to the definition's chosen days — see
+# instances.py's _day_scoped_instances, which both branches call.
+
+
+def test_a_weekdays_chore_produces_one_instance_on_each_chosen_day():
+    plan = plan_week(WEEK, [BINS_OUT])
+    assert plan.count_for(BINS_OUT.id) == 2
+    assert [instance.due_date for instance in plan.instances] == [TUESDAY, FRIDAY]
+
+
+def test_a_weekdays_chore_is_not_seven_even_though_daily_shares_its_loop():
+    # The regression this whole card exists to prevent: the shared loop must
+    # still ask for exactly the chosen days, not every day it iterates over.
+    plan = plan_week(WEEK, [BINS_OUT])
+    assert plan.required_for(BINS_OUT.id) == 2
+
+
+def test_a_weekdays_chore_produces_two_even_in_the_week_the_clocks_change():
+    october = week_containing(date(2026, 10, 25), LONDON)
+    assert plan_week(october, [BINS_OUT]).count_for(BINS_OUT.id) == 2
+
+
+def test_an_unrecognised_weekday_token_is_refused():
+    bad = FakeDefinition(
+        id=11, name="Broken", cadence=Cadence.WEEKDAYS, weekdays="teusday"
+    )
+    with pytest.raises(ValueError, match="teusday"):
+        plan_week(WEEK, [bad])
 
 
 # --- 2. Weekly count --------------------------------------------------------
@@ -140,6 +176,25 @@ def test_a_waived_day_says_what_it_removed_and_why():
     (exclusion,) = plan.exclusions
     assert exclusion.due_date == WEDNESDAY
     assert exclusion.reason == "the day was waived"
+
+
+def test_a_waived_day_removes_a_weekdays_chores_instance_on_that_day():
+    # Bins out is due Tuesday and Friday. Waiving Tuesday removes it, exactly
+    # as waiving a day removes a daily chore's instance on it.
+    plan = plan_week(WEEK, [BINS_OUT], day_waivers(TUESDAY))
+    assert plan.count_for(BINS_OUT.id) == 1
+    assert [instance.due_date for instance in plan.instances] == [FRIDAY]
+    assert plan.exclusions[0].due_date == TUESDAY
+    assert plan.exclusions[0].reason == "the day was waived"
+
+
+def test_a_waived_day_the_weekdays_chore_was_never_due_on_changes_nothing():
+    # Wednesday is not one of Bins out's days, so waiving it excuses nothing
+    # of this chore's — both instances stand.
+    plan = plan_week(WEEK, [BINS_OUT], day_waivers(WEDNESDAY))
+    assert plan.count_for(BINS_OUT.id) == 2
+    assert [instance.due_date for instance in plan.instances] == [TUESDAY, FRIDAY]
+    assert plan.exclusions == ()
 
 
 def test_a_chore_waived_for_the_week_is_removed_entirely():

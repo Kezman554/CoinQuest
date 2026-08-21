@@ -998,3 +998,78 @@ weekly-count bonus chore, editing its amount, retiring it, a second retire
 refused with 409, and the retired chore still listed rather than gone.
 
 npm run build (tsc -b + vite build) clean.
+
+2026-08-21 — Session O: a sixth cadence, chosen weekdays
+
+The deferral from Session N — recorded rather than guessed at — comes back
+built. Read app/models/enums.py, instances.py's plan_week(), recovery.py and
+week_view.py before writing anything, per the card's own instruction; the
+finding that made this small was that both frozensets already do their job
+by membership alone, and week_view.py's day/week split already keys off
+`due_date is not None` rather than switching on cadence — so a day-scoped
+cadence slots in without touching either file at all.
+
+Cadence.WEEKDAYS added to enums.py, and to both WEEK_DERIVED_CADENCES and
+ON_DEMAND_CADENCES, exactly as directed — "settled, not a question to
+reopen." app/models/chores.py gains `weekdays` (a comma-joined, Monday-first
+canonical string over WEEKDAY_TOKENS — date.weekday() order, index-compatible
+with week_view.WEEKDAY_NAMES) plus parse_weekday_tokens/format_weekdays/
+parse_weekdays, and a CHECK mirroring times_per_week's exactly: required for,
+and only for, weekdays. Revision 4872595d1036.
+
+instances.py's DAILY branch became _day_scoped_instances(definition, week,
+waived_days, weekday_filter=None), called by DAILY unfiltered and by the new
+WEEKDAYS branch with the definition's own set — the filtering the card asked
+for, not a duplicated loop. A waived day excuses whatever was due on it
+either way; a waived day the chore was never due on changes nothing, proven
+by a dedicated test.
+
+No changes needed in recovery.py or week_view.py beyond the enums — verified
+rather than assumed: assess_week()'s `required = plan.required` already
+reads however many PlannedInstances plan_week emitted for a WEEKDAYS
+definition, which for a 2-day chore is 2 every week (every week contains
+each weekday once), never 7. can_be_spent_as_recovery and the recovery
+panel's `options` already gate on ON_DEMAND_CADENCES membership plus an
+actual claimable instance existing — which for WEEKDAYS only exists on its
+own due days, so "on demand" never overclaims a day it isn't due.
+
+app/routers/chores.py: ChoreWriteRequest gains `weekdays: list[str] | None`,
+validated and canonicalised through parse_weekday_tokens/format_weekdays in
+the same cadence_carries_its_own_fields validator times_per_week already
+used — cadence carries its own shape-specific fields, weekdays is just a
+second shape. ChoreDefinitionView outputs it as a list, not the stored
+string. _resync_current_week() needed no changes at all: it already re-plans
+today's week from live definitions on every write, and plan_week's new
+branch is what makes that correct for the new cadence too.
+
+frontend: parentApi.ts gains Weekday, WEEKDAYS (Monday-first, matching the
+server) and ChoreDefinition.weekdays. parentWords.ts's cadenceLabel takes an
+optional weekdays list and reads "Tuesday and Friday" rather than a token
+list. Chores.tsx gains a weekdays option in the cadence picker and a day
+checkbox row, shown only when that cadence is selected — same pattern as the
+existing times_per_week field. npm run build clean.
+
+Tests: 469 pass (451 + 18 new) — test_recovery.py's exact-membership test for
+ON_DEMAND_CADENCES updated to include WEEKDAYS (this is the one place a
+frozenset's literal contents were asserted, and the card said this
+reopening was intended), a new equivalent test for WEEK_DERIVED_CADENCES,
+plan_week() coverage for the new branch including the two waiver
+interactions and the October clock-change week, a full recovery-eligibility
+test proving a completed weekdays bonus chore rescues a miss exactly like a
+daily one, and in test_chores.py: validation (weekdays required and only for
+that cadence, unrecognised token refused, canonicalised regardless of input
+order), the card's two named cases — a Tue/Fri chore due on exactly those
+two days with no reopen, and a missed Tuesday recovered by a bonus chore,
+proven through the recovery panel — and a week settled before this card
+shipped, with a weekdays chore only entering the scheme afterward, left
+byte-for-byte unchanged.
+
+Verified live against a running server: created a Tue/Fri chore (input
+"friday,tuesday", stored and returned canonically as "tuesday,friday"), the
+week view showed it due on exactly those two days and no others, marking
+Tuesday missed and completing a bonus chore brought the recovery panel to
+outstanding:0 covered:1 "Bins out -> covered by Water houseplants", and
+editing the chore afterward to Monday/Thursday added those as new untouched
+instances while leaving Tuesday's already-missed one exactly as it was —
+"never destroy work" holding for the new cadence without any code written
+specifically to make it do so; it was already the rule.

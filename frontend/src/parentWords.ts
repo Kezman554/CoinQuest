@@ -16,7 +16,7 @@
  */
 
 import { money } from './api'
-import type { Cadence, Consequence, Figures, Pending } from './parentApi'
+import type { Cadence, Consequence, Figures, Pending, Weekday } from './parentApi'
 import { list, plural, shortDate } from './words'
 
 export function weekLabel(start: string, end: string): string {
@@ -140,11 +140,27 @@ function ordinal(sequence: number): string {
   return sequence === 1 ? 'st' : sequence === 2 ? 'nd' : sequence === 3 ? 'rd' : 'th'
 }
 
+/** "Monday", capitalised — the tokens themselves are lowercase, like the enums. */
+export function weekdayLabel(day: Weekday): string {
+  return day.charAt(0).toUpperCase() + day.slice(1)
+}
+
+/** "Tuesday", "Tuesday and Friday", "Monday, Wednesday and Saturday". */
+function weekdaysList(weekdays: Weekday[]): string {
+  return list(weekdays.map(weekdayLabel))
+}
+
 /** How a chore's cadence reads on the management screen, its own shape included. */
-export function cadenceLabel(cadence: Cadence, timesPerWeek: number | null): string {
+export function cadenceLabel(
+  cadence: Cadence,
+  timesPerWeek: number | null,
+  weekdays: Weekday[] | null = null,
+): string {
   switch (cadence) {
     case 'daily':
       return 'Every day'
+    case 'weekdays':
+      return weekdays && weekdays.length > 0 ? weekdaysList(weekdays) : 'Chosen days'
     case 'weekly_count':
       return timesPerWeek === 1
         ? 'Once a week'

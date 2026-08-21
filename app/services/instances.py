@@ -5,9 +5,11 @@ into the concrete list for one particular week, after the waivers have had
 their say. Nothing here writes anything or reads a clock: it takes a week, a
 set of definitions and a set of waivers, and returns what should exist.
 
-Three cadences are generated here:
+Four cadences are generated here:
 
     DAILY             one instance for each day the week contains
+    WEEKDAYS          one instance for each of the definition's chosen days
+                       the week contains — the same loop as DAILY, filtered
     WEEKLY_COUNT      n instances, tied to no day, numbered 1..n
     WEEKLY_CONDITION  nothing now; one judgement, made at settlement
 
@@ -16,10 +18,11 @@ parent adds it, on the day they choose, and an EVENT when a parent logs that
 it happened. Neither can be predicted from a definition, so neither is
 generated here.
 
-Waivers subtract from all of that. A waived day removes that day's daily
-instances. A chore waived for a week removes it entirely, whatever its
-cadence. And a weekly count scales down by how many days were waived,
-according to the bands below.
+Waivers subtract from all of that. A waived day removes that day's daily (or
+weekdays) instance, whether or not that day was one the chore was due on. A
+chore waived for a week removes it entirely, whatever its cadence. And a
+weekly count scales down by how many days were waived, according to the
+bands below.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
 
+from app.models.chores import parse_weekdays
 from app.models.enums import Cadence, Category, InstanceState, WaiverScope
 from app.services.calendar import Period
 
@@ -195,6 +199,47 @@ def waived_definition_ids(week_id: int | None, waivers: Iterable) -> frozenset[i
     )
 
 
+def _day_scoped_instances(
+    definition,
+    week: Period,
+    waived_days: tuple[date, ...],
+    *,
+    weekday_filter: frozenset[int] | None = None,
+) -> tuple[list[PlannedInstance], list[Exclusion]]:
+    """One instance per day the week contains that this chore is due on.
+
+    Shared by DAILY and WEEKDAYS rather than duplicated: DAILY is every day
+    (`weekday_filter=None`), WEEKDAYS is the definition's own chosen set. A
+    waived day excuses whatever was due on it either way — waiving does not
+    need to know which of the two cadences it is excusing.
+    """
+    instances: list[PlannedInstance] = []
+    exclusions: list[Exclusion] = []
+    for day in week.days:
+        if weekday_filter is not None and day.weekday() not in weekday_filter:
+            continue
+        if day in waived_days:
+            exclusions.append(
+                Exclusion(
+                    definition_id=definition.id,
+                    definition_name=definition.name,
+                    reason="the day was waived",
+                    due_date=day,
+                )
+            )
+            continue
+        instances.append(
+            PlannedInstance(
+                definition_id=definition.id,
+                definition_name=definition.name,
+                cadence=definition.cadence,
+                category=definition.category,
+                due_date=day,
+            )
+        )
+    return instances, exclusions
+
+
 def plan_week(
     week: Period,
     definitions: Iterable,
@@ -231,26 +276,21 @@ def plan_week(
             continue
 
         if definition.cadence is Cadence.DAILY:
-            for day in week.days:
-                if day in waived_days:
-                    exclusions.append(
-                        Exclusion(
-                            definition_id=definition.id,
-                            definition_name=definition.name,
-                            reason="the day was waived",
-                            due_date=day,
-                        )
-                    )
-                    continue
-                instances.append(
-                    PlannedInstance(
-                        definition_id=definition.id,
-                        definition_name=definition.name,
-                        cadence=definition.cadence,
-                        category=definition.category,
-                        due_date=day,
-                    )
-                )
+            new_instances, new_exclusions = _day_scoped_instances(
+                definition, week, waived_days
+            )
+            instances.extend(new_instances)
+            exclusions.extend(new_exclusions)
+
+        elif definition.cadence is Cadence.WEEKDAYS:
+            new_instances, new_exclusions = _day_scoped_instances(
+                definition,
+                week,
+                waived_days,
+                weekday_filter=parse_weekdays(definition.weekdays),
+            )
+            instances.extend(new_instances)
+            exclusions.extend(new_exclusions)
 
         elif definition.cadence is Cadence.WEEKLY_COUNT:
             required = scaled_weekly_count(

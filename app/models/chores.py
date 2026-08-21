@@ -10,6 +10,7 @@ paid for.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date, datetime
 
 from sqlalchemy import (
@@ -25,6 +26,49 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UtcDateTime, enum_column, utcnow
 from app.models.enums import Cadence, Category, InstanceState, MissOrigin
+
+#: Lowercase, index-compatible with date.weekday() (0=Monday..6=Sunday) and
+#: with week_view.WEEKDAY_NAMES — the display form starts "Monday" at the
+#: same index. This is the stored and typed form for a WEEKDAYS chore.
+WEEKDAY_TOKENS: tuple[str, ...] = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+
+
+def parse_weekday_tokens(tokens: Iterable[str]) -> frozenset[int]:
+    """Validate a set of day names, resolving each to its date.weekday() int.
+
+    Raises ValueError naming the bad token, rather than silently dropping it
+    — a chore due "tuesday,friday" that quietly becomes "friday" because of a
+    typo is a chore that stops asking for Tuesday and nobody decided that.
+    """
+    indices: set[int] = set()
+    for raw in tokens:
+        token = raw.strip().lower()
+        if token not in WEEKDAY_TOKENS:
+            raise ValueError(
+                f"{raw!r} is not a day of the week — use one of {', '.join(WEEKDAY_TOKENS)}."
+            )
+        indices.add(WEEKDAY_TOKENS.index(token))
+    if not indices:
+        raise ValueError("weekdays must name at least one day.")
+    return frozenset(indices)
+
+
+def format_weekdays(indices: Iterable[int]) -> str:
+    """The canonical stored form: Monday-first, each day once."""
+    return ",".join(WEEKDAY_TOKENS[i] for i in sorted(set(indices)))
+
+
+def parse_weekdays(value: str) -> frozenset[int]:
+    """Parse the stored, comma-joined form back to date.weekday() ints."""
+    return parse_weekday_tokens(value.split(","))
 
 
 class ChoreDefinition(Base):
@@ -49,6 +93,11 @@ class ChoreDefinition(Base):
     #: How many times a week, for WEEKLY_COUNT only. Null for every other
     #: cadence, and required for that one.
     times_per_week: Mapped[int | None] = mapped_column(Integer)
+
+    #: Which days it's due, for WEEKDAYS only. Null for every other cadence,
+    #: and required for that one. Stored as WEEKDAY_TOKENS joined by commas,
+    #: canonically Monday-first — see parse_weekdays/format_weekdays above.
+    weekdays: Mapped[str | None] = mapped_column(String(64))
 
     #: Availability. A chore withdrawn from the scheme is switched off rather
     #: than deleted, because settled weeks and past instances still refer to
@@ -83,6 +132,11 @@ class ChoreDefinition(Base):
             " AND times_per_week > 0)"
             " OR (cadence <> 'weekly_count' AND times_per_week IS NULL)",
             name="times_per_week_only_for_weekly_count",
+        ),
+        CheckConstraint(
+            "(cadence = 'weekdays' AND weekdays IS NOT NULL)"
+            " OR (cadence <> 'weekdays' AND weekdays IS NULL)",
+            name="weekdays_only_for_weekdays_cadence",
         ),
     )
 

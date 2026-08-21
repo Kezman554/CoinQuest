@@ -870,6 +870,20 @@ select {
   color: var(--ink-soft);
 }
 
+.chore-form-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.chore-form-weekday {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.95rem;
+}
+
 /* --- The PIN dialog ------------------------------------------------------ */
 
 .dialog-backdrop {

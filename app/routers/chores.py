@@ -38,7 +38,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models.chores import ChoreDefinition
+from app.models.chores import ChoreDefinition, format_weekdays, parse_weekday_tokens
 from app.models.enums import Cadence, Category, WeekStatus
 from app.models.waivers import Waiver
 from app.models.weeks import Week
@@ -69,6 +69,9 @@ class ChoreWriteRequest(AuthorisedRequest):
     #: in the migration exactly, so a bad request is a clean 422 here rather
     #: than a raw IntegrityError from SQLite.
     times_per_week: int | None = Field(default=None, gt=0)
+    #: Required for, and only for, weekdays — day names (see WEEKDAY_TOKENS),
+    #: any case, any order, at least one. Mirrors that CHECK too.
+    weekdays: list[str] | None = None
     amount_pence: int = Field(ge=0)
     is_administered: bool = False
 
@@ -102,6 +105,18 @@ class ChoreWriteRequest(AuthorisedRequest):
             raise ValueError(
                 "times_per_week only applies to a weekly-count chore."
             )
+
+        if self.cadence == Cadence.WEEKDAYS.value:
+            if not self.weekdays:
+                raise ValueError(
+                    "A weekdays chore needs weekdays — which days it is due."
+                )
+            try:
+                parse_weekday_tokens(self.weekdays)
+            except ValueError as exc:
+                raise ValueError(str(exc)) from None
+        elif self.weekdays is not None:
+            raise ValueError("weekdays only applies to a weekdays chore.")
         return self
 
 
@@ -118,6 +133,7 @@ class ChoreDefinitionView(BaseModel):
     category: str
     cadence: str
     times_per_week: int | None
+    weekdays: list[str] | None
     amount_pence: int
     is_administered: bool
     is_available: bool
@@ -130,10 +146,18 @@ def _view(definition: ChoreDefinition) -> ChoreDefinitionView:
         category=definition.category.value,
         cadence=definition.cadence.value,
         times_per_week=definition.times_per_week,
+        weekdays=definition.weekdays.split(",") if definition.weekdays else None,
         amount_pence=definition.amount_pence,
         is_administered=definition.is_administered,
         is_available=definition.is_available,
     )
+
+
+def _weekdays_value(body: ChoreWriteRequest) -> str | None:
+    """The canonical stored form, or None — built once, used by create and edit."""
+    if body.cadence != Cadence.WEEKDAYS.value:
+        return None
+    return format_weekdays(parse_weekday_tokens(body.weekdays))
 
 
 # --- Re-syncing today's week --------------------------------------------------
@@ -188,6 +212,7 @@ def create_chore(
         category=Category(body.category),
         cadence=Cadence(body.cadence),
         times_per_week=body.times_per_week,
+        weekdays=_weekdays_value(body),
         amount_pence=body.amount_pence,
         is_administered=body.is_administered,
     )
@@ -239,6 +264,7 @@ def edit_chore(
     definition.category = Category(body.category)
     definition.cadence = Cadence(body.cadence)
     definition.times_per_week = body.times_per_week
+    definition.weekdays = _weekdays_value(body)
     definition.amount_pence = body.amount_pence
     definition.is_administered = body.is_administered
 
