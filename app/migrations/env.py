@@ -7,6 +7,25 @@ default would eventually point a migration at the wrong one.
 `render_as_batch` is on because the target is SQLite, which cannot ALTER a
 column or drop a constraint. Batch mode rebuilds the table instead, which is
 the only way a later revision will be able to change anything at all.
+
+Rebuilding a table means dropping it, and SQLite refuses to drop a table
+that another table's row still references with ON DELETE RESTRICT while
+foreign key enforcement is on — which every real week does, the moment a
+single chore has been claimed against it. app/db.py turns foreign_keys on
+for every connection this process opens, migrations included, once it has
+been imported — which it always has been by the time app.main's lifespan
+calls this. So it is turned off here, on the raw connection, before
+Alembic opens anything: SQLite only honours PRAGMA foreign_keys with no
+transaction pending, and Alembic opens a real one around each migration
+script for a dialect like this one that cannot run DDL transactionally
+(MigrationContext.begin_transaction, called per-script) — an
+`op.execute("PRAGMA foreign_keys=OFF")` inside a migration itself would run
+inside that transaction and silently do nothing. Turned back on before the
+connection is handed back, so the toggle never reaches anything the app
+itself runs. Found the hard way: 2026-08-25, a real deploy against a real
+household database with real chore_instances rows already in it — the
+first time a table-rebuilding migration had ever run against loaded data
+rather than an empty one.
 """
 
 from __future__ import annotations
@@ -53,6 +72,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # See the module docstring: must happen before anything else touches
+        # this connection, and undone before it is handed back.
+        raw = connection.connection.dbapi_connection
+        raw.execute("PRAGMA foreign_keys=OFF")
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
@@ -60,6 +84,8 @@ def run_migrations_online() -> None:
         )
         with context.begin_transaction():
             context.run_migrations()
+
+        raw.execute("PRAGMA foreign_keys=ON")
 
 
 if context.is_offline_mode():
