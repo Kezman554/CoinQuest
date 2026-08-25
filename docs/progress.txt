@@ -1387,3 +1387,71 @@ of this file. Housekeeping only, done once the redeploy above was verified
 and not before: nothing in it changes any code.
 
 512 tests pass (510 + 2 new). alembic check: no drift.
+
+2026-08-26 — Session T: the Claims Waiting section had no confirm button in it
+
+A functional defect, reported against the deployed app on 23 August: pressing
+Yes on a pending claim staged it, and then there was nothing in the Claims
+Waiting section to commit with.
+
+Diagnosed first, against four named hypotheses, before touching any code —
+not by reading the source but by driving the real app in a real browser
+(Playwright, added for this) against a seeded database of pending, already-
+confirmed and previous-week claims: the built production bundle, not the dev
+server, since that is what a deploy actually serves. Every hypothesis
+checked out clean. The frontend called POST /api/claims/review every time.
+The dialog submitted. A genuine race — an item confirmed "elsewhere" between
+preview and submit — came back a clean 409 and the frontend surfaced it,
+both at the preview stage and the commit stage. The queue updated with no
+reload, and a real reload after confirmed the state had persisted. git log
+on every file in the flow showed nothing had changed since Session J
+(2026-08-21) built it, so whatever ran on 23 August is exactly what this
+tested. Tested again on an iPad-emulated touch viewport, since this runs on
+a kitchen wall screen — same result.
+
+The actual defect, once described precisely: after staging a claim, the
+*only* visible control was "What does this do?" — a button that reads as a
+question, not a commit. The button that actually commits, "Submit with
+PIN", did not exist in the DOM at all until that first button was clicked.
+A parent looking for something to confirm with, right after ticking Yes,
+found nothing there to confirm with — which is a true statement about the
+screen at that moment, not a misreading of it. Every other act on this
+screen — Settle, Void, Mark paid — goes from one clearly-labelled button
+straight to the PIN dialog, which shows the consequence before asking for
+the PIN. Queue.tsx was the one flow that broke that pattern with an extra,
+separately-labelled, easy-to-miss step in between.
+
+Queue.tsx: the two-state, two-click "preview then submit" dance is gone.
+One state (`problem`, for a refusal), one button ("Confirm"), reachable
+the instant something is staged. Clicking it fetches the same preview the
+old flow did and hands the result straight to `onSubmit`, which
+ParentView.tsx's `submitBatch` already turned into a PinDialog — unchanged,
+since a dialog carrying a summary and consequence lines is exactly what
+Settle and Void already open. The impact readback is not gone; it lives in
+the dialog now, the same place every other act's does, read before the PIN
+is typed rather than in a separate display that needed a second button to
+reach. Batch semantics are untouched: still one PIN, one transaction, all
+or nothing, through the same POST /api/claims/review this always used.
+Removed `.effect`/`.effect h3`/`.effect ul`/`.effect li` from App.css along
+with the JSX that was their only reader.
+
+frontend/e2e/ — a permanent Playwright suite, not a one-off check. Builds
+the real bundle, seeds a scratch database via seed_database.py (a pending
+claim in the current week, one already confirmed, one pending from the
+previous week — the exact mix the card's test plan asked for), and starts
+the real app against it in one script (start-server.mjs) rather than
+trusting Playwright's globalSetup/webServer ordering, which turned out not
+to guarantee the database exists before the server tries to open it.
+confirm-flow.spec.ts drives the actual flow: confirm the previous week's
+claim and reject the current week's in one mixed batch, assert it commits
+with no manual reload and survives a real one; and, separately, a batch
+raced into refusal by another request mid-flow, asserting the PIN dialog
+never opens and the reason lands on the screen. Proved as a regression
+test rather than a demonstration it once passed: reverted Queue.tsx to the
+broken version and confirmed both cases fail (one on a missing "Confirm"
+button, one on a 30-second timeout waiting for one that never appears),
+then restored the fix and confirmed both pass again. `npm run test:e2e`
+from frontend/, documented in CLAUDE.md.
+
+512 backend tests still pass, untouched — this was a frontend-only defect.
+npm run build clean.

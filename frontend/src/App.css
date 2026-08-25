@@ -620,31 +620,6 @@ select {
   font-weight: 700;
 }
 
-.effect {
-  width: 100%;
-  background: var(--bg);
-  border-radius: 0.75rem;
-  padding: 0.9rem 1.1rem;
-}
-
-.effect h3 {
-  font-size: 1rem;
-  color: var(--ink-soft);
-  margin-bottom: 0.4rem;
-}
-
-.effect ul {
-  margin: 0;
-  padding-left: 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.effect li {
-  font-size: 1.1rem;
-}
-
 /* --- The week's figures -------------------------------------------------- */
 
 .figures {

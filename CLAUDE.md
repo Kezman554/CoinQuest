@@ -6,6 +6,7 @@ Built with FastAPI, SQLite, Alembic, React, Vite and TypeScript, served from a s
 ## Structure
 - `app/` - FastAPI application: `models/` (schema), `routers/`, `services/` (money, calendar, scheme logic), `migrations/` (Alembic)
 - `frontend/` - React + Vite + TypeScript, built into the image and served by the API
+- `frontend/e2e/` - Playwright, driving the real built app against a real backend — for flows a unit test calling the endpoint directly cannot catch (see Session T, docs/progress.txt)
 - `tests/` - pytest
 - `docs/` - PRD and progress log
 
@@ -13,6 +14,7 @@ Built with FastAPI, SQLite, Alembic, React, Vite and TypeScript, served from a s
 - `uvicorn app.main:app --reload` - Run the API
 - `npm run dev --prefix frontend` - Run the frontend against it
 - `pytest` - Run tests
+- `npm run test:e2e --prefix frontend` - Run the Playwright end-to-end suite (builds the bundle, seeds a scratch database, starts the real app itself — one command, no server to start by hand)
 - `alembic upgrade head` - Apply migrations
 - `alembic revision --autogenerate -m "..."` - Draft the next one
 - `alembic check` - Fail if the models have drifted from the migrations

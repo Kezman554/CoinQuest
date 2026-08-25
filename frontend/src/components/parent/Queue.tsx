@@ -1,29 +1,25 @@
 /**
- * The pending queue: rule on each claim, then submit the lot once.
+ * The pending queue: rule on each claim, then confirm the lot once.
  *
- * Two stages on purpose. Working through the list decides nothing — a ruling
- * here is a mark against an item and no request has been made. The batch is
- * submitted once, with one PIN, and either all of it applies or none does,
- * which is what stops a parent ending up half-committed to a list they now
- * have to reconstruct from memory.
+ * One button in this section, matching every other act on this screen: rule
+ * on the claims, press Confirm, read what it does, authorise it with a PIN.
+ * The consequence still comes before the PIN — it just lives in the dialog
+ * that Confirm opens, the same place Settle, Void and every other act on
+ * this screen already shows theirs, rather than in a second display in this
+ * section that needed a second button to reach. A parent who has just
+ * ticked three chores sees Confirm immediately; nothing here depends on
+ * them noticing a differently-labelled button first.
  *
- * Between the two stages sits the consequence: what agreeing to this actually
- * does to the week. It is fetched from the server rather than worked out here,
- * because the only way to be sure the preview matches the outcome is for it to
- * be the same code over the same data.
+ * The batch is still submitted once, with one PIN, and either all of it
+ * applies or none does — nothing about that changed, only where the
+ * consequence is read.
  */
 
 import { useCallback, useState } from 'react'
 import { money } from '../../api'
 import type { Consequence, DecisionIn, Pending, Ruling } from '../../parentApi'
 import { previewReview } from '../../parentApi'
-import {
-  batchAction,
-  consequenceLines,
-  pendingLabel,
-  waitingFor,
-  weekLabel,
-} from '../../parentWords'
+import { batchAction, pendingLabel, waitingFor } from '../../parentWords'
 
 type Props = {
   queue: Pending[]
@@ -32,7 +28,6 @@ type Props = {
 
 export function Queue({ queue, onSubmit }: Props) {
   const [rulings, setRulings] = useState<Record<number, Ruling>>({})
-  const [effects, setEffects] = useState<Consequence[] | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
 
@@ -41,12 +36,9 @@ export function Queue({ queue, onSubmit }: Props) {
   )
 
   const rule = useCallback((instanceId: number, decision: Ruling) => {
-    // Any change to the rulings makes an existing consequence stale, and a
-    // stale consequence is worse than none: it describes a batch nobody is
-    // about to submit. Cleared here, in the event that caused it, rather than
-    // from an effect watching the rulings — same result, one render fewer,
-    // and it cannot fire on a re-render nobody asked for.
-    setEffects(null)
+    // A stale refusal is worse than none: it describes a batch that no
+    // longer matches the rulings on screen. Cleared here, in the event that
+    // caused it, rather than from an effect watching the rulings.
     setProblem(null)
     setRulings((current) => {
       const next = { ...current }
@@ -56,18 +48,22 @@ export function Queue({ queue, onSubmit }: Props) {
     })
   }, [])
 
-  const check = useCallback(async () => {
+  // Reads the consequence and hands it straight to the PIN dialog — the
+  // same fetch the old two-click version made, just no longer requiring a
+  // separate click to see its result before the button that actually
+  // commits appears.
+  const confirm = useCallback(async () => {
     setChecking(true)
+    setProblem(null)
     try {
-      setEffects(await previewReview(decisions))
-      setProblem(null)
+      const effects = await previewReview(decisions)
+      onSubmit(decisions, effects)
     } catch (error) {
       setProblem((error as Error).message)
-      setEffects(null)
     } finally {
       setChecking(false)
     }
-  }, [decisions])
+  }, [decisions, onSubmit])
 
   if (queue.length === 0) {
     return (
@@ -137,41 +133,14 @@ export function Queue({ queue, onSubmit }: Props) {
             </p>
           )}
 
-          {effects === null ? (
-            <button
-              type="button"
-              className="button button-do"
-              onClick={check}
-              disabled={checking}
-            >
-              {checking ? 'Working it out…' : 'What does this do?'}
-            </button>
-          ) : (
-            <>
-              {effects.map((effect) => (
-                <div key={effect.week_id} className="effect">
-                  <h3>{weekLabel(effect.start_date, effect.end_date)}</h3>
-                  <ul>
-                    {consequenceLines(effect).map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              {effects.length === 0 && (
-                <p className="nothing">
-                  This batch touches no open week, so it changes no figures.
-                </p>
-              )}
-              <button
-                type="button"
-                className="button button-do"
-                onClick={() => onSubmit(decisions, effects)}
-              >
-                Submit with PIN
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            className="button button-do"
+            onClick={confirm}
+            disabled={checking}
+          >
+            {checking ? 'Working it out…' : 'Confirm'}
+          </button>
         </div>
       )}
     </section>

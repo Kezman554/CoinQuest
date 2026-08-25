@@ -17,6 +17,12 @@ dist/
 .vite/
 *.local
 
+# Playwright (frontend/e2e) — scratch database, reports, traces
+frontend/e2e/.tmp/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
 # Database — household data, never committed
 *.db
 *.db-journal
