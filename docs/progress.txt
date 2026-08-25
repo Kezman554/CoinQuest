@@ -1,3 +1,12 @@
+Convention: a session letter in this log comes from the board card that
+commissioned the work, never inferred from the previous entry. The prompt
+that starts a session does not state its own letter, so guessing "the next
+one in sequence" breaks the moment a card is appended out of alphabetical
+order — which happened once, corrected 2026-08-25 (see that date's entries
+and their note below). An unplanned prompt — a fix, a polish pass, a
+follow-on arising from real use rather than a card of its own — carries no
+letter at all: a date, a title, and a line saying what it followed on from.
+
 2026-08-20 — Session A: project scaffold
 
 Python side:
@@ -925,7 +934,7 @@ Two things the drill on real hardware caught that a file review could not:
 Pushed on the strength of everything else passing; the seeded-data drill is
 recorded as open in DEPLOY.md's checklist rather than closed early.
 
-2026-08-21 — Session N: a parent screen for the chores themselves
+2026-08-21 — Session R: a parent screen for the chores themselves
 
 Every chore up to now was seeded straight into the database by a test or a
 migration; there was no way to add, change or retire one over HTTP or from
@@ -999,9 +1008,9 @@ refused with 409, and the retired chore still listed rather than gone.
 
 npm run build (tsc -b + vite build) clean.
 
-2026-08-21 — Session O: a sixth cadence, chosen weekdays
+2026-08-21 — Session S: a sixth cadence, chosen weekdays
 
-The deferral from Session N — recorded rather than guessed at — comes back
+The deferral from Session R — recorded rather than guessed at — comes back
 built. Read app/models/enums.py, instances.py's plan_week(), recovery.py and
 week_view.py before writing anything, per the card's own instruction; the
 finding that made this small was that both frozensets already do their job
@@ -1074,7 +1083,12 @@ instances while leaving Tuesday's already-missed one exactly as it was —
 "never destroy work" holding for the new cadence without any code written
 specifically to make it do so; it was already the rule.
 
-2026-08-21 — Session P: one shared pot, not one price per basic chore
+2026-08-21 — one shared pot, not one price per basic chore
+
+Not a carded session — an unplanned follow-on prompt, arising from real use
+rather than a board card of its own. It refined Session R's chores screen:
+building it was what let a parent type real amounts into more than one
+basic chore for the first time, which is what surfaced the gap below.
 
 Real use surfaced a real gap: "Make bed" at £2 basic and "Lunchbox and cups"
 at £2 basic read as £4 owed, when pocket-money-rules.md §2 describes one
@@ -1117,7 +1131,7 @@ The blast radius that made this a bigger session than it looked: grepping
 every use of chore_pay_at_stake_pence found four existing tests
 (test_settlement.py, test_week_view.py) that asserted the OLD sum as
 correct — the bug, encoded as a passing test. Fixing those surfaced a second,
-undocumented gap the card's own prompt hadn't named: settlement.py's
+undocumented gap the prompt's own wording hadn't named: settlement.py's
 _lines() built each basic chore's settlement line from its own
 amount_pence too (`paid = requirement.amount_pence if chore_pay_pence else
 0`), which — now that amount_pence is 0 for every basic chore — would have
@@ -1153,7 +1167,7 @@ refused, zero allowed), new coverage in test_recovery.py for
 chore_pay_at_stake_pence directly (the configured pot regardless of how
 many basic chores or their own retired amounts, zero when nothing basic is
 assessed, does not grow with a second basic chore), three
-test_settlement.py cases matching the card's own test plan verbatim (three
+test_settlement.py cases matching the prompt's own test plan verbatim (three
 basic chores paying the pot once and not three times, an unrecovered basic
 miss still paying nothing, bonus and reward chores paying their own amount
 untouched), and six in test_chores.py for the router's validation (basic
@@ -1180,7 +1194,12 @@ afterward still required and kept their own individual amount, unaffected.
 
 npm run build clean. pytest 488 passed.
 
-2026-08-21 — Session Q: a colourful restyle for the child's screen
+2026-08-21 — a colourful restyle for the child's screen
+
+Not a carded session — an unplanned follow-on prompt, not arising from any
+particular gap but a plain request to make the screen look better. It
+refined Session I's week view, the child-facing screen this restyles, and
+carried the same accent treatment onto Session J's parent view besides.
 
 CSS only — no component touched. The child's screen is now a bright,
 kid-facing "game" surface: a two-colour gradient hero card for the projected
@@ -1206,7 +1225,7 @@ the whole gradient regardless of which end a tile sits on.
 
 npm run build clean.
 
-2026-08-25 — Session R: reopening a settled week, narrowly
+2026-08-25 — Session V: reopening a settled week, narrowly
 
 "A settled week is a closed event" has held since the first migration —
 enforced by a 409 at the settle endpoint, by propose() itself raising on a
@@ -1306,3 +1325,65 @@ reopened; and the ordinary immutability trigger still aborts a hand-typed
 status flip that does not clear the row the way a real reopen does.
 
 npm run build clean. alembic check: no drift.
+
+2026-08-25 — Session V addendum: a production deploy failure, and the fix
+
+Pushed and deployed the above to the household stack. The migration failed
+against the real database: rebuilding `weeks` (the trigger and CHECK changes
+above) means dropping it, and SQLite refuses to drop a table another table's
+row still references with ON DELETE RESTRICT while foreign key enforcement is
+on — which `chore_instances` already did, the moment a real chore had been
+claimed against a real week. The container crash-looped on retry; every test
+fixture in this project migrates an empty database once, in one shot, so
+nothing had ever exercised this. Worse: the failed attempt had already dropped
+the `weeks` and `savings_ledger` immutability triggers before it errored, and
+never got to recreate them — the live database briefly had no append-only or
+closed-week protection at the database level at all.
+
+Recovery, in order: stopped the crash-looping container. Copied the fresh
+pre-deploy backup off the Pi entirely — CoinQuest's offsite (restic → B2) leg
+turned out to be unconfigured (`RESTIC_REPOSITORY unset` in every backup log
+line to date), so every backup that has ever existed, including this one, had
+only ever lived on the same box as the volume it protects. Snapshotted the
+damaged volume as evidence before touching it, and copied that off too — a
+restore over it would have destroyed the only record of what the failed state
+actually looked like. Reproduced the failure faithfully in a scratch Docker
+volume on the Pi itself (never touching the live one), which is what found
+the real root cause and disproved a false lead: a first local check on a
+laptop appeared to succeed, but only because it ran plain `alembic upgrade
+head` directly, which never imports app.db and so never turns foreign keys on
+at all — a real deploy always does, because app.db is already imported by the
+time app.main's lifespan calls it. The fix (app/migrations/env.py, PRAGMA
+foreign_keys toggled on the raw connection before Alembic opens its own
+per-script transaction — see that file's docstring) was proved against a copy
+of the real production data, on the real image, before it went anywhere near
+the live volume a second time. Restored the live volume from the clean
+backup, pulled the fix, rebuilt, and redeployed. Verified afterwards: all ten
+tables and ten triggers present, `PRAGMA integrity_check` ok, `PRAGMA
+foreign_key_check` empty, every real row — two weeks, thirty-two chore
+instances, three chore definitions — intact, and the API serving them
+correctly.
+
+tests/test_migration_against_real_data.py makes the gap permanent rather than
+a one-off check before this one redeploy: it seeds every table that exists
+straight after the first migration with rows that reference each other the
+way production data does, then runs every remaining migration through
+app.db.run_migrations() itself — not a bare alembic call — so it actually
+exercises the same foreign-key behaviour a real deploy does. Confirmed to
+fail without the fix and pass with it. The base and head revisions are read
+from the migration scripts themselves, so it never needs updating as new
+migrations are added.
+
+Found and logged in docs/scribble.md, not fixed here: 1eb8e8b3e4ae's
+downgrade() is separately broken against real data (an unrelated, pre-existing
+gap surfaced while proving the fix above) — its batch_alter_table rebuilds
+weeks without an explicit copy_from, so Alembic's reflection carries a CHECK
+constraint referencing a column the same downgrade just dropped. Never caught
+before because downgrades are not part of this project's deploy story.
+
+docs/progress.txt's own session letters were also found to be wrong while this
+was being written — see the correction and the convention note now at the top
+of this file. Housekeeping only, done once the redeploy above was verified
+and not before: nothing in it changes any code.
+
+512 tests pass (510 + 2 new). alembic check: no drift.
