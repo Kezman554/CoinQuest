@@ -102,7 +102,7 @@ In the household stack this is automated: `scripts/coinquest-backup.sh` and
 `scripts/restore-coinquest.sh` in AlfredHomeHub do the above plus rotation, an
 optional offsite (restic → B2) leg, and a verification pass run inside the
 app's own image (integrity check, Alembic revision, row counts across all
-seven tables). See AlfredHomeHub's `DEPLOY.md` → **CoinQuest** for the nightly
+nine tables). See AlfredHomeHub's `DEPLOY.md` → **CoinQuest** for the nightly
 cron slot and the full drill.
 
 ## What must survive
@@ -212,8 +212,9 @@ never been built before this; everything below marked done was run for real.
       against an **empty** database, because that was all that existed at
       deploy time: it proves the mechanics (extract, open, integrity-check,
       restart) but not that real rows survive. Before this item can be ticked,
-      seed test data across all seven tables (`chore_definitions`,
-      `chore_instances`, `weeks`, `settlement_lines`, `waivers`,
-      `earnings_ledger`, `savings_ledger`), back up, restore into a scratch
-      volume, and confirm every table's row count comes back — the same
-      standard KitchenSync's drill was held to before its backup was trusted.
+      seed test data across all nine tables (`chore_definitions`,
+      `chore_instances`, `weeks`, `week_reopenings`, `settlement_lines`,
+      `waivers`, `earnings_ledger`, `savings_ledger`, `scheme_settings`),
+      back up, restore into a scratch volume, and confirm every table's row
+      count comes back — the same standard KitchenSync's drill was held to
+      before its backup was trusted.

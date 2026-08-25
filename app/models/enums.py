@@ -120,3 +120,8 @@ class SavingsType(str, enum.Enum):
     DEPOSIT = "deposit"                  # part of a payday, kept back
     WITHDRAWAL = "withdrawal"            # money taken out; the only fall
     MATCH = "match"                      # the monthly match, once settled
+    #: Undoing a deposit that should not have counted — a reopened week's
+    #: payment, unwound. Not a WITHDRAWAL: the child did not choose to take
+    #: this out, and calling it one would blur two facts a reader needs to
+    #: tell apart a year later. The other fall, alongside WITHDRAWAL.
+    REVERSAL = "reversal"

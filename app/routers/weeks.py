@@ -28,7 +28,14 @@ from app.services.calendar import today
 from app.services.payments import PaymentError
 from app.services.recovery import InvalidAssignment, SuppliedRecovery
 from app.services.savings import SavingsError
-from app.services.settlement import NotOpen, OverrideNeedsAReason, ProposalChanged
+from app.services.settlement import (
+    NotClosed,
+    NotOpen,
+    NotTheLatestSettledWeek,
+    OverrideNeedsAReason,
+    ProposalChanged,
+    ReopenNeedsAReason,
+)
 
 router = APIRouter(prefix="/api/weeks", tags=["weeks"])
 
@@ -55,8 +62,35 @@ class RecoveryView(BaseModel):
     forgone_pence: int
 
 
+class ReopeningView(BaseModel):
+    """One past reopening of this week — who, when, why, and what it undid."""
+
+    reopened_by: str
+    reopened_at: str
+    reason: str
+    previous_total_pence: int
+    was_paid: bool
+    reversed_deposit_pence: int
+
+    @classmethod
+    def of(cls, reopening) -> ReopeningView:
+        return cls(
+            reopened_by=reopening.reopened_by,
+            reopened_at=reopening.reopened_at.isoformat(),
+            reason=reopening.reason,
+            previous_total_pence=reopening.previous_total_pence,
+            was_paid=reopening.was_paid,
+            reversed_deposit_pence=reopening.reversed_deposit_pence,
+        )
+
+
 class ProposalView(BaseModel):
-    """What the week is on track to pay. Nothing has been applied."""
+    """What the week is on track to pay. Nothing has been applied.
+
+    `reopenings` is empty for an ordinary open week and populated only for
+    one that has been reopened and not yet settled again — the history a
+    parent reading a fresh proposal still deserves to see.
+    """
 
     week_id: int
     start_date: str
@@ -78,9 +112,10 @@ class ProposalView(BaseModel):
     optimum_total_pence: int
     foregone_pence: int
     lines: list[LineView]
+    reopenings: list[ReopeningView]
 
     @classmethod
-    def of(cls, proposal: settlement.Proposal) -> ProposalView:
+    def of(cls, proposal: settlement.Proposal, week: Week | None = None) -> ProposalView:
         return cls(
             week_id=proposal.week_id,
             start_date=proposal.start_date.isoformat(),
@@ -119,6 +154,9 @@ class ProposalView(BaseModel):
                 )
                 for line in proposal.lines
             ],
+            reopenings=[
+                ReopeningView.of(reopening) for reopening in (week.reopenings if week else [])
+            ],
         )
 
 
@@ -141,7 +179,11 @@ class SettledWeekView(BaseModel):
     void_reason: str | None
     paid_at: str | None
     deposited_pence: int | None
+    #: Lines from the current settlement only — a reopened week's earlier
+    #: lines stay in the database but are not this figure's explanation any
+    #: more. See `reopenings` for what came before.
     lines: list[LineView]
+    reopenings: list[ReopeningView]
 
     @classmethod
     def of(cls, week: Week) -> SettledWeekView:
@@ -172,8 +214,9 @@ class SettledWeekView(BaseModel):
                     amount_pence=line.amount_pence,
                     note=line.note,
                 )
-                for line in week.settlement_lines
+                for line in settlement.current_lines(week)
             ],
+            reopenings=[ReopeningView.of(reopening) for reopening in week.reopenings],
         )
 
 
@@ -250,6 +293,15 @@ class VoidRequest(AuthorisedRequest):
         return self
 
 
+class ReopenRequest(AuthorisedRequest):
+    """Undo a settlement, deliberately. Reopening is unusual enough to want
+    a reason every time — blank or whitespace counts as none, refused by the
+    routine underneath this regardless of what pydantic lets through here.
+    """
+
+    reason: str = Field(min_length=1)
+
+
 # --- Helpers ---------------------------------------------------------------
 
 
@@ -312,7 +364,8 @@ def get_proposal(
     Refused for a closed week: a closed week is read from its own figures at
     /api/weeks/{id}, never recomputed from today's chores.
     """
-    return ProposalView.of(_proposal(session, _load(session, week_id)))
+    week = _load(session, week_id)
+    return ProposalView.of(_proposal(session, week), week)
 
 
 @router.post("/{week_id}/proposal", response_model=ProposalView)
@@ -326,7 +379,8 @@ def preview_proposal(
     Reading, not writing, so it carries no PIN — and a parent has to be able
     to read a figure before they can agree to it.
     """
-    return ProposalView.of(_proposal(session, _load(session, week_id), body.override))
+    week = _load(session, week_id)
+    return ProposalView.of(_proposal(session, week, body.override), week)
 
 
 @router.get("/{week_id}", response_model=SettledWeekView | ProposalView)
@@ -334,7 +388,7 @@ def get_week(week_id: int, session: Session = Depends(get_session)):
     """A week. Stored figures if it is closed, a proposal if it is open."""
     week = _load(session, week_id)
     if week.status is WeekStatus.OPEN:
-        return ProposalView.of(_proposal(session, week))
+        return ProposalView.of(_proposal(session, week), week)
     return SettledWeekView.of(week)
 
 
@@ -405,6 +459,53 @@ def void_week(
 
     session.refresh(week)
     return SettledWeekView.of(week)
+
+
+@router.post("/{week_id}/reopen", response_model=ProposalView)
+def reopen_week(
+    week_id: int,
+    request: Request,
+    body: ReopenRequest,
+    session: Session = Depends(get_session),
+) -> ProposalView:
+    """Undo a settlement, deliberately and narrowly.
+
+    Only the most recent settled week is eligible. If it was paid, the
+    payment is unwound as well: paid_at and deposited_pence return to
+    unpaid, and the savings ledger gets a reversal entry for exactly the
+    portion of a payment that had been apportioned to this week. The week
+    goes back to OPEN, and re-settling it goes through the ordinary path —
+    this grants no shortcut through it.
+    """
+    authorisation = authorise(request, body)
+    week = _load(session, week_id)
+
+    try:
+        settlement.reopen(
+            session, week, authorisation, reason=body.reason, tz=get_settings().tzinfo
+        )
+        session.commit()
+    except (NotClosed, NotTheLatestSettledWeek) as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from None
+    except ReopenNeedsAReason as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from None
+    except SavingsError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from None
+    except Exception:
+        session.rollback()
+        raise
+
+    session.refresh(week)
+    return ProposalView.of(_proposal(session, week), week)
 
 
 # --- Payday ----------------------------------------------------------------

@@ -24,6 +24,14 @@ tonight, every settled week would still know exactly what it paid and why.
 The first migration also puts SQLite triggers behind all of this: a settled
 week's figures cannot be updated, and a settlement line cannot be updated or
 deleted at all. The rule is not left to the application to remember.
+
+A closed week can be reopened, but only narrowly. Reopening exists for a
+parent's own mistake, made on purpose and later regretted — not as a back
+door around "closed is closed". `WeekReopening` is where that act is
+recorded: who, when, why, and a full copy of what stood before, since the
+week's own columns move on the moment the reopen closes. The weeks trigger
+carries a single, structurally-defined exception for it — see the migration
+that adds this table for exactly what that exception is.
 """
 
 from __future__ import annotations
@@ -31,6 +39,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     ForeignKey,
@@ -117,6 +126,9 @@ class Week(Base):
     settlement_lines: Mapped[list[SettlementLine]] = relationship(
         back_populates="week", order_by="SettlementLine.id"
     )
+    reopenings: Mapped[list["WeekReopening"]] = relationship(
+        back_populates="week", order_by="WeekReopening.id"
+    )
 
     __table_args__ = (
         # The week runs Sunday to Saturday. SQLite stores a Date as an ISO
@@ -131,6 +143,8 @@ class Week(Base):
         ),
         CheckConstraint(
             "(status = 'open'"
+            "   AND settled_base_pence IS NULL AND settled_chore_pay_pence IS NULL"
+            "   AND settled_bonus_pence IS NULL AND settled_reward_pence IS NULL"
             "   AND settled_total_pence IS NULL AND closed_at IS NULL)"
             " OR (status IN ('settled', 'voided')"
             "   AND settled_base_pence IS NOT NULL"
@@ -278,3 +292,108 @@ class SettlementLine(Base):
 
     def __repr__(self) -> str:
         return f"<SettlementLine {self.chore_name!r} {self.amount_pence}p>"
+
+
+class WeekReopening(Base):
+    """One reopening of a closed week. Append-only, like everything else here.
+
+    A settled week is closed forever by the trigger on `weeks` — deliberately,
+    so a scheme change made months later cannot reach backwards into what a
+    child was already paid. Reopening is not a way around that rule; it is a
+    single, named, authorised exception to it, for the other kind of mistake:
+    a parent's own, made on purpose and later regretted.
+
+    Every `previous_*` column here is a copy taken the moment before the
+    reopen, not a lookup — the same discipline SettlementLine already follows
+    for the same reason. The week's own columns move on the instant this
+    closes, so without a copy here the figures it undid would be gone. Read
+    together with the settlement lines and earnings-ledger entries either
+    side of `reopened_at`, this is what lets a reader a year from now see a
+    settlement, a reopen and a re-settlement, rather than a week that always
+    said the second figure.
+    """
+
+    __tablename__ = "week_reopenings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    week_id: Mapped[int] = mapped_column(
+        ForeignKey("weeks.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+
+    reopened_by: Mapped[str] = mapped_column(String(60), nullable=False)
+    reopened_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
+
+    #: Required, and blank or whitespace counts as none — enforced here and
+    #: again by the routine that writes this row, matching how an override
+    #: that costs money is already handled.
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # --- What stood immediately before this reopen.
+
+    previous_status: Mapped[WeekStatus] = mapped_column(
+        enum_column(WeekStatus), nullable=False
+    )
+    previous_base_pence: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_chore_pay_pence: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_bonus_pence: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_reward_pence: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_total_pence: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_closed_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
+    previous_void_reason: Mapped[str | None] = mapped_column(Text)
+    previous_overridden_by: Mapped[str | None] = mapped_column(String(60))
+    previous_override_reason: Mapped[str | None] = mapped_column(Text)
+
+    # --- Payday, unwound. Populated only when the week had actually been
+    # paid — a reopened week that was settled but never paid leaves these at
+    # their zero/null defaults, and reverses nothing on the savings ledger.
+
+    was_paid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    previous_paid_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    previous_deposited_pence: Mapped[int | None] = mapped_column(Integer)
+
+    #: What the savings ledger reversal actually undid. Only the portion of a
+    #: payment apportioned to this week, never a whole payment that also
+    #: cleared other weeks — `Week.deposited_pence` already holds exactly
+    #: that share, which is what this copies.
+    reversed_deposit_pence: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    #: Provenance only, pointing at the reversal entry this reopen appended
+    #: to the savings ledger — never read to work out money. Null when
+    #: nothing needed reversing.
+    reversal_entry_id: Mapped[int | None] = mapped_column(
+        ForeignKey("savings_ledger.id", ondelete="RESTRICT")
+    )
+
+    week: Mapped[Week] = relationship(back_populates="reopenings")
+
+    __table_args__ = (
+        CheckConstraint("length(trim(reason)) > 0", name="a_reopen_states_its_reason"),
+        CheckConstraint(
+            "previous_status IN ('settled', 'voided')",
+            name="only_a_closed_week_is_reopened",
+        ),
+        CheckConstraint("previous_base_pence >= 0", name="previous_base_not_negative"),
+        CheckConstraint(
+            "previous_chore_pay_pence >= 0", name="previous_chore_pay_not_negative"
+        ),
+        CheckConstraint("previous_bonus_pence >= 0", name="previous_bonus_not_negative"),
+        CheckConstraint("previous_reward_pence >= 0", name="previous_reward_not_negative"),
+        CheckConstraint("previous_total_pence >= 0", name="previous_total_not_negative"),
+        CheckConstraint(
+            "previous_deposited_pence IS NULL OR previous_deposited_pence >= 0",
+            name="previous_deposit_not_negative",
+        ),
+        CheckConstraint(
+            "reversed_deposit_pence >= 0", name="reversed_deposit_not_negative"
+        ),
+        # A reversal implies the week was paid; the reverse need not hold — a
+        # settled-but-unpaid week can be reopened too, and reverses nothing.
+        CheckConstraint(
+            "was_paid = 1 OR reversed_deposit_pence = 0",
+            name="only_a_paid_week_reverses_a_deposit",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<WeekReopening week={self.week_id} at={self.reopened_at.isoformat()}>"

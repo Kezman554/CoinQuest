@@ -36,6 +36,7 @@ import {
   loadSavings,
   loadSchemeSettings,
   loadWeeks,
+  loadWeekView,
   submitReview,
 } from './parentApi'
 import { Chores } from './components/parent/Chores'
@@ -56,6 +57,13 @@ type Everything = {
   presets: Preset[]
   chores: ChoreDefinition[]
   schemeSettings: SchemeSettings
+  //: Weeks that are open but are not the calendar's current one — in
+  //: practice, a week that has been reopened and is waiting to be settled
+  //: again. More than one can exist: reopening is eligible on "the most
+  //: recent closed week", and reopening one can make an earlier one
+  //: eligible too, so a parent may work back through several before
+  //: resettling any of them.
+  reopenedWeeks: WeekView[]
 }
 
 export function ParentView() {
@@ -77,7 +85,15 @@ export function ParentView() {
       // The current week may not be open, or may not exist yet. Neither is an
       // error, and neither should empty the rest of the screen.
       const week = await loadCurrentWeek().catch(() => null)
-      setData({ queue, week, weeks, owed, savings, presets, chores, schemeSettings })
+
+      // Any other open week is one a reopen put back there, waiting to be
+      // settled again.
+      const reopenedIds = weeks
+        .filter((w) => w.status === 'open' && w.week_id !== week?.week_id)
+        .map((w) => w.week_id)
+      const reopenedWeeks = await Promise.all(reopenedIds.map(loadWeekView))
+
+      setData({ queue, week, weeks, owed, savings, presets, chores, schemeSettings, reopenedWeeks })
       setError(null)
     } catch (problem) {
       setError((problem as Error).message)
@@ -136,11 +152,15 @@ export function ParentView() {
         </section>
       )}
 
+      {data.reopenedWeeks.map((week) => (
+        <ThisWeek key={week.week_id} week={week} ask={ask} title="Reopened week" />
+      ))}
+
       <Rewards presets={data.presets} ask={ask} />
       <Payday owed={data.owed} ask={ask} />
       <SavingsPanel savings={data.savings} ask={ask} />
       <Chores chores={data.chores} schemeSettings={data.schemeSettings} ask={ask} />
-      <ClosedWeeks weeks={data.weeks} />
+      <ClosedWeeks weeks={data.weeks} ask={ask} />
 
       <p className="pin-note">
         The PIN is asked for once per submission and is never kept. Every one of

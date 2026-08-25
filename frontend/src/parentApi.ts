@@ -66,6 +66,15 @@ export type WeekSummary = {
   total_pence: number | null
 }
 
+export type Reopening = {
+  reopened_by: string
+  reopened_at: string
+  reason: string
+  previous_total_pence: number
+  was_paid: boolean
+  reversed_deposit_pence: number
+}
+
 export type SettledWeek = {
   week_id: number
   start_date: string
@@ -91,6 +100,7 @@ export type SettledWeek = {
     amount_pence: number
     note: string | null
   }[]
+  reopenings: Reopening[]
 }
 
 export type Owed = {
@@ -240,6 +250,10 @@ const send = async <T>(path: string, body: unknown): Promise<T> =>
 export const loadQueue = () => get<Pending[]>('/api/parent/queue')
 export const loadWeeks = () => get<WeekSummary[]>('/api/weeks')
 export const loadWeek = (id: number) => get<SettledWeek>(`/api/weeks/${id}`)
+/** Any week's own view, in the same shape the child's screen reads — used
+ * here for a week that has been reopened but is not the calendar's current
+ * one, so it can be re-settled through the ordinary screen. */
+export const loadWeekView = (id: number) => get<WeekView>(`/api/week/${id}`)
 export const loadOwed = () => get<Owed[]>('/api/weeks/owed/outstanding')
 export const loadSavings = () => get<Savings>('/api/savings')
 export const loadWaivers = () => get<Waiver[]>('/api/waivers')
@@ -296,6 +310,12 @@ export const settleWeek = (pin: string, weekId: number, agreed: number) =>
 
 export const voidWeek = (pin: string, weekId: number, reason: string) =>
   send<SettledWeek>(`/api/weeks/${weekId}/void`, { pin, reason })
+
+/** Undo a settlement. Only the most recent settled week accepts this, and
+ * only with a reason — refused server-side either way, whatever this screen
+ * shows. */
+export const reopenWeek = (pin: string, weekId: number, reason: string) =>
+  send<unknown>(`/api/weeks/${weekId}/reopen`, { pin, reason })
 
 export const recordReward = (pin: string, amount: string, reason: string) =>
   send<unknown>('/api/rewards', { pin, amount, reason })

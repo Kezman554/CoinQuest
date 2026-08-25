@@ -126,5 +126,47 @@ def record_withdrawal(
     return entry
 
 
+def record_reversal(
+    session: Session, *, amount_pence: int, occurred_on: date, week_id: int, reason: str
+) -> SavingsEntry:
+    """Undo a deposit that should not have counted. Stored negative.
+
+    Not a withdrawal: the child did not choose to take this out, and calling
+    it one would blur two facts a reader needs to tell apart a year later —
+    a withdrawal is his own choice, a reversal is a reopened week's payment
+    being unwound. The original deposit row is never touched; this is a new
+    row, exactly like every other correction this ledger ever makes.
+
+    Refuses to take the balance below zero — there is nowhere for the money
+    to come from, the same reason a withdrawal refuses. That can genuinely
+    happen: the deposit this is meant to undo may already have been spent
+    elsewhere in the account. When it does, the reopen itself is refused
+    rather than left to corrupt the balance, and a parent has to settle the
+    account by hand first.
+    """
+    if amount_pence <= 0:
+        raise SavingsError("A reversal undoes a positive deposit; give a positive amount.")
+
+    balance = current_balance(session)
+    if amount_pence > balance:
+        raise SavingsError(
+            f"There is {balance}p in the account; {amount_pence}p of it was"
+            " deposited from this week's payment but cannot be reversed —"
+            " some of it has already been spent."
+        )
+
+    entry = SavingsEntry(
+        entry_type=SavingsType.REVERSAL,
+        amount_pence=-amount_pence,
+        balance_after_pence=balance - amount_pence,
+        occurred_on=occurred_on,
+        week_id=week_id,
+        reason=reason,
+    )
+    session.add(entry)
+    session.flush()
+    return entry
+
+
 def history(session: Session) -> list[SavingsEntry]:
     return session.query(SavingsEntry).order_by(SavingsEntry.id).all()

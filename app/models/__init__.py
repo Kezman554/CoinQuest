@@ -24,7 +24,7 @@ from app.models.enums import (
 from app.models.ledgers import EarningEntry, SavingsEntry
 from app.models.settings import SchemeSettings
 from app.models.waivers import Waiver
-from app.models.weeks import SettlementLine, Week
+from app.models.weeks import SettlementLine, Week, WeekReopening
 
 __all__ = [
     "ON_DEMAND_CADENCES",
@@ -47,6 +47,7 @@ __all__ = [
     "Waiver",
     "WaiverScope",
     "Week",
+    "WeekReopening",
     "WeekStatus",
     "utcnow",
 ]

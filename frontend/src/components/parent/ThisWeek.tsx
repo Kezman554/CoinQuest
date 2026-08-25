@@ -30,15 +30,18 @@ import { longDate, shortDate } from '../../words'
 type Props = {
   week: WeekView
   ask: (act: PinAct) => void
+  /** Overrides the heading — used for a reopened week that is not the
+   * calendar's current one, so it does not read as "This week". */
+  title?: string
 }
 
-export function ThisWeek({ week, ask }: Props) {
+export function ThisWeek({ week, ask, title = 'This week' }: Props) {
   const chores = choresOf(week)
 
   return (
     <section className="panel">
       <h2>
-        This week — {shortDate(week.start_date)} to {shortDate(week.end_date)}
+        {title} — {shortDate(week.start_date)} to {shortDate(week.end_date)}
       </h2>
 
       <div className="figures">

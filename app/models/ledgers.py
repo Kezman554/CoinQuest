@@ -75,10 +75,13 @@ class EarningEntry(Base):
 class SavingsEntry(Base):
     """A movement in the savings account. Append-only.
 
-    Signed: a withdrawal is negative and is the only kind of entry that may
-    be. That is not a deduction from earnings — nothing is ever taken away
-    from the child — it is the child's own money leaving their own account,
-    and the monthly match needs to see it happen.
+    Signed: a withdrawal or a reversal is negative, and those are the only
+    two kinds of entry that may be. Neither is a deduction from earnings —
+    nothing is ever taken away from the child. A withdrawal is his own money
+    leaving his own account by his own choice; a reversal undoes a deposit
+    that should not have counted — a reopened week's payment, unwound — and
+    is never a correction to an entry that stays exactly as it was written.
+    The monthly match needs to see both happen.
     """
 
     __tablename__ = "savings_ledger"
@@ -110,9 +113,9 @@ class SavingsEntry(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "(entry_type = 'withdrawal' AND amount_pence < 0)"
-            " OR (entry_type <> 'withdrawal' AND amount_pence >= 0)",
-            name="only_a_withdrawal_is_negative",
+            "(entry_type IN ('withdrawal', 'reversal') AND amount_pence < 0)"
+            " OR (entry_type NOT IN ('withdrawal', 'reversal') AND amount_pence >= 0)",
+            name="a_withdrawal_or_reversal_is_negative",
         ),
         # The account cannot go overdrawn: there is nowhere for the money to
         # come from, and a negative balance would corrupt the monthly low.

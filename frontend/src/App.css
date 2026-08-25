@@ -854,6 +854,43 @@ select {
   font-weight: 600;
 }
 
+.reopening-history {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.reopening-history h4 {
+  font-size: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.reopening-history ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.reopening-history li {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.reopen-week {
+  border-top: 2px solid var(--urgent);
+  padding-top: 0.75rem;
+  margin-top: 1rem;
+}
+
+.reopen-week h4 {
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+  color: var(--urgent);
+}
+
 /* --- Managing chores ------------------------------------------------------ */
 
 .chore-defs {

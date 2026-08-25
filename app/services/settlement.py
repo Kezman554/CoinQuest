@@ -47,10 +47,10 @@ from app.models.enums import (
 )
 from app.models.ledgers import EarningEntry
 from app.models.waivers import Waiver
-from app.models.weeks import SettlementLine, Week
+from app.models.weeks import SettlementLine, Week, WeekReopening
+from app.services import savings, scheme_settings
 from app.services.authorisation import Authorisation
-from app.services import scheme_settings
-from app.services.calendar import Period
+from app.services.calendar import Period, today
 from app.services.instances import plan_week
 from app.services.recovery import (
     RECOVERY_CAP,
@@ -87,6 +87,28 @@ class ProposalChanged(Exception):
     figure the week currently proposes — because a claim was confirmed, or a
     waiver added, between the parent reading the proposal and agreeing it.
     Settling anyway would store an amount nobody actually agreed.
+    """
+
+
+class NotClosed(Exception):
+    """Only a closed week can be reopened. This one is still open."""
+
+
+class NotTheLatestSettledWeek(Exception):
+    """A week with any settled week after it cannot be reopened.
+
+    Reopening an earlier week while a later one already stands settled would
+    leave two weeks disagreeing about which one is "now", with no way to make
+    that make sense. Only the most recent settled week is eligible, so a
+    correction always unwinds in the same order it happened.
+    """
+
+
+class ReopenNeedsAReason(Exception):
+    """Reopening a settled week is unusual enough to want a reason, always.
+
+    Blank or whitespace counts as none — the same standard an override that
+    costs money is already held to.
     """
 
 
@@ -613,6 +635,134 @@ def void(
 
     session.flush()
     return week
+
+
+def reopen(
+    session: Session,
+    week: Week,
+    authorisation: Authorisation,
+    *,
+    reason: str,
+    tz=None,
+) -> Week:
+    """Undo a settlement, deliberately and narrowly.
+
+    "A settled week is a closed event" still holds — this is not a way
+    around that, it is a single, named, authorised exception to it, for a
+    parent's own mistake rather than a scheme change reaching backwards.
+
+    Only the most recent settled week is eligible: a week with any settled
+    week after it is refused, because reopening it while a later one stands
+    settled would leave two weeks disagreeing about which one is "now".
+    Checked here, not only at the caller, so nothing that calls this routine
+    directly can route around it.
+
+    If the week was paid, the payment is unwound too. paid_at and
+    deposited_pence return to their never-paid state, and the savings ledger
+    is corrected by appending a reversal entry for exactly the portion of a
+    payment that had been apportioned to this week — `deposited_pence`
+    already holds that share, whether or not the same payment also cleared
+    other weeks.
+
+    The week goes back to OPEN and nothing more. Settling it again goes
+    through propose() and settle() exactly as any other open week would —
+    this grants no shortcut through either.
+    """
+    if week.status is WeekStatus.OPEN:
+        raise NotClosed(f"Week {week.start_date.isoformat()} is already open.")
+
+    if not reason or not reason.strip():
+        raise ReopenNeedsAReason("Reopening a settled week needs to say why.")
+
+    later = (
+        session.query(Week)
+        .filter(Week.start_date > week.start_date, Week.status != WeekStatus.OPEN)
+        .order_by(Week.start_date)
+        .first()
+    )
+    if later is not None:
+        raise NotTheLatestSettledWeek(
+            f"Week {later.start_date.isoformat()} settled after this one and"
+            " must be reopened first — only the most recent settled week can"
+            " be reopened."
+        )
+
+    was_paid = week.paid_at is not None
+    reversed_deposit_pence = 0
+    reversal_entry_id: int | None = None
+    if was_paid and week.deposited_pence:
+        reversal = savings.record_reversal(
+            session,
+            amount_pence=week.deposited_pence,
+            occurred_on=today(tz or get_settings().tzinfo),
+            week_id=week.id,
+            reason=(
+                f"Reversed: week {week.start_date.isoformat()} was reopened"
+                f" — {reason.strip()}"
+            ),
+        )
+        reversed_deposit_pence = week.deposited_pence
+        reversal_entry_id = reversal.id
+
+    session.add(
+        WeekReopening(
+            week_id=week.id,
+            reopened_by=authorisation.party,
+            reopened_at=authorisation.at,
+            reason=reason.strip(),
+            previous_status=week.status,
+            previous_base_pence=week.settled_base_pence,
+            previous_chore_pay_pence=week.settled_chore_pay_pence,
+            previous_bonus_pence=week.settled_bonus_pence,
+            previous_reward_pence=week.settled_reward_pence,
+            previous_total_pence=week.settled_total_pence,
+            previous_closed_at=week.closed_at,
+            previous_void_reason=week.void_reason,
+            previous_overridden_by=week.overridden_by,
+            previous_override_reason=week.override_reason,
+            was_paid=was_paid,
+            previous_paid_at=week.paid_at,
+            previous_deposited_pence=week.deposited_pence,
+            reversed_deposit_pence=reversed_deposit_pence,
+            reversal_entry_id=reversal_entry_id,
+        )
+    )
+
+    # The controlled path through the weeks trigger: every closing figure
+    # cleared in this one flush, which is the only shape of change the
+    # trigger permits on a closed week — see the migration that defines it.
+    week.status = WeekStatus.OPEN
+    week.settled_base_pence = None
+    week.settled_chore_pay_pence = None
+    week.settled_bonus_pence = None
+    week.settled_reward_pence = None
+    week.settled_total_pence = None
+    week.closed_at = None
+    week.void_reason = None
+    week.overridden_by = None
+    week.override_reason = None
+    week.optimum_total_pence = None
+    week.paid_at = None
+    week.deposited_pence = None
+
+    session.flush()
+    return week
+
+
+def current_lines(week: Week) -> list[SettlementLine]:
+    """This week's lines from its current settlement, not its whole history.
+
+    A settlement line is append-only and never deleted, so a week that has
+    been reopened and settled again carries lines from both rounds forever —
+    that is the record. But "what does this figure consist of" means the
+    lines written since the last reopen, which is what this filters to.
+    Never a source of money: `settled_total_pence` is still the only figure
+    that matters, this only explains it.
+    """
+    if not week.reopenings:
+        return list(week.settlement_lines)
+    since = week.reopenings[-1].reopened_at
+    return [line for line in week.settlement_lines if line.created_at > since]
 
 
 def stored_figures(week: Week) -> dict[str, int | str | None]:

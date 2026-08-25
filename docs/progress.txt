@@ -1205,3 +1205,104 @@ by switching to a dark overlay, which holds contrast consistently across
 the whole gradient regardless of which end a tile sits on.
 
 npm run build clean.
+
+2026-08-25 — Session R: reopening a settled week, narrowly
+
+"A settled week is a closed event" has held since the first migration —
+enforced by a 409 at the settle endpoint, by propose() itself raising on a
+closed week, and by settlement lines surviving a deleted chore definition.
+That rule exists to stop a scheme change made months later reaching
+backwards. It was never meant to stop a parent correcting their own mistake,
+made on purpose and later regretted, and until now it did. This card adds a
+reopen — deliberately narrow, in every direction the card named.
+
+app/models/weeks.py — WeekReopening, a new append-only table alongside
+SettlementLine: who reopened a week, when, why, and a full copy of what stood
+immediately before (every settled figure, the void reason if it was voided,
+the override if it was overridden, and whether it had been paid). A copy, not
+a lookup — the week's own columns move on the instant the reopen closes, the
+same reason SettlementLine copies a chore's name rather than joining to it.
+
+Migration 6131c9c1284a. Three things land together:
+
+  1. The weeks trigger gains one controlled exception, defined structurally
+     rather than by a flag: a transition to `open` that clears every closing
+     figure — status, all four settled_* columns, closed_at, and any
+     override — in the same UPDATE is let through; anything else touching a
+     closed week's guarded columns still aborts exactly as before. A tightened
+     CHECK (closed_weeks_carry_their_figures) now requires an open week to
+     carry none of its parts, not only no total, which is what makes "cleared"
+     checkable at the row level rather than a convention the trigger merely
+     trusts. Proved both ways: the existing raw-SQL "flip status alone"
+     regression test still aborts, and a real reopen through the ORM (which
+     clears every guarded column in one flush) does not.
+  2. week_reopenings itself, with its own append-only triggers and a CHECK
+     mirroring an_override_that_costs_money_says_why exactly: reason required,
+     blank or whitespace refused at the database layer as well as the routine.
+  3. savings_ledger gains REVERSAL as a second entry type allowed to be
+     negative, alongside WITHDRAWAL — a distinct fact from a withdrawal (the
+     child did not choose this) sharing only the sign.
+
+app/services/settlement.py — reopen(). Refuses an open week (NotClosed), a
+blank reason (ReopenNeedsAReason), and — the rule this card led with — a week
+with any settled or voided week after it (NotTheLatestSettledWeek), checked
+by querying for a later closed week rather than trusted to the caller, the
+same discipline NotOpen already follows. If the week was paid, `savings.
+record_reversal()` appends a negative entry for exactly `week.deposited_pence`
+— never the whole payment, only this week's apportioned share, which is
+already all that column ever held — and refuses (SavingsError, 409) rather
+than overdrawing the account if the deposit has already been spent elsewhere;
+the reopen is refused whole rather than left half-applied. Every closing
+column is then cleared in one flush: the controlled path the trigger's
+exception describes. `current_lines()` reads a resettled week's lines back
+scoped to since its last reopen — old lines are never deleted, so a week
+reopened once carries both rounds forever, but "what does this figure consist
+of" means the current round, not their sum.
+
+app/routers/weeks.py — POST /api/weeks/{id}/reopen, PIN-gated through the
+same AuthorisedRequest/authorise() pair as every other write, subject to the
+existing per-source lockout (a read stays open: nothing here changed that).
+Returns the fresh proposal, since the week is open again. SettledWeekView
+gained `reopenings` (the full history) and its `lines` now come from
+current_lines() rather than every line the week has ever carried; ProposalView
+gained the same `reopenings` field so a week that has been reopened but not
+yet resettled still shows why, even though it currently reads as an ordinary
+open proposal. Re-settling and re-voiding go through settle()/void()
+unchanged — no new argument, no shortcut — proved by reopening a week, having
+a confirmation change underneath it, and watching a stale agreed-figure
+refuse with the ordinary 409, and by a void after reopening still refusing an
+assignment.
+
+frontend: parentApi.ts gained reopenWeek(), loadWeekView() (GET /api/week/
+{id}, the same shape the child's screen reads, for a week that is open but is
+not the calendar's current one), and Reopening on SettledWeek. ThisWeek.tsx
+took an optional `title` prop so the same component — chore management,
+mark-missed, waive, settle, void, all of it — renders for a reopened week
+without reading as "This week". ParentView.tsx now fetches the view for every
+open week that is not the current one and renders each under "Reopened week";
+more than one can exist at once, since reopening one closed week can make an
+earlier one eligible too. ClosedWeeks.tsx computes which closed week is
+eligible (the one with the latest start_date — the same rule the server
+enforces) and offers Reopen only there, inside that week's own expanded
+detail, never beside Settle. The confirmation states the figure being undone
+and, when the week was paid, that the deposit is being reversed and that cash
+already handed over is not being clawed back by the record changing. Past
+reopenings render as history in the same detail panel.
+
+Tests: 510 pass (488 + 22 new, tests/test_reopen.py). The card's own test plan
+verbatim: settle, pay, reopen, savings balance back via a reversal entry (the
+original deposit row byte-for-byte unchanged), a confirmation corrected,
+settled again at a different figure with the reopening still visible in the
+week's history; and refusal to reopen the week before the latest one through
+every route — the API (409, named) and settlement.reopen() called directly
+(NotTheLatestSettledWeek). Also: only a paid week's apportioned share reverses
+when one payment cleared two weeks (proved by settling and paying both
+together, then reopening the later one and checking the earlier one's deposit
+is untouched); a reopen that would overdraw savings refused whole; blank and
+whitespace-only reasons refused by pydantic, by the routine, and by the CHECK
+constraint via raw SQL; the PIN lockout counts a wrong reopen attempt exactly
+like any other write while reads never touch it; an open week cannot be
+reopened; and the ordinary immutability trigger still aborts a hand-typed
+status flip that does not clear the row the way a real reopen does.
+
+npm run build clean. alembic check: no drift.
