@@ -36,7 +36,7 @@ to reason about ordering, and ordering can never cost the child money.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import combinations
 
 from app.models.base import utcnow
@@ -366,6 +366,112 @@ def _misses_for(
         )
 
     return misses
+
+
+@dataclass(frozen=True)
+class MakeGood:
+    """The route back from a miss, and what the week pays if it is taken.
+
+    Not a rule of its own. It is the same optimiser run once more against a
+    week that has not happened yet — "if these bonus chores were completed,
+    what would `best_assignment` do with them" — so the all-or-nothing chore
+    pay, the cap and the optimiser's own refusal to spend a bonus worth more
+    than it rescues all apply to it without being restated anywhere.
+
+    `restores_to_pence` is what that hypothetical week comes to, in the same
+    currency as the assignment it was compared against — no base allowance
+    (see `settlement.propose`, which adds it before the figure reaches a
+    screen).
+    """
+
+    definition_ids: tuple[int, ...]
+    names: tuple[str, ...]
+    restores_to_pence: int
+
+
+def best_make_good(
+    assessment: WeekAssessment, assignment: Assignment
+) -> MakeGood | None:
+    """What the child could still do to get the chore pay back, if anything.
+
+    Returns None rather than an empty encouragement whenever there is no real
+    route: nothing is currently lost, the misses are past the cap and no
+    amount of work recovers them, there are not enough bonus chores left
+    undone to cover what is outstanding, or the best available swap does not
+    actually pay more than doing nothing. A screen showing "you could still
+    fix this" over a week that cannot be fixed is worse than a screen saying
+    nothing at all.
+
+    Only a chore the child could start today counts as a route —
+    `ON_DEMAND_CADENCES`, the same test `can_be_spent_as_recovery` applies to
+    the ones already completed. Telling him to go and do a week-long
+    condition on Friday is not advice.
+    """
+    if not assignment.chore_pay_failed:
+        return None
+    if len(assessment.misses) > assessment.cap:
+        return None
+
+    outstanding = assignment.misses_outstanding
+    candidates = tuple(
+        requirement
+        for requirement in assessment.requirements
+        if requirement.category is Category.BONUS
+        and requirement.cadence in ON_DEMAND_CADENCES
+        and requirement.is_assessed
+        and not requirement.met
+    )
+    if outstanding == 0 or outstanding > len(candidates):
+        return None
+
+    best: MakeGood | None = None
+    for combination in combinations(candidates, outstanding):
+        result = best_assignment(_as_if_completed(assessment, combination))
+        # It has to actually clear the week and actually pay more. The
+        # optimiser is free to decide that spending a 300p bonus to rescue a
+        # 200p pot is a loss, and when it does, this is not a route back.
+        if result.misses_outstanding > 0:
+            continue
+        if result.total_pence <= assignment.total_pence:
+            continue
+        if best is None or result.total_pence > best.restores_to_pence:
+            best = MakeGood(
+                definition_ids=tuple(
+                    requirement.definition_id for requirement in combination
+                ),
+                names=tuple(requirement.name for requirement in combination),
+                restores_to_pence=result.total_pence,
+            )
+
+    return best
+
+
+def _as_if_completed(
+    assessment: WeekAssessment, done: Sequence[Requirement]
+) -> WeekAssessment:
+    """The same week, with these chores treated as having been completed.
+
+    A copy, scored and thrown away. Nothing here writes anything, and the
+    misses are carried across untouched — completing a bonus chore never
+    changes what the basics asked for.
+    """
+    ids = {requirement.definition_id for requirement in done}
+    requirements = tuple(
+        replace(requirement, confirmed=requirement.required)
+        if requirement.definition_id in ids
+        else requirement
+        for requirement in assessment.requirements
+    )
+    return WeekAssessment(
+        requirements=requirements,
+        misses=assessment.misses,
+        reward_pence=assessment.reward_pence,
+        weekly_basic_pay_pence=assessment.weekly_basic_pay_pence,
+        cap=assessment.cap,
+        _by_id={
+            requirement.definition_id: requirement for requirement in requirements
+        },
+    )
 
 
 def evaluate(assessment: WeekAssessment, spent: Sequence[Requirement]) -> Assignment:

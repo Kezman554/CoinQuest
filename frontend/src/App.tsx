@@ -15,15 +15,17 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
-import { claim, loadWeek, loadWeekById, loadWeeks } from './api'
+import { claim, clearMiss, loadWeek, loadWeekById, loadWeeks, markMissed } from './api'
 import type { InstanceCard, WeekSummary, WeekView } from './api'
 import { Days } from './components/Days'
+import type { PinAct } from './components/parent/PinDialog'
+import { PinDialog } from './components/parent/PinDialog'
 import { Recovery } from './components/Recovery'
 import { Total } from './components/Total'
 import { Weekly } from './components/Weekly'
 import { NotCurrentBanner, WeekNav } from './components/WeekNav'
 import { ParentView } from './ParentView'
-import { shortDate, weekdayOf } from './words'
+import { longDate, shortDate, weekdayOf } from './words'
 
 type Screen = 'child' | 'parent'
 
@@ -62,18 +64,28 @@ function Parent() {
 /**
  * The child's week.
  *
- * One screen, read standing up from a distance, with one thing to do on it:
- * say a chore is done. Everything else is there to be read rather than
- * operated. The page reloads its whole state after every claim rather than
- * patching the row in place — a claim can change the recovery notice and the
- * projected total as well as the button that was tapped, and a screen that
- * shows a stale figure next to a fresh one is worse than one that waits.
+ * One screen, read standing up from a distance, with three things to do on
+ * it: say a chore is done, say one was missed, and — with the PIN — take that
+ * back. Everything else is there to be read rather than operated.
+ *
+ * The page reloads its whole state after every one of them rather than
+ * patching the row in place. That is what makes the figure honest: marking a
+ * miss removes the whole chore pot and changes the recovery notice and the
+ * make-good line as well as the tile that was tapped, and the new figure is
+ * re-read from the engine's own proposal rather than worked out here. A view
+ * that subtracted £2 itself would be a second implementation of the
+ * all-or-nothing rule, the cap and the optimiser, and it would eventually
+ * disagree with what actually settles.
  */
 function ChildWeek() {
   const [week, setWeek] = useState<WeekView | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+  //: The one act on this screen that asks for the PIN. The dialog is the
+  //: parent view's own, unchanged: it states the consequence, holds the PIN
+  //: for the length of the call, and unmounts with it.
+  const [act, setAct] = useState<PinAct | null>(null)
 
   // `null` means "the current week" — the one the screen always opens on and
   // returns to. A specific id means paging back has landed on that week.
@@ -102,20 +114,55 @@ function ChildWeek() {
   const onNavigate = useCallback((weekId: number) => void refresh(weekId), [refresh])
   const onBackToNow = useCallback(() => void refresh(null), [refresh])
 
+  const viewed = week && !week.is_current ? week.week_id : null
+
   const onClaim = useCallback(
     async (instanceId: number) => {
       setBusyId(instanceId)
       try {
         await claim(instanceId)
-        await refresh(week && !week.is_current ? week.week_id : null)
+        await refresh(viewed)
       } catch (problem) {
         setError((problem as Error).message)
       } finally {
         setBusyId(null)
       }
     },
-    [refresh, week],
+    [refresh, viewed],
   )
+
+  /** No PIN, and no confirmation step either. The requirement is the ten
+   *  seconds a parent has while noticing it; a dialog in the middle of that
+   *  is the same defeat the PIN was. The undo is the safety net, and it is
+   *  right there on the tile. */
+  const onMissed = useCallback(
+    async (instanceId: number) => {
+      setBusyId(instanceId)
+      try {
+        await markMissed(instanceId)
+        await refresh(viewed)
+      } catch (problem) {
+        setError((problem as Error).message)
+      } finally {
+        setBusyId(null)
+      }
+    },
+    [refresh, viewed],
+  )
+
+  const onClearMiss = useCallback((chore: InstanceCard) => {
+    setAct({
+      title: 'Not missed after all',
+      summary: `${chore.name}${
+        chore.due_date ? ` on ${longDate(chore.due_date)}` : ''
+      } goes back to not yet done.`,
+      lines: [
+        'It becomes claimable again, and the chore money it was holding up comes back to the week.',
+      ],
+      confirmLabel: 'Clear the miss',
+      run: (pin) => clearMiss(pin, chore.instance_id as number),
+    })
+  }, [])
 
   if (error && !week) {
     return (
@@ -132,6 +179,11 @@ function ChildWeek() {
   // rule, which is about the week's own status, not about what a screen
   // browsing history should offer.
   const shown = week.is_current ? week : asReadOnly(week)
+
+  // The missed control follows the same rule the claim button does: it exists
+  // on the week that is actually now, and nowhere else. A week paged back to
+  // is history being read, and history is not ruled on from this screen.
+  const rulable = week.is_current && week.status === 'open'
 
   return (
     <>
@@ -158,14 +210,35 @@ function ChildWeek() {
       )}
 
       <Recovery recovery={shown.recovery} />
-      <Total totals={shown.totals} status={shown.status} />
-      <Days days={shown.days} onClaim={onClaim} busyId={busyId} />
+      <Total
+        totals={shown.totals}
+        status={shown.status}
+        makeGood={shown.recovery.make_good}
+      />
+      <Days
+        days={shown.days}
+        onClaim={onClaim}
+        busyId={busyId}
+        onMissed={rulable ? onMissed : undefined}
+        onClearMiss={rulable ? onClearMiss : undefined}
+      />
       <Weekly
         weekly={shown.weekly}
         onClaim={onClaim}
         busyId={busyId}
         deadlineWeekday={weekdayOf(shown.end_date)}
       />
+
+      {act && (
+        <PinDialog
+          act={act}
+          onClose={() => setAct(null)}
+          onDone={() => {
+            setAct(null)
+            void refresh(viewed)
+          }}
+        />
+      )}
     </>
   )
 }

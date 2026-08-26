@@ -119,6 +119,26 @@ class RecoveryNeed:
 
 
 @dataclass(frozen=True)
+class MakeGoodRoute:
+    """The way back, and the figure it restores. One line on the screen.
+
+    Both halves come from the engine's own proposal — see
+    `recovery.best_make_good`. Nothing here subtracts anything: a second
+    implementation of all-or-nothing chore pay, the cap and the optimiser's
+    refusal to spend a bonus worth more than it rescues would eventually
+    disagree with what actually settles, and the child would be reading the
+    one that is wrong.
+
+    `restores_to_pence` is the payable total — the base, the recovered chore
+    pay, the bonuses left over and any reward a parent entered — so it is
+    the same figure the banner is already showing, moved.
+    """
+
+    names: tuple[str, ...]
+    restores_to_pence: int
+
+
+@dataclass(frozen=True)
 class RecoveryView:
     """What is outstanding, what could cover it, and how long is left.
 
@@ -138,6 +158,10 @@ class RecoveryView:
     urgent: bool
     options: tuple[InstanceCard, ...]
     spent: tuple[InstanceCard, ...]
+    #: What would put the week back, if anything would. None is the honest
+    #: answer far more often than not, and it renders as nothing at all
+    #: rather than as an empty encouragement.
+    make_good: MakeGoodRoute | None = None
 
 
 @dataclass(frozen=True)
@@ -259,7 +283,7 @@ def build(
             total_pence=proposal.total_pence,
             payable_total_pence=proposal.total_pence + ad_hoc,
         )
-        recovery = _recovery(proposal, cards, period, now, open_week)
+        recovery = _recovery(proposal, cards, period, now, open_week, ad_hoc)
     else:
         totals = _closed_totals(week, ad_hoc)
         recovery = _empty_recovery(period)
@@ -325,6 +349,7 @@ def _empty_recovery(period: Period) -> RecoveryView:
         urgent=False,
         options=(),
         spent=(),
+        make_good=None,
     )
 
 
@@ -455,6 +480,7 @@ def _recovery(
     period: Period,
     now: datetime,
     open_week: bool,
+    ad_hoc: int,
 ) -> RecoveryView:
     """What has actually been ruled missed, and what could still cover it.
 
@@ -527,6 +553,21 @@ def _recovery(
         if card.name in spent_names and card.state == InstanceState.CONFIRMED.value
     )
 
+    # The route back, exactly as the engine proposed it, with the rewards a
+    # parent entered added on — the banner's figure includes them, and a
+    # make-good that restored the week to a number the banner would never
+    # show is not the same fact. Offered only when the chore it names is
+    # actually on the screen with a button on it: advice pointing at
+    # something that cannot be tapped is not advice.
+    make_good = None
+    if proposal.make_good is not None:
+        offered = {card.definition_id for card in options}
+        if set(proposal.make_good.definition_ids) <= offered:
+            make_good = MakeGoodRoute(
+                names=proposal.make_good.names,
+                restores_to_pence=proposal.make_good.restores_to_pence + ad_hoc,
+            )
+
     seconds = int(elapsed(now, period.ends_before).total_seconds()) if open_week else 0
     seconds = max(seconds, 0)
     outstanding = sum(1 for need in needs if need.covered_by is None)
@@ -542,4 +583,5 @@ def _recovery(
         urgent=outstanding > 0 and seconds < URGENT_WITHIN_SECONDS,
         options=options,
         spent=spent,
+        make_good=make_good,
     )

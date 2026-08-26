@@ -2,10 +2,15 @@
  * The one client this API has.
  *
  * Every path is relative: in development the Vite dev server proxies them to
- * the API, and in the container the API serves this bundle itself. Nothing
- * here carries the PIN — this screen is the child's, and the only thing it
- * writes is a claim, which needs no credential because a claim is a request
- * to be believed rather than an assertion that money is owed.
+ * the API, and in the container the API serves this bundle itself.
+ *
+ * One call here carries the PIN, and exactly one: clearing a miss. Everything
+ * else this screen writes — claiming, and marking a chore missed — is a
+ * proposal rather than money, and needs no credential for the same reason: it
+ * pays nothing, and settlement is what pays. Clearing is the direction that
+ * gives money back, so it is the direction that asks. See
+ * app/routers/claims.py, which states the rule and enforces it server-side;
+ * nothing on this side is what makes it true.
  */
 
 export type InstanceCard = {
@@ -53,6 +58,14 @@ export type RecoveryNeed = {
   covered_by: string | null
 }
 
+/** The way back from a miss, worked out by the engine and not by this screen:
+ *  which bonus chores to do, and what the week is worth once they are. Null
+ *  whenever there is no route — which renders as nothing at all. */
+export type MakeGood = {
+  names: string[]
+  restores_to_pence: number
+}
+
 export type RecoveryPanel = {
   needs: RecoveryNeed[]
   outstanding: number
@@ -64,6 +77,7 @@ export type RecoveryPanel = {
   urgent: boolean
   options: InstanceCard[]
   spent: InstanceCard[]
+  make_good: MakeGood | null
 }
 
 export type Totals = {
@@ -146,11 +160,42 @@ export async function loadWeekById(weekId: number): Promise<WeekView> {
 }
 
 export async function claim(instanceId: number): Promise<void> {
+  await post('/api/claims', { instance_id: instanceId })
+}
+
+/**
+ * Mark a chore missed. No PIN, deliberately.
+ *
+ * A parent standing at the sink has about ten seconds to record that
+ * yesterday was missed, and four digits on a wall screen is long enough to
+ * lose that. It pays nothing and takes nothing: it proposes a miss, the way a
+ * claim proposes work, and settlement is where either turns into money.
+ */
+export async function markMissed(instanceId: number): Promise<void> {
+  await post(`/api/instances/${instanceId}/missed`, { instance_id: instanceId })
+}
+
+/**
+ * Take that mark back. This one asks for the PIN.
+ *
+ * The asymmetry is the point: anything that costs him money is a tap, and
+ * anything that gives it back is a parent. The PIN goes nowhere but into this
+ * one request — see PinDialog, which holds it for the length of the call and
+ * is unmounted afterwards.
+ */
+export async function clearMiss(pin: string, instanceId: number): Promise<void> {
+  await post(`/api/instances/${instanceId}/missed/clear`, {
+    pin,
+    instance_id: instanceId,
+  })
+}
+
+async function post(path: string, body: unknown): Promise<void> {
   await json<unknown>(
-    await fetch('/api/claims', {
+    await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instance_id: instanceId }),
+      body: JSON.stringify(body),
     }),
   )
 }

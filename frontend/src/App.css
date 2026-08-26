@@ -126,6 +126,19 @@
   font-weight: 600;
 }
 
+/* The route back, beside the figure it restores. One line, set inside the
+   same card rather than beside it: it is about this number, and a box of its
+   own would read as a separate announcement to be dealt with later. */
+.total-makegood {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+}
+
 /* --- The recovery notice ------------------------------------------------- */
 
 .notice {
@@ -390,6 +403,53 @@
 .chore-claimed .chore-state {
   color: var(--todo);
   font-weight: 600;
+}
+
+/* A chore with a control under it. The row keeps the spacing the bare chore
+   had, so a tile of mixed chores does not step in and out of rhythm. */
+.chore-row {
+  margin-top: 0.5rem;
+}
+
+.chore-row .chore {
+  margin-top: 0;
+}
+
+/* Deliberately not a full-width row, and deliberately quiet.
+   Every other tappable thing on this screen is 3.5rem tall because a child in
+   a hurry does not aim — which is exactly why this one is not. It is aimed at
+   by a parent walking past, once, and the child reaching for "I've done it"
+   must not land on it by accident. Still 2.5rem, which is a comfortable
+   thumb, and still a word rather than an icon. */
+.chore-control {
+  display: block;
+  margin: 0.25rem 0 0 auto;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.9rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 2px solid var(--line);
+  border-radius: 0.6rem;
+  cursor: pointer;
+}
+
+.chore-control:active {
+  transform: scale(0.98);
+}
+
+.chore-control:disabled {
+  opacity: 0.5;
+}
+
+/* The way back reads as the way back: the same colour the "on track" figure
+   and every other route-forward control uses, not the red of the miss. */
+.chore-control-undo {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .chore-missed {

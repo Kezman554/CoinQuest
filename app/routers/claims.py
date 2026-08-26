@@ -6,11 +6,33 @@ The child claims, and that needs no credential. A claim is not money: it is a
 request to be believed, and it stays pending until somebody says otherwise.
 The worst a stranger with the URL can do is queue work for a parent to reject.
 
-Everything that could turn into money — confirming, rejecting, marking a chore
-missed — carries the PIN and is refused server-side without it. This module
-assumes nothing about what the frontend chose to display. A request typed
-straight at the API by somebody who never loaded the page meets the same
-check.
+The rule this module used to state was: "everything that could turn into
+money — confirming, rejecting, marking a chore missed — carries the PIN".
+That sentence is written out here rather than deleted, because the half of it
+that changed would otherwise read as an oversight.
+
+The rule now is: **the PIN guards what hands money over or gives it back, not
+what proposes losing it.** Confirming and rejecting still carry it. Marking a
+chore missed no longer does, and clearing a mark does.
+
+Marking a miss is a proposal in exactly the sense a claim is. It pays nothing,
+and nothing is paid until settlement — which is PIN-guarded, states the figure
+before it asks, and, since Session V, can be reopened if it was agreed
+wrongly. What the requirement actually is: a parent notices at the sink that
+yesterday was missed, and has about ten seconds to record it before the moment
+passes. Four digits on a wall screen defeats that, and a miss not recorded on
+the day is a recovery window the child never gets told about, which is the
+whole thing the window exists for.
+
+Clearing a miss is the other half, and it is guarded. The asymmetry is
+deliberate and is the shape of the whole screen: anything that costs him money
+is a tap, anything that gives it back is a parent. The worst an unauthorised
+tap can now do is understate a week, in public, on a screen the household
+reads a dozen times a day, with a parent-only undo sitting beside it.
+
+This module assumes nothing about what the frontend chose to display. A
+request typed straight at the API by somebody who never loaded the page meets
+exactly these same checks.
 
 A review is one transaction. Either every decision in it applies or none do,
 so a parent working through a Sunday list never ends up half-committed to a
@@ -81,11 +103,21 @@ class ReviewRequest(AuthorisedRequest):
         ]
 
 
-class MissedRequest(AuthorisedRequest):
-    """A parent marking a chore missed without waiting for settlement."""
+class MissedRequest(BaseModel):
+    """Marking a chore missed without waiting for settlement. No PIN.
+
+    See the module docstring for why this one carries no credential and
+    ClearMissRequest does.
+    """
 
     instance_id: int
     note: str | None = None
+
+
+class ClearMissRequest(AuthorisedRequest):
+    """A parent taking a mark back. Authorised, because it gives money back."""
+
+    instance_id: int
 
 
 # --- What goes out. Never the PIN, which is not in these models at all. -----
@@ -243,7 +275,6 @@ def review(
 @router.post("/instances/{instance_id}/missed", response_model=InstanceView)
 def mark_missed(
     instance_id: int,
-    request: Request,
     body: MissedRequest,
     session: Session = Depends(get_session),
 ) -> InstanceView:
@@ -251,9 +282,11 @@ def mark_missed(
 
     This is what makes the recovery window usable: told on Tuesday that
     Monday was missed, the child has the rest of the week to work it back.
-    """
-    authorisation = authorise(request, body)
+    Told at settlement, he is told about a window that has already shut.
 
+    No PIN — see the module docstring, which states the rule this reverses
+    and why. Undone by clear_miss, which does carry one.
+    """
     if body.instance_id != instance_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -274,14 +307,86 @@ def mark_missed(
             )
 
         instance.state = InstanceState.MISSED
-        instance.missed_at = authorisation.at
-        # A parent deciding this is definite, and names them. A miss the
-        # settlement infers later does neither.
+        instance.missed_at = utcnow()
+        # Still PARENT_MARKED, and it still means what it always meant: a
+        # miss somebody decided while the week was open, as against one
+        # settlement inferred from silence after it closed. That is what
+        # makes it definite, what makes it recoverable, and — see clear_miss
+        # — what makes it the only kind that can be taken back.
         instance.miss_origin = MissOrigin.PARENT_MARKED
-        instance.authorised_by = authorisation.party
+        # Nobody authorised this any more, so nobody is named. Cleared rather
+        # than left, for record_inferred_misses' own reason: a parent who
+        # rejected a claim on this instance earlier in the week is still
+        # sitting in this column, and leaving them there would read as though
+        # they had ruled it missed.
+        instance.authorised_by = None
         instance.claimed_at = None
         if body.note:
             instance.notes = body.note
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+    session.refresh(instance)
+    return InstanceView.of(instance)
+
+
+@router.post("/instances/{instance_id}/missed/clear", response_model=InstanceView)
+def clear_miss(
+    instance_id: int,
+    request: Request,
+    body: ClearMissRequest,
+    session: Session = Depends(get_session),
+) -> InstanceView:
+    """Take a mark back: the instance returns to untouched, claimable again.
+
+    Authorised, because this is the direction that gives money back. A miss
+    marked in error takes the whole chore pot off the week until it is
+    cleared, so the undo is worth as much as the settlement it would
+    otherwise distort — and it is the only control on the child's screen that
+    asks for the PIN.
+
+    Only a PARENT_MARKED miss can be cleared. A miss inferred at settlement
+    belongs to a week that is already closed, and a closed week is closed
+    forever — so refusing it by origin says out loud what the closed-week
+    check would otherwise only say by accident.
+    """
+    authorise(request, body)
+
+    if body.instance_id != instance_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The instance in the path and in the body must agree.",
+        )
+
+    try:
+        instance = _load(session, instance_id)
+        _refuse_closed_weeks(session, instance)
+
+        if instance.state is not InstanceState.MISSED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"That chore is {instance.state.value}, not missed;"
+                    " there is no mark on it to clear."
+                ),
+            )
+        if instance.miss_origin is not MissOrigin.PARENT_MARKED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "That miss was worked out at settlement rather than"
+                    " marked by a parent, so it cannot be cleared here."
+                ),
+            )
+
+        instance.state = InstanceState.UNTOUCHED
+        instance.missed_at = None
+        instance.miss_origin = None
+        instance.authorised_by = None
+        # rejected_at and rejection_count survive, exactly as they survive a
+        # re-claim. Clearing a miss does not unhappen a rejection.
         session.commit()
     except Exception:
         session.rollback()

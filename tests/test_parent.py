@@ -618,28 +618,43 @@ def test_a_voided_week_pays_nothing_and_is_closed(api, scheme, failing_week):
     )
 
 
-def test_marking_an_instance_missed_is_a_parents_act(api, scheme, week_dates):
+def test_marking_a_miss_is_a_tap_and_clearing_one_is_a_parent(api, scheme, week_dates):
+    """The asymmetry the day tile exists to build, end to end.
+
+    Marking costs him money and takes no PIN — a parent has about ten seconds
+    at the sink to record it. Clearing gives the money back, so it asks.
+    """
     start, _ = week_dates
     view = open_week(api)
     card = next(
         chore for chore in every_instance(view) if chore["due_date"] == start.isoformat()
     )
 
+    response = api.post(
+        f"/api/instances/{card['instance_id']}/missed",
+        json={"instance_id": card["instance_id"], "note": "Not done"},
+    )
+    assert response.status_code == 200
+    assert response.json()["miss_origin"] == "parent_marked"
+    assert response.json()["authorised_by"] is None
+
+    # And now the child's screen has something to act on.
+    assert api.get("/api/week").json()["recovery"]["outstanding"] == 1
+
     assert (
         api.post(
-            f"/api/instances/{card['instance_id']}/missed",
+            f"/api/instances/{card['instance_id']}/missed/clear",
             json={"instance_id": card["instance_id"], "pin": WRONG},
         ).status_code
         == 401
     )
-
-    response = api.post(
-        f"/api/instances/{card['instance_id']}/missed",
-        json={"instance_id": card["instance_id"], "pin": PIN, "note": "Not done"},
-    )
-    assert response.status_code == 200
-    assert response.json()["miss_origin"] == "parent_marked"
-    assert response.json()["authorised_by"] == "parent"
-
-    # And now the child's screen has something to act on.
     assert api.get("/api/week").json()["recovery"]["outstanding"] == 1
+
+    assert (
+        api.post(
+            f"/api/instances/{card['instance_id']}/missed/clear",
+            json={"instance_id": card["instance_id"], "pin": PIN},
+        ).status_code
+        == 200
+    )
+    assert api.get("/api/week").json()["recovery"]["outstanding"] == 0

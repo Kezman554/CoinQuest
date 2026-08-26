@@ -105,6 +105,11 @@ class RecoveryNeedView(BaseModel):
     covered_by: str | None
 
 
+class MakeGoodRouteView(BaseModel):
+    names: list[str]
+    restores_to_pence: int
+
+
 class RecoveryPanelView(BaseModel):
     needs: list[RecoveryNeedView]
     outstanding: int
@@ -116,6 +121,7 @@ class RecoveryPanelView(BaseModel):
     urgent: bool
     options: list[InstanceCardView]
     spent: list[InstanceCardView]
+    make_good: MakeGoodRouteView | None
 
 
 class TotalsView(BaseModel):
@@ -204,6 +210,14 @@ class WeekViewOut(BaseModel):
                 urgent=view.recovery.urgent,
                 options=[InstanceCardView.of(card) for card in view.recovery.options],
                 spent=[InstanceCardView.of(card) for card in view.recovery.spent],
+                make_good=(
+                    MakeGoodRouteView(
+                        names=list(view.recovery.make_good.names),
+                        restores_to_pence=view.recovery.make_good.restores_to_pence,
+                    )
+                    if view.recovery.make_good is not None
+                    else None
+                ),
             ),
             totals=TotalsView(
                 base_pence=view.totals.base_pence,

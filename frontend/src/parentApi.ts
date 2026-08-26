@@ -299,9 +299,13 @@ export const submitReview = (pin: string, decisions: DecisionIn[]) =>
     decisions,
   })
 
-export const markMissed = (pin: string, instanceId: number, note?: string) =>
+/** No PIN: marking a miss proposes losing money rather than moving any, and
+ *  the requirement is the few seconds a parent has while noticing it. The
+ *  undo is the guarded half — see api.ts's clearMiss, and the rule in
+ *  app/routers/claims.py. Sits above the "Acts" section below because it is
+ *  no longer one of them. */
+export const markMissed = (instanceId: number, note?: string) =>
   send<unknown>(`/api/instances/${instanceId}/missed`, {
-    pin,
     instance_id: instanceId,
     note: note || null,
   })

@@ -243,10 +243,14 @@ class ChoreInstance(Base):
             "miss_origin <> 'inferred_at_settlement' OR authorised_by IS NULL",
             name="an_inferred_miss_has_no_author",
         ),
-        CheckConstraint(
-            "miss_origin <> 'parent_marked' OR authorised_by IS NOT NULL",
-            name="a_parent_marked_miss_names_the_parent",
-        ),
+        # There is deliberately no "a parent-marked miss names the parent"
+        # check any more, and its absence is the rule rather than an omission.
+        # Marking a chore missed carries no PIN (see app/routers/claims.py),
+        # so there is no credential behind it to name, and writing a parent's
+        # name against something no parent authorised would be the same
+        # untruth the check above exists to prevent. PARENT_MARKED still means
+        # what it meant — decided while the week was open, as against inferred
+        # from silence once it closed. Dropped by migration c3f8b21a7d40.
         CheckConstraint(
             "(rejection_count = 0 AND rejected_at IS NULL)"
             " OR (rejection_count > 0 AND rejected_at IS NOT NULL)",

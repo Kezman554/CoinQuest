@@ -23,9 +23,11 @@ type Props = {
   currentWeek: WeekView | null
   weeks: WeekSummary[]
   ask: (act: PinAct) => void
+  /** Reload the screen after an act that opened no PIN dialog to close. */
+  onDone: () => void
 }
 
-export function WeekBrowser({ currentWeek, weeks, ask }: Props) {
+export function WeekBrowser({ currentWeek, weeks, ask, onDone }: Props) {
   const [viewedWeekId, setViewedWeekId] = useState<number | null>(null)
   const [viewedOpenWeek, setViewedOpenWeek] = useState<WeekView | null>(null)
 
@@ -48,7 +50,7 @@ export function WeekBrowser({ currentWeek, weeks, ask }: Props) {
 
   if (weeks.length === 0) {
     return currentWeek ? (
-      <ThisWeek week={currentWeek} ask={ask} />
+      <ThisWeek week={currentWeek} ask={ask} onDone={onDone} />
     ) : (
       <EmptyThisWeek />
     )
@@ -72,7 +74,7 @@ export function WeekBrowser({ currentWeek, weeks, ask }: Props) {
 
       {isCurrent ? (
         currentWeek ? (
-          <ThisWeek week={currentWeek} ask={ask} />
+          <ThisWeek week={currentWeek} ask={ask} onDone={onDone} />
         ) : (
           <EmptyThisWeek />
         )
@@ -81,6 +83,7 @@ export function WeekBrowser({ currentWeek, weeks, ask }: Props) {
           <ThisWeek
             week={viewedOpenWeek}
             ask={ask}
+            onDone={onDone}
             title={weekLabel(viewedSummary.start_date, viewedSummary.end_date)}
           />
         ) : (

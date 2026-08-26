@@ -21,6 +21,8 @@ from app.models import (
     Week,
     WeekStatus,
 )
+from app.models.base import utcnow
+from app.models.enums import MissOrigin
 
 PIN = "0000"
 WRONG = "9999"
@@ -339,34 +341,41 @@ def test_the_same_instance_cannot_be_ruled_on_twice_in_one_batch(api, instances)
 # --- 5. Marking missed directly ---------------------------------------------
 
 
-def test_a_parent_can_mark_an_instance_missed(api, session, instances):
+def test_marking_an_instance_missed_takes_no_pin(api, session, instances):
+    """The rule this reverses, and why, is in the module's own docstring."""
     response = api.post(
         f"/api/instances/{instances[0].id}/missed",
-        json={"pin": PIN, "instance_id": instances[0].id, "note": "Not done"},
+        json={"instance_id": instances[0].id, "note": "Not done"},
     )
     assert response.status_code == 200
     body = response.json()
     assert body["state"] == "missed"
     assert body["missed_at"] is not None
-    assert body["authorised_by"] == "parent"
+    assert body["miss_origin"] == "parent_marked"
+    # Nobody proved themselves, so nobody is named. The schema no longer
+    # insists otherwise — see migration c3f8b21a7d40.
+    assert body["authorised_by"] is None
 
 
-def test_marking_missed_needs_the_pin_too(api, session, instances):
+def test_a_wrong_pin_offered_to_mark_missed_is_simply_ignored(api, instances):
+    """It is not a credential any more, so it is not checked, and not refused.
+
+    Worth asserting rather than assuming: a stray `pin` in the body must not
+    take the request through the lockout counter, or a child tapping Missed
+    on a wall screen could lock the parent out of settling.
+    """
     response = api.post(
         f"/api/instances/{instances[0].id}/missed",
-        json={"pin": WRONG, "instance_id": instances[0].id},
+        json={"instance_id": instances[0].id, "pin": WRONG},
     )
-    assert response.status_code == 401
-
-    session.expire_all()
-    assert session.get(ChoreInstance, instances[0].id).state is InstanceState.UNTOUCHED
+    assert response.status_code == 200
 
 
 def test_a_claimed_instance_may_be_marked_missed(api, session, instances):
     claim(api, instances[0])
     response = api.post(
         f"/api/instances/{instances[0].id}/missed",
-        json={"pin": PIN, "instance_id": instances[0].id},
+        json={"instance_id": instances[0].id},
     )
     assert response.status_code == 200
     assert response.json()["claimed_at"] is None
@@ -385,7 +394,7 @@ def test_confirmed_work_is_not_taken_back_by_marking_it_missed(
     )
     response = api.post(
         f"/api/instances/{instances[0].id}/missed",
-        json={"pin": PIN, "instance_id": instances[0].id},
+        json={"instance_id": instances[0].id},
     )
     assert response.status_code == 409
 
@@ -396,9 +405,97 @@ def test_confirmed_work_is_not_taken_back_by_marking_it_missed(
 def test_the_path_and_the_body_must_agree(api, instances):
     response = api.post(
         f"/api/instances/{instances[0].id}/missed",
-        json={"pin": PIN, "instance_id": instances[1].id},
+        json={"instance_id": instances[1].id},
     )
     assert response.status_code == 400
+
+
+# --- 5b. Clearing a miss, which is the direction that gives money back ------
+
+
+def _mark_missed(api, instance):
+    response = api.post(
+        f"/api/instances/{instance.id}/missed",
+        json={"instance_id": instance.id},
+    )
+    assert response.status_code == 200
+    return response
+
+
+def test_a_parent_can_clear_a_miss_they_marked(api, session, instances):
+    _mark_missed(api, instances[0])
+
+    response = api.post(
+        f"/api/instances/{instances[0].id}/missed/clear",
+        json={"pin": PIN, "instance_id": instances[0].id},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["state"] == "untouched"
+    assert body["missed_at"] is None
+    assert body["miss_origin"] is None
+    assert body["authorised_by"] is None
+
+    # Back to claimable, which is the whole point of clearing it.
+    assert api.post("/api/claims", json={"instance_id": instances[0].id}).status_code == 200
+
+
+def test_clearing_a_miss_needs_the_pin(api, session, instances):
+    _mark_missed(api, instances[0])
+
+    response = api.post(
+        f"/api/instances/{instances[0].id}/missed/clear",
+        json={"pin": WRONG, "instance_id": instances[0].id},
+    )
+    assert response.status_code == 401
+
+    session.expire_all()
+    assert session.get(ChoreInstance, instances[0].id).state is InstanceState.MISSED
+
+
+def test_a_miss_inferred_at_settlement_cannot_be_cleared(api, session, instances):
+    """The other half of the asymmetry: only what a person marked comes back."""
+    instance = session.get(ChoreInstance, instances[0].id)
+    instance.state = InstanceState.MISSED
+    instance.missed_at = utcnow()
+    instance.miss_origin = MissOrigin.INFERRED_AT_SETTLEMENT
+    instance.authorised_by = None
+    session.commit()
+
+    response = api.post(
+        f"/api/instances/{instances[0].id}/missed/clear",
+        json={"pin": PIN, "instance_id": instances[0].id},
+    )
+    assert response.status_code == 409
+    assert "settlement" in response.json()["detail"]
+
+
+def test_clearing_something_that_is_not_missed_is_refused(api, instances):
+    response = api.post(
+        f"/api/instances/{instances[0].id}/missed/clear",
+        json={"pin": PIN, "instance_id": instances[0].id},
+    )
+    assert response.status_code == 409
+
+
+def test_clearing_a_miss_leaves_a_rejection_where_it_was(api, session, instances):
+    """A rejection is history. Clearing a miss does not unhappen one."""
+    claim(api, instances[0])
+    api.post(
+        "/api/claims/review",
+        json={
+            "pin": PIN,
+            "decisions": [{"instance_id": instances[0].id, "decision": "reject"}],
+        },
+    )
+    _mark_missed(api, instances[0])
+
+    body = api.post(
+        f"/api/instances/{instances[0].id}/missed/clear",
+        json={"pin": PIN, "instance_id": instances[0].id},
+    ).json()
+    assert body["rejection_count"] == 1
+    assert body["rejected_at"] is not None
 
 
 # --- 6. The authorising party is recorded -----------------------------------

@@ -25,14 +25,32 @@
  * paged back to reads its own past tense — "Settled at" or "Voided at" —
  * so a figure that is now permanent does not sound like a projection still
  * moving.
+ *
+ * The make-good line lives here rather than on the day tile that happened to
+ * be marked. A route back is a fact about the week, not about Wednesday, and
+ * it has to still be readable on Friday by somebody who has just walked past
+ * the wall and marked nothing. It sits beside the number it restores because
+ * that number is the whole argument for doing it. Deliberately one line: not
+ * a panel, not a second screen, and nothing at all when the engine says there
+ * is no way back — see makeGoodLine.
  */
 
-import type { Totals } from '../api'
+import type { MakeGood, Totals } from '../api'
 import { money } from '../api'
+import { makeGoodLine } from '../words'
 
-export function Total({ totals, status = 'open' }: { totals: Totals; status?: string }) {
+export function Total({
+  totals,
+  status = 'open',
+  makeGood = null,
+}: {
+  totals: Totals
+  status?: string
+  makeGood?: MakeGood | null
+}) {
   const label =
     status === 'settled' ? 'Settled at' : status === 'voided' ? 'Voided at' : 'On track for'
+  const route = status === 'open' ? makeGoodLine(makeGood) : null
 
   return (
     <section className="total">
@@ -75,6 +93,8 @@ export function Total({ totals, status = 'open' }: { totals: Totals; status?: st
           The chore money is all or nothing. Finish the week and it is yours.
         </p>
       )}
+
+      {route && <p className="total-makegood">{route}</p>}
     </section>
   )
 }

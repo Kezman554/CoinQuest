@@ -30,7 +30,7 @@ it was overridden, by whom, and what the app would have paid instead.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -55,6 +55,7 @@ from app.services.instances import plan_week
 from app.services.recovery import (
     RECOVERY_CAP,
     Assignment,
+    MakeGood,
     Miss,
     Requirement,
     SuppliedRecovery,
@@ -62,6 +63,7 @@ from app.services.recovery import (
     assess_week,
     assignment_from,
     best_assignment,
+    best_make_good,
     record_inferred_misses,
 )
 
@@ -184,6 +186,14 @@ class Proposal:
     #: story when somebody did.
     optimum_total_pence: int = 0
 
+    #: The route back, when the chore pay has failed and something could
+    #: still rescue it: which bonus chores to do, and what the week comes to
+    #: if they are. None when there is no such route — see
+    #: `recovery.best_make_good` for every reason there might not be. Its
+    #: `restores_to_pence` includes the base allowance, so it is directly
+    #: comparable with `total_pence` rather than with the components.
+    make_good: MakeGood | None = None
+
     @property
     def foregone_pence(self) -> int:
         """What the override costs, if it costs anything.
@@ -276,6 +286,15 @@ def propose(
 
     lines = _lines(assessment, assignment)
 
+    # Scored against the assignment actually in use, so the figure it offers
+    # is a step up from the one this same proposal is reporting — including
+    # when a parent's override is what put the week where it is.
+    make_good = best_make_good(assessment, assignment)
+    if make_good is not None:
+        make_good = replace(
+            make_good, restores_to_pence=base_pence + make_good.restores_to_pence
+        )
+
     return Proposal(
         week_id=week.id,
         start_date=week.start_date,
@@ -294,6 +313,7 @@ def propose(
         cap=cap,
         overridden=override is not None,
         optimum_total_pence=base_pence + optimum.total_pence,
+        make_good=make_good,
     )
 
 

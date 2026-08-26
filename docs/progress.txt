@@ -1599,3 +1599,129 @@ exists to produce, now live rather than only tested), and /api/week/1 —
 last week, real data, genuinely never settled — read is_current: false,
 status: open, confirming Part 3 against a week that was already sitting in
 exactly the state item 6 describes, not a constructed one.
+
+
+2026-08-26 — Session Y: a miss is a tap, and taking it back is a parent
+
+The asymmetry the card exists to build, and everything else follows from it:
+anything that costs him money is a tap, anything that gives it back is a
+parent. Marking a chore missed no longer carries the PIN. Clearing that mark
+does, and is a new endpoint.
+
+Part 1. app/routers/claims.py's docstring stated the old rule — "everything
+that could turn into money — confirming, rejecting, marking a chore missed —
+carries the PIN". That sentence is quoted in the module rather than deleted,
+followed by the rule that replaced it and the reasoning: a miss is a proposal
+in exactly the sense a claim is, it pays nothing, settlement is what pays and
+is PIN-guarded with Session V's reopen behind it. The requirement is the ten
+seconds a parent has at the sink while noticing that yesterday was missed,
+which four digits on a wall screen defeats — and a miss not recorded on the
+day is a recovery window the child never gets told about, which is the whole
+thing the window is for.
+
+A consequence that was not optional and is worth recording: `authorised_by`
+is now cleared rather than filled in. Nobody proved themselves, so nobody is
+named — the same reason `record_inferred_misses` clears it (a parent who
+rejected a claim on that instance earlier in the week is still sitting in the
+column, and leaving them there reads as though they had ruled it missed).
+That met a CHECK constraint from 82826e03b64d saying a parent-marked miss
+names its parent, which was right while marking one was a decision somebody
+had to prove themselves to make and is now a demand for a name that does not
+exist. Migration c3f8b21a7d40 drops it. Its siblings are untouched: an
+inferred miss still has no author, a confirmation still names one, and
+MissOrigin.PARENT_MARKED still means what it always meant — decided while the
+week was open, as against inferred from silence once it closed — which is
+what `Miss.is_definite`, the recovery window and the new clear endpoint all
+still turn on.
+
+The migration rebuilds chore_instances from an explicit `copy_from` rather
+than by reflection, because SQLite cannot drop a CHECK and reflecting the
+table would have re-run every other constraint name through the metadata
+naming convention a second time. That is exactly how the stored names came to
+read ck_chore_instances_ck_chore_instances_… in the first place: batch
+migrations after the initial schema each added a prefix. Verified by dumping
+the real DDL before and after — every remaining constraint byte-for-byte
+identical, and both partial unique indexes (definition/day, and
+definition/week/sequence) intact, since a rebuild that reproduced every
+constraint but silently dropped the indexes would be the worst kind of
+correct. `alembic check`: no drift.
+
+Part 2. POST /api/instances/{id}/missed/clear. Returns the instance to
+UNTOUCHED and clears missed_at, miss_origin and authorised_by; refuses a
+closed week exactly as mark_missed does; refuses anything not currently
+missed; and refuses a miss whose origin is INFERRED_AT_SETTLEMENT — that one
+belongs to a week already closed, so saying it by origin says out loud what
+the closed-week check would otherwise only say by accident. rejected_at and
+rejection_count survive: clearing a miss does not unhappen a rejection, the
+same rule re-claiming already keeps.
+
+Part 3. The control is on the day tile. frontend/src/components/Chore.tsx
+grew a second control set deliberately apart from the row: small, under the
+chore rather than being it, and worded as a statement rather than an
+instruction. Every other tappable thing on this screen is a full-width 3.5rem
+row because a child in a hurry does not aim — which is precisely why this one
+is not, since the child reaching for "I've done it" must not land on it. A
+missed instance renders as missed and carries "Not missed after all", which
+opens the parent views' own PinDialog, unchanged: it states the consequence,
+holds the PIN for the length of the call, and unmounts with it. Both controls
+are passed only for the current, open week, so a week paged back to stays
+read-only — the same rule `asReadOnly` already applies to claiming.
+
+The parent screen's own "Mark something missed" control lost its PIN dialog
+too. It had to: the API no longer checks that PIN, and a dialog that asks for
+one it will not check teaches a parent something untrue about what is
+guarded. It kept its place because it reaches a reopened week and a chore
+with no day attached to it. ThisWeek/WeekBrowser gained an `onDone` prop for
+the reload the dialog used to do on the way out.
+
+Part 4. The figure moves by re-reading the engine, never by subtracting.
+Every act on the child's screen reloads the whole view, which re-reads
+`settlement.propose(for_display=True)` — so one confirmed miss removes the
+whole £2 chore pot and leaves the £1 base because that is what the
+all-or-nothing rule says, not because a view knows to take £2 off.
+
+Part 5. The make-good line, on the banner rather than the day tile. A route
+back is a fact about the week, not about the Wednesday that happened to be
+marked, and it has to still be readable on Friday by somebody who has just
+walked past the wall and marked nothing. It is one line — what to do, and
+what it takes the week back to — set inside the same card as the figure it
+restores, deliberately not a panel and not a second screen.
+
+Both halves come from the engine. `recovery.best_make_good` is the same
+optimiser run once more against a week that has not happened yet: "if these
+bonus chores were completed, what would `best_assignment` do with them". So
+the cap, the all-or-nothing pot, and the optimiser's own refusal to spend a
+300p bonus rescuing a 200p pot all apply to the suggestion without being
+restated anywhere. It returns None — which renders as nothing at all rather
+than an empty encouragement — when nothing is currently lost, when the misses
+are past the cap and no amount of work recovers them, when there are not
+enough bonus chores left undone, or when the best swap does not actually pay
+more than doing nothing. week_view adds the ad-hoc rewards so the figure it
+offers is the same figure the banner is showing, and withholds the line
+entirely unless the chore it names is on the screen with a button on it:
+advice pointing at something that cannot be tapped is not advice.
+
+Part 6. Checked, as the card asked: nothing commits on the displayed figure.
+ThisWeek's Settle button still fetches GET /api/weeks/{id}/proposal fresh at
+the moment it is pressed (no `for_display`, so the pessimistic reckoning) and
+submits that proposal's `total_pence` as `agreed_total_pence`. Untouched by
+this session, and now covered by a test that makes the difference visible
+rather than assumed: mark a miss, confirm the screen's figure and the
+settlement proposal have moved apart, watch a settle at the screen's figure
+come back 409, and settle at the proposal's — which pays the base and nothing
+else, because the pot is all or nothing and this week did not get it.
+
+Tests: 524 pass (519 + 5 new), plus 4 Playwright specs. The card's own test
+plan is now e2e/wall-screen-miss.spec.ts, driving the real built app in a real
+browser: £3 on a clean week, mark Wednesday's basic chore missed from the day
+tile, the figure drops to £1 with no dialog and no reload, the make-good line
+appears naming the bonus chore and the £3 it restores, the undo opens the PIN
+dialog, a correct PIN takes the week back to £3 and it survives a real reload
+— and a second case where a wrong PIN is refused server-side, said on the
+screen, and gives nothing back. Proved to be a regression test rather than a
+demonstration: with the day tiles' control removed the spec fails, and passes
+again restored. The e2e seed gained one bonus chore, which is what makes a
+make-good possible at all; it adds no claim, so the confirm-flow spec's queue
+is exactly what it was. npm run build clean.
+
+Not deployed. No push.

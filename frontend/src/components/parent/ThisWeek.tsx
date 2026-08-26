@@ -33,15 +33,23 @@ import {
 } from '../../parentApi'
 import { longDate, shortDate } from '../../words'
 
-type Props = {
+/** What the acts that open a PIN dialog need: the week, and a way to ask.
+ *  They need nothing else — the dialog's own onDone reloads the screen. */
+type WeekAct = {
   week: WeekView
   ask: (act: PinAct) => void
+}
+
+type Props = WeekAct & {
+  /** Reload the screen. Every other act here gets this for free when the PIN
+   *  dialog closes; marking a miss no longer opens one, so it says so itself. */
+  onDone: () => void
   /** Overrides the heading — used for a reopened week that is not the
    * calendar's current one, so it does not read as "This week". */
   title?: string
 }
 
-export function ThisWeek({ week, ask, title = 'This week' }: Props) {
+export function ThisWeek({ week, ask, onDone, title = 'This week' }: Props) {
   const chores = choresOf(week)
 
   return (
@@ -72,7 +80,7 @@ export function ThisWeek({ week, ask, title = 'This week' }: Props) {
         )}
       </div>
 
-      <MarkMissed week={week} ask={ask} />
+      <MarkMissed week={week} onDone={onDone} />
       <Waive week={week} chores={chores} ask={ask} />
 
       <div className="closing">
@@ -94,7 +102,7 @@ export function ThisWeek({ week, ask, title = 'This week' }: Props) {
  * only then opens the PIN dialog — on that figure, never on the week's own
  * optimistic screen. Mirrors Queue's own "Confirm" exactly: ask what this
  * would actually do, show it, then ask for the PIN. */
-function SettleButton({ week, ask }: Props) {
+function SettleButton({ week, ask }: WeekAct) {
   const [checking, setChecking] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -176,9 +184,21 @@ function settlementLines(proposal: Proposal, adHocRewardPence: number): string[]
   return lines
 }
 
-/** Ruling a chore missed, which is what makes the recovery window usable. */
-function MarkMissed({ week, ask }: Props) {
+/**
+ * Ruling a chore missed, which is what makes the recovery window usable.
+ *
+ * The one act on this screen with no PIN dialog in front of it. It pays
+ * nothing and can be cleared again from either screen — see api.ts's
+ * clearMiss, which does ask — and asking here would be asking for a
+ * credential the API no longer checks, which teaches a parent something
+ * untrue about what is guarded. The same control is on the child's day tiles
+ * now, which is where it will actually be used; this one stays because it
+ * reaches a reopened week and a chore with no day attached to it.
+ */
+function MarkMissed({ week, onDone }: { week: WeekView; onDone: () => void }) {
   const [instanceId, setInstanceId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
   const candidates = choreInstances(week).filter(
     (chore) => chore.state === 'untouched' || chore.state === 'claimed',
   )
@@ -189,12 +209,28 @@ function MarkMissed({ week, ask }: Props) {
     (chore) => String(chore.instance_id) === instanceId,
   )
 
+  const mark = async () => {
+    if (!chosen) return
+    setBusy(true)
+    setProblem(null)
+    try {
+      await markMissed(chosen.instance_id as number)
+      setInstanceId('')
+      onDone()
+    } catch (error) {
+      setProblem((error as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="act">
       <h3>Mark something missed</h3>
       <p className="act-note">
         Told today that yesterday was missed, the child has the rest of the week
-        to work it back. Leaving it to settlement does not.
+        to work it back. Leaving it to settlement does not. No PIN: it pays
+        nothing, and either screen can clear it again with one.
       </p>
       <div className="act-row">
         <select value={instanceId} onChange={(e) => setInstanceId(e.target.value)}>
@@ -210,28 +246,17 @@ function MarkMissed({ week, ask }: Props) {
         <button
           type="button"
           className="button"
-          disabled={!chosen}
-          onClick={() =>
-            chosen &&
-            ask({
-              title: 'Mark it missed',
-              summary: `${chosen.name}${
-                chosen.due_date ? ` on ${longDate(chosen.due_date)}` : ''
-              } is ruled missed.`,
-              lines: [
-                'The child can still put it right with a bonus chore before the week ends.',
-              ],
-              confirmLabel: 'Mark missed',
-              run: (pin) =>
-                markMissed(pin, chosen.instance_id as number).then(() => {
-                  setInstanceId('')
-                }),
-            })
-          }
+          disabled={!chosen || busy}
+          onClick={() => void mark()}
         >
-          Mark missed
+          {busy ? 'Marking…' : 'Mark missed'}
         </button>
       </div>
+      {problem && (
+        <p className="dialog-error" role="alert">
+          {problem}
+        </p>
+      )}
     </div>
   )
 }
@@ -241,7 +266,7 @@ function Waive({
   week,
   chores,
   ask,
-}: Props & { chores: { definition_id: number; name: string }[] }) {
+}: WeekAct & { chores: { definition_id: number; name: string }[] }) {
   const [day, setDay] = useState('')
   const [dayReason, setDayReason] = useState('')
   const [choreId, setChoreId] = useState('')
@@ -342,7 +367,7 @@ function Waive({
   )
 }
 
-function VoidWeek({ week, ask }: Props) {
+function VoidWeek({ week, ask }: WeekAct) {
   const [reason, setReason] = useState('')
 
   return (

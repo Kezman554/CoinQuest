@@ -15,15 +15,27 @@ type Props = {
   days: DayCard[]
   onClaim: (instanceId: number) => void
   busyId: number | null
+  /** Passed only for the current, open week. Absent, the tiles carry no
+   *  missed control at all, which is what keeps a week paged back to
+   *  read-only — the same rule can_claim already follows. */
+  onMissed?: (instanceId: number) => void
+  onClearMiss?: (chore: InstanceCard) => void
 }
 
-export function Days({ days, onClaim, busyId }: Props) {
+export function Days({ days, onClaim, busyId, onMissed, onClearMiss }: Props) {
   return (
     <section className="panel">
       <h2>Every day</h2>
       <div className="days">
         {days.map((day) => (
-          <Day key={day.day} day={day} onClaim={onClaim} busyId={busyId} />
+          <Day
+            key={day.day}
+            day={day}
+            onClaim={onClaim}
+            busyId={busyId}
+            onMissed={onMissed}
+            onClearMiss={onClearMiss}
+          />
         ))}
       </div>
     </section>
@@ -34,10 +46,14 @@ function Day({
   day,
   onClaim,
   busyId,
+  onMissed,
+  onClearMiss,
 }: {
   day: DayCard
   onClaim: (instanceId: number) => void
   busyId: number | null
+  onMissed?: (instanceId: number) => void
+  onClearMiss?: (chore: InstanceCard) => void
 }) {
   const classes = ['day']
   if (day.is_today) classes.push('day-today')
@@ -53,7 +69,9 @@ function Day({
       <p className="day-date">{longDate(day.day)}</p>
 
       {day.waived ? (
-        // A day away. Not an absence, and not something to be put right.
+        // A day away. Not an absence, not something to be put right, and —
+        // since it renders no chores at all — nothing that can be marked
+        // missed either. A waived day is not assessed; that is the point.
         <p className="waived">
           <strong>Day off</strong>
           <span>{day.waiver_reason ?? 'Nothing was needed today'}</span>
@@ -67,6 +85,8 @@ function Day({
             chore={chore}
             onClaim={onClaim}
             busy={busyId === chore.instance_id}
+            onMissed={onMissed}
+            onClearMiss={onClearMiss}
           />
         ))
       )}

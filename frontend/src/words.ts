@@ -14,7 +14,8 @@
  *  - A count of one never reads as "1 times". These are read aloud.
  */
 
-import type { InstanceCard, RecoveryPanel, WeeklyCard } from './api'
+import type { InstanceCard, MakeGood, RecoveryPanel, WeeklyCard } from './api'
+import { money } from './api'
 
 export function plural(count: number, one: string, many: string): string {
   return count === 1 ? one : many
@@ -147,6 +148,25 @@ export function recoveryNotice(
       recovery.days_remaining,
     )} — until ${weekdayOfDeadline}.`,
   }
+}
+
+/**
+ * The one line beside the figure: what to do, and what it takes the week to.
+ *
+ * Both halves are the engine's, not this file's — see MakeGood. It is one
+ * sentence rather than a panel because it belongs beside the number it
+ * restores, and because the person most likely to read it is somebody who has
+ * just walked past the wall and marked nothing at all.
+ *
+ * Null when there is no route back, which renders as nothing. "You can still
+ * fix this!" over a week that cannot be fixed is worse than silence.
+ */
+export function makeGoodLine(makeGood: MakeGood | null): string | null {
+  if (!makeGood || makeGood.names.length === 0) return null
+  // "and", not "or": where the route needs two chores it needs both of them.
+  return `Do ${list(makeGood.names)} to put it right — that takes this week back to ${money(
+    makeGood.restores_to_pence,
+  )}.`
 }
 
 /** "Sunday 16 August", for a heading that has to be read from a distance. */

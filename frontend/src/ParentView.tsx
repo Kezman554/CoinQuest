@@ -141,10 +141,21 @@ export function ParentView() {
 
       <Queue queue={data.queue} onSubmit={submitBatch} />
 
-      <WeekBrowser currentWeek={data.week} weeks={data.weeks} ask={ask} />
+      <WeekBrowser
+        currentWeek={data.week}
+        weeks={data.weeks}
+        ask={ask}
+        onDone={() => void refresh()}
+      />
 
       {data.reopenedWeeks.map((week) => (
-        <ThisWeek key={week.week_id} week={week} ask={ask} title="Reopened week" />
+        <ThisWeek
+          key={week.week_id}
+          week={week}
+          ask={ask}
+          onDone={() => void refresh()}
+          title="Reopened week"
+        />
       ))}
 
       <Rewards presets={data.presets} ask={ask} />

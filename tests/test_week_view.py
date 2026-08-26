@@ -125,8 +125,18 @@ def find_day(view: dict, day: date) -> dict:
 
 
 def mark_missed(api, instance_id: int) -> None:
+    """No PIN. See app/routers/claims.py for the rule and why it reversed."""
     response = api.post(
         f"/api/instances/{instance_id}/missed",
+        json={"instance_id": instance_id},
+    )
+    assert response.status_code == 200, response.text
+
+
+def clear_miss(api, instance_id: int) -> None:
+    """The guarded direction: this one gives money back."""
+    response = api.post(
+        f"/api/instances/{instance_id}/missed/clear",
         json={"instance_id": instance_id, "pin": PIN},
     )
     assert response.status_code == 200, response.text
@@ -582,3 +592,149 @@ def test_paging_back_reaches_a_past_week_that_is_still_open(api, scheme, session
     # Still on track for the base and the whole pot — nothing has been ruled
     # against it either, however old it is.
     assert view["totals"]["chore_pay_pence"] == 50 + 90
+
+
+# --- 8. The tap on the day tile, and the parent-only undo -------------------
+
+
+def test_marking_a_miss_moves_the_figure_and_clearing_it_moves_it_back(
+    api, scheme, week_dates
+):
+    """The whole loop the day tile exists for, at the figures a screen reads.
+
+    The card's own worked example: a clean week is on track for the base plus
+    the whole basic pot; one marked miss takes the pot — all of it, because
+    chore pay is all or nothing — and clearing the mark gives it back. Every
+    figure here comes from the engine's own for_display proposal; nothing
+    subtracts anything.
+    """
+    start, _ = week_dates
+    view = open_week(api)
+    base = view["totals"]["base_pence"]
+    whole = base + 50 + 90
+    assert view["totals"]["payable_total_pence"] == whole
+
+    wednesday = find_day(view, start + timedelta(days=3))
+    bed = next(chore for chore in wednesday["chores"] if chore["name"] == "Make your bed")
+
+    mark_missed(api, bed["instance_id"])
+
+    after = api.get("/api/week").json()
+    assert after["totals"]["payable_total_pence"] == base
+    assert after["totals"]["chore_pay_awarded"] is False
+    assert after["recovery"]["outstanding"] == 1
+
+    # And the tile itself says so, with the undo on it.
+    marked = next(
+        chore
+        for chore in find_day(after, start + timedelta(days=3))["chores"]
+        if chore["instance_id"] == bed["instance_id"]
+    )
+    assert marked["state"] == "missed"
+    assert marked["miss_origin"] == "parent_marked"
+    assert marked["can_claim"] is False
+
+    clear_miss(api, bed["instance_id"])
+
+    back = api.get("/api/week").json()
+    assert back["totals"]["payable_total_pence"] == whole
+    assert back["recovery"]["outstanding"] == 0
+    restored = next(
+        chore
+        for chore in find_day(back, start + timedelta(days=3))["chores"]
+        if chore["instance_id"] == bed["instance_id"]
+    )
+    assert restored["state"] == "untouched"
+    assert restored["can_claim"] is True
+
+
+def test_the_make_good_line_says_what_to_do_and_what_it_restores(
+    api, scheme, week_dates
+):
+    """One line, and the figure on it is the one the banner would go back to."""
+    start, _ = week_dates
+    view = open_week(api)
+    whole = view["totals"]["payable_total_pence"]
+
+    bed = next(
+        chore
+        for chore in find_day(view, start + timedelta(days=3))["chores"]
+        if chore["name"] == "Make your bed"
+    )
+    mark_missed(api, bed["instance_id"])
+
+    make_good = api.get("/api/week").json()["recovery"]["make_good"]
+    # "Wash the car" is the bonus chore that can be started today, given up
+    # unpaid to cover the miss — so the week comes back to what it was worth,
+    # with the bonus spent rather than paid.
+    assert make_good["names"] == ["Wash the car"]
+    assert make_good["restores_to_pence"] == whole
+
+
+def test_no_route_back_shows_nothing_rather_than_an_empty_encouragement(
+    api, scheme, week_dates
+):
+    """Past the cap, no amount of bonus work recovers the week. So: no line."""
+    start, _ = week_dates
+    view = open_week(api)
+
+    for offset in range(3):
+        bed = next(
+            chore
+            for chore in find_day(view, start + timedelta(days=offset))["chores"]
+            if chore["name"] == "Make your bed"
+        )
+        mark_missed(api, bed["instance_id"])
+
+    after = api.get("/api/week").json()
+    assert after["recovery"]["outstanding"] == 3
+    assert after["recovery"]["make_good"] is None
+
+
+def test_a_clean_week_offers_no_make_good_at_all(api, scheme):
+    """Nothing is lost, so there is nothing to put right."""
+    open_week(api)
+    assert api.get("/api/week").json()["recovery"]["make_good"] is None
+
+
+def test_nothing_settles_on_the_figure_the_screen_is_showing(api, scheme, week_dates):
+    """The guard whose whole job is refusing a settlement nobody read.
+
+    Session U made this screen optimistic, so the number on it is honestly
+    allowed to differ from what settlement would actually pay — and marking a
+    miss moves the optimistic one without moving the other. Submitting the
+    displayed figure has to be refused, and the figure that settles has to be
+    the engine's own proposal.
+    """
+    start, _ = week_dates
+    view = open_week(api)
+    week_id = view["week_id"]
+    displayed = view["totals"]["total_pence"]
+
+    bed = next(
+        chore
+        for chore in find_day(view, start + timedelta(days=3))["chores"]
+        if chore["name"] == "Make your bed"
+    )
+    mark_missed(api, bed["instance_id"])
+
+    # The screen's figure has moved; the settlement proposal is what it always
+    # was — everything untouched is still a prospective miss to it.
+    on_screen = api.get("/api/week").json()["totals"]["total_pence"]
+    proposal = api.get(f"/api/weeks/{week_id}/proposal").json()
+    assert on_screen != displayed
+
+    refused = api.post(
+        f"/api/weeks/{week_id}/settle",
+        json={"pin": PIN, "agreed_total_pence": displayed},
+    )
+    assert refused.status_code == 409
+
+    settled = api.post(
+        f"/api/weeks/{week_id}/settle",
+        json={"pin": PIN, "agreed_total_pence": proposal["total_pence"]},
+    )
+    assert settled.status_code == 200, settled.text
+    # An unrecovered week pays the base and nothing else: the chore pot is
+    # all or nothing, and this week did not get it.
+    assert settled.json()["total_pence"] == get_settings().weekly_base_pence

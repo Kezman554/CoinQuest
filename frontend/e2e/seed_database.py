@@ -1,4 +1,4 @@
-"""Seed a scratch database for the end-to-end confirm-flow test.
+"""Seed a scratch database for the end-to-end tests.
 
 Run as a script, before the app starts: `python seed_database.py <db_path>`.
 Not imported — it sets DATABASE_URL and the rest of the environment the app
@@ -62,7 +62,17 @@ with Session(engine, future=True) as session:
     beds = ChoreDefinition(
         name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=0
     )
-    session.add(beds)
+    # A bonus chore that can be started today, which is what makes a make-good
+    # possible at all — see wall-screen-miss.spec.ts. It adds no claim, so the
+    # parent's queue is exactly what confirm-flow.spec.ts already expects.
+    car = ChoreDefinition(
+        name="Wash the car",
+        cadence=Cadence.WEEKLY_COUNT,
+        category=Category.BONUS,
+        amount_pence=100,
+        times_per_week=1,
+    )
+    session.add_all([beds, car])
     scheme_settings.get_row(session).weekly_basic_pay_pence = 200
     session.commit()
 
