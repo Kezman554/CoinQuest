@@ -1585,3 +1585,17 @@ test_a_week_with_a_miss_a_recovery_and_a_waived_day in test_week_view.py.
 npm run build clean. npm run test:e2e passes, unchanged, proving the
 regrouped Queue still commits a mixed batch exactly as Session T fixed it
 to.
+
+Pushed and deployed to the household stack the same day. No migration in
+this session, so the usual pre-migration backup was not strictly required —
+taken anyway (scripts/coinquest-backup.sh, cheap insurance against real
+data). Pulled both repos on the Pi, rebuilt with `docker compose ... up -d
+--build coinquest` (ARM64, built on the Pi itself), container came up
+healthy with a clean log — alembic ran and found nothing to do, confirming
+no schema drift. Checked against the real household database rather than
+only the container's health: /api/summary read £3.00 on the real current
+week (base plus the whole chore pot, on track — the exact figure Part 1
+exists to produce, now live rather than only tested), and /api/week/1 —
+last week, real data, genuinely never settled — read is_current: false,
+status: open, confirming Part 3 against a week that was already sitting in
+exactly the state item 6 describes, not a constructed one.
