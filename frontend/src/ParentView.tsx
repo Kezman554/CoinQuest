@@ -46,6 +46,7 @@ import type { PinAct } from './components/parent/PinDialog'
 import { PinDialog } from './components/parent/PinDialog'
 import { Queue } from './components/parent/Queue'
 import { ThisWeek } from './components/parent/ThisWeek'
+import { WeekBrowser } from './components/parent/WeekBrowser'
 import { batchAction, consequenceLines, consequenceSummary } from './parentWords'
 
 type Everything = {
@@ -140,17 +141,7 @@ export function ParentView() {
 
       <Queue queue={data.queue} onSubmit={submitBatch} />
 
-      {data.week ? (
-        <ThisWeek week={data.week} ask={ask} />
-      ) : (
-        <section className="panel">
-          <h2>This week</h2>
-          <p className="nothing">
-            This week is closed, or has not been opened yet. Opening it happens
-            the first time the child&rsquo;s screen is loaded.
-          </p>
-        </section>
-      )}
+      <WeekBrowser currentWeek={data.week} weeks={data.weeks} ask={ask} />
 
       {data.reopenedWeeks.map((week) => (
         <ThisWeek key={week.week_id} week={week} ask={ask} title="Reopened week" />

@@ -41,6 +41,7 @@ class PendingView(BaseModel):
     due_date: str | None
     week_id: int
     week_start_date: str
+    week_end_date: str
     claimed_at: str | None
     rejection_count: int
 
@@ -146,6 +147,7 @@ def queue(session: Session = Depends(get_session)) -> list[PendingView]:
             due_date=claim.due_date.isoformat() if claim.due_date else None,
             week_id=claim.week_id,
             week_start_date=claim.week_start_date.isoformat(),
+            week_end_date=claim.week_end_date.isoformat(),
             claimed_at=claim.claimed_at,
             rejection_count=claim.rejection_count,
         )

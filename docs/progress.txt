@@ -1455,3 +1455,133 @@ from frontend/, documented in CLAUDE.md.
 
 512 backend tests still pass, untouched — this was a frontend-only defect.
 npm run build clean.
+
+2026-08-26 — Session U: the on-track figure comes from the engine, the
+parent view groups by week, and both screens page back
+
+Part 1. Diagnosed rather than assumed: a fresh, entirely untouched week's
+proposal came to 100p (the base allowance alone), not 300p (base plus the
+whole chore pot), proven with a scratch script against production-shaped
+settings before touching anything. The cause was not the view bypassing the
+engine — week_view.build already called settlement.propose — it was
+assess_week itself. `propose()` is used two ways that need opposite answers
+to the same question: settle() needs "what would this week pay if it ended
+right now", which is correctly pessimistic — everything still untouched is a
+prospective miss. A screen read mid-week needs "where does the child stand
+before anyone has ruled on everything", and treating a chore not yet due, or
+simply not yet done, as an immediate miss answers a question nobody asked.
+`recovery.assess_week` gains `for_display`, threaded through
+`settlement.propose`: pending CLAIMED instances count toward what was
+confirmed (a parent's rejection is what reverts that, not their silence),
+and only a miss a parent has actually marked counts against the chore pay —
+exactly `Miss.is_definite`, the set the recovery panel has used since
+Session I for the identical reason. `_misses_for` gained
+`infer_remainder`, because passing an empty `untouched` list on its own was
+not enough — it still manufactured misses with no instance to point at.
+`for_display` defaults off everywhere except `week_view.build`, which
+defaults it on: the router's proposal endpoint, `settle()`, `void()`, and
+`parent.preview()`/`parent.pending()` are entirely unchanged, so what
+actually settles is still exactly as pessimistic as it always was. Added
+`?for_display=` to GET /api/weeks/{id}/proposal so the two figures are
+independently readable and testable.
+
+A real consequence of the split, caught by the test suite rather than
+assumed away: several existing tests read the child's own screen
+(`/api/week`) to get the figure to *settle* with. That figure is now
+honestly allowed to differ from what settlement would actually pay, so
+those tests — and, more importantly, ThisWeek.tsx's own Settle button —
+were reading the wrong number. Settle now fetches the true, pessimistic
+proposal fresh the instant it is pressed (GET /api/weeks/{id}/proposal,
+default), and only then opens the PIN dialog on that figure — the same
+"ask, then show the consequence, then the PIN" shape Queue's Confirm
+already uses. Tests fixed the same way: settle on the proposal endpoint's
+figure, never the week view's.
+
+Totals gained `held_as_makegood_pence` (a bonus chore worked and given up,
+summed from `proposal.recoveries` on an open week, read back from
+settlement lines' `unit_amount_pence` on a closed one) and Total.tsx shows
+it as its own line — a bonus that is spent rather than paid must say so, or
+it reads as simply ignored.
+
+A side effect worth recording precisely rather than losing: the
+WEEKLY_CONDITION gap from Session I (a condition scores as a standing miss
+from the first minute of the week, because nothing can ever rule it either
+way) is now half-cured. `for_display` never infers a miss from silence, and
+nothing can mark a condition missed since it has no instance, so the
+child's own screen no longer shows the bonus being quietly eaten by a miss
+he was never told about. Settlement's own reckoning is untouched and still
+carries the bug — proven in the same test, both figures asserted, so the
+gap stays visible instead of accidentally vanishing along with the display
+symptom.
+
+Part 2. Queue.tsx groups pending claims under a heading per week, most
+recent first — display only; a ruling on a claim from any week still joins
+the same one batch, submitted together with the same single PIN, exactly as
+before. PendingClaim/PendingView gained `week_end_date` so the heading uses
+the same `weekLabel` wording as every other week reference on this screen.
+"Any week that has not settled stays actionable, however old" needed no
+backend change: `parent.pending()` already queried every OPEN week, not
+just the current one — the flat list was the only thing hiding it.
+
+Part 3. week_view.build() now handles a closed week itself rather than
+letting propose()'s NotOpen refusal reach the router as a 409: it reads
+`settlement.stored_figures()` and `current_lines()` instead, never calls
+propose() or assess_week on a closed week, and returns an empty recovery
+panel (nothing to act on). `_weekly()` lost its dependency on a proposal
+entirely — it reads `plan.required` directly, which is what
+`WEEK_DERIVED_CADENCES` assessment already sourced it from, so the same
+function now serves an open and a closed week alike. WeekView gained
+`is_current` (the week's start date against `calendar.current_week`) — the
+one field a screen paging back needs to say plainly it is not looking at
+now, since a wall screen left open on last week reads as today otherwise.
+
+frontend/src/components/WeekNav.tsx: shared by both screens.
+`WeekNav` pages to the nearest existing row, never a calendar date nobody
+has touched — a week only exists once it has been opened.
+`NotCurrentBanner` is the loud half, reusing the same colour a waived day
+already reads in (set apart from the ordinary flow, not an alarm and not an
+achievement) rather than inventing a new one.
+
+Child's screen: paging back is read-only regardless of the paged-to week's
+own status — a week still technically open is not "now" on this screen, so
+`asReadOnly()` forces every card's `can_claim` false before rendering,
+independent of what the engine says `can_claim` is. That is a presentation
+rule about browsing history, not a scheme rule, and it stays in App.tsx
+rather than leaking into `can_claim`'s own meaning.
+
+Parent's screen: components/parent/WeekBrowser.tsx replaces the plain
+"This week" panel with a navigable one. Paging to an open week (reopened,
+or simply never settled) reuses ThisWeek with full controls; paging to a
+closed one reuses ClosedWeeks' own detail component, exported rather than
+duplicated, so a week's record reads identically whether reached by
+expanding it in "Closed weeks" or by paging back to it — including Reopen,
+offered under the same eligibility check either way
+(`mostRecentClosedWeek`, also exported, so the two call sites cannot
+disagree about which week that is). The existing "reopened weeks" list and
+"Closed weeks" accordion are untouched: an open week needing attention
+still surfaces immediately without a parent having to think to page back to
+it.
+
+Total.tsx reads its own status: "On track for" only while open, "Settled
+at" or "Voided at" once closed — a permanent figure read in the present
+tense as though still moving was the wrong note paging back to history.
+
+Verified live, not only through tests: built the real bundle, ran the
+existing e2e seed (two open weeks, a pending claim in each), settled the
+older one through the running API, and drove both screens with Playwright,
+screenshotting each step — the fresh current week reading "On track for
+£3, base £1, chores £2, bonus £0"; paging back showing the "Not the
+current week" banner, a read-only "Missed" chore with no button, and
+"Settled at £1"; the parent's queue grouped under a week heading; and the
+parent's own WeekBrowser paged back to the same settled week rendering
+identically to expanding it in Closed weeks, Reopen included.
+
+Tests: 514 pass (512 + 2 new — test_week_view.py's is_current and
+still-open-past-week cases). Several existing tests rewritten rather than
+merely re-asserted: the card's own test plan — a fresh week, a bonus claim,
+a confirmed miss, a make-good, settlement, each step checked against the
+settlement proposal — is now
+test_a_week_with_a_miss_a_recovery_and_a_waived_day in test_week_view.py.
+npm run build clean. npm run test:e2e passes, unchanged, proving the
+regrouped Queue still commits a mixed batch exactly as Session T fixed it
+to.

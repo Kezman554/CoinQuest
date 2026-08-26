@@ -205,12 +205,33 @@ def assess_week(
     *,
     weekly_basic_pay_pence: int,
     cap: int = RECOVERY_CAP,
+    for_display: bool = False,
 ) -> WeekAssessment:
     """Work out what the week asked for, what it got, and what it missed.
 
     Pure. `plan` carries the requirement — already reduced by whatever the
     waivers did — and `instances` carries what happened. `weekly_basic_pay_pence`
     has no default on purpose — see WeekAssessment's own field.
+
+    `for_display` is the one flag in this module that is never for settling.
+    It answers a different question from the default assessment: not "what
+    would this week pay if it ended right now", but "where does the child
+    stand, reading this before anyone has ruled anything out". Two things
+    change under it, both already true of an actual settlement's own rule
+    that misses become real only when something makes them real:
+
+    - A claim counts toward what was confirmed, the moment it is made. A
+      parent's confirmation is not what moves this figure; a parent's
+      rejection is, because a rejection reverts the instance to untouched.
+    - An instance nobody has ruled on is not a miss. Only a miss a parent
+      has actually marked counts against the week — exactly the set
+      `Miss.is_definite` already names, and exactly what the recovery panel
+      has used since Session I for the same reason: telling a child on
+      Monday that Thursday is already lost would be untrue.
+
+    With the flag off, this is the assessment settlement actually uses:
+    everything still untouched becomes an inferred miss, which is what makes
+    `record_inferred_misses` correct when a week is actually closed.
     """
     definitions = list(definitions)  # read twice below; a generator would empty
     confirmed: dict[int, int] = {}
@@ -220,15 +241,20 @@ def assess_week(
 
     for instance in instances:
         present[instance.definition_id] = present.get(instance.definition_id, 0) + 1
-        if instance.state is InstanceState.CONFIRMED:
+        counted = instance.state is InstanceState.CONFIRMED or (
+            for_display and instance.state is InstanceState.CLAIMED
+        )
+        if counted:
             confirmed[instance.definition_id] = (
                 confirmed.get(instance.definition_id, 0) + instance.quantity
             )
         elif instance.state is InstanceState.MISSED:
             marked.setdefault(instance.definition_id, []).append(instance)
         else:
-            # Untouched, or claimed and never confirmed. A claim is a request
-            # to be believed, and nobody believed it in time.
+            # Untouched, or claimed and never confirmed (and not for_display).
+            # A claim is a request to be believed, and nobody believed it in
+            # time — except when scoring for display, where believing it is
+            # exactly the point until a parent rejects it.
             untouched.setdefault(instance.definition_id, []).append(instance)
 
     required = plan.required
@@ -264,6 +290,9 @@ def assess_week(
                 requirement,
                 marked.get(definition.id, []),
                 untouched.get(definition.id, []),
+                # For display, nothing is inferred from bare silence — only a
+                # miss a parent actually marked counts. See for_display above.
+                infer_remainder=not for_display,
             )
         )
 
@@ -285,7 +314,13 @@ def assess_week(
     )
 
 
-def _misses_for(requirement: Requirement, marked: Sequence, untouched: Sequence) -> list[Miss]:
+def _misses_for(
+    requirement: Requirement,
+    marked: Sequence,
+    untouched: Sequence,
+    *,
+    infer_remainder: bool = True,
+) -> list[Miss]:
     """Name the shortfall, taking the decided misses before the inferred ones.
 
     The shortfall is the number of misses. Instances marked missed by a parent
@@ -293,6 +328,13 @@ def _misses_for(requirement: Requirement, marked: Sequence, untouched: Sequence)
     is inferred here, from nothing having happened. If a parent marked more
     missed than the week ended up short of — which a later waiver can cause —
     the extra ones simply do not become misses. The requirement was met.
+
+    `infer_remainder=False` stops there: whatever shortfall marked misses do
+    not cover is left alone rather than inferred from silence. That is the
+    for_display case — see assess_week — and it must actually stop, not just
+    run dry of instances to point at: a plain untouched instance still exists
+    to loop over, so skipping the loop is the only way display scoring does
+    not quietly manufacture a miss with no author and no row.
     """
     misses: list[Miss] = []
     outstanding = requirement.shortfall
@@ -306,6 +348,9 @@ def _misses_for(requirement: Requirement, marked: Sequence, untouched: Sequence)
                 instance_id=instance.id,
             )
         )
+
+    if not infer_remainder:
+        return misses
 
     remaining = outstanding - len(misses)
     candidates = list(untouched)

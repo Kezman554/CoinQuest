@@ -35,7 +35,7 @@ from app.routers.dependencies import get_session
 from app.services import week_view
 from app.services.calendar import current_week
 from app.services.instances import plan_week, sync_week_instances
-from app.services.settlement import NotOpen, week_period
+from app.services.settlement import week_period
 
 router = APIRouter(prefix="/api/week", tags=["week"])
 
@@ -126,6 +126,7 @@ class TotalsView(BaseModel):
     bonus_pence: int
     reward_pence: int
     ad_hoc_reward_pence: int
+    held_as_makegood_pence: int
     total_pence: int
     payable_total_pence: int
 
@@ -137,6 +138,7 @@ class WeekViewOut(BaseModel):
     end_date: str
     status: str
     today: str
+    is_current: bool
     days: list[DayCardView]
     weekly: list[WeeklyCardView]
     waived_days: list[str]
@@ -152,6 +154,7 @@ class WeekViewOut(BaseModel):
             end_date=view.end_date.isoformat(),
             status=view.status.value,
             today=view.today.isoformat(),
+            is_current=view.is_current,
             days=[
                 DayCardView(
                     day=day.day.isoformat(),
@@ -210,6 +213,7 @@ class WeekViewOut(BaseModel):
                 bonus_pence=view.totals.bonus_pence,
                 reward_pence=view.totals.reward_pence,
                 ad_hoc_reward_pence=view.totals.ad_hoc_reward_pence,
+                held_as_makegood_pence=view.totals.held_as_makegood_pence,
                 total_pence=view.totals.total_pence,
                 payable_total_pence=view.totals.payable_total_pence,
             ),
@@ -224,14 +228,10 @@ def _week_starting(session: Session, start: date) -> Week | None:
 
 
 def _view(session: Session, week: Week) -> WeekViewOut:
-    try:
-        return WeekViewOut.of(week_view.build(session, week, get_settings().tzinfo))
-    except NotOpen as exc:
-        # A closed week is read from its own stored figures at
-        # /api/weeks/{id}, never rebuilt from today's chores.
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from None
+    """Build the view. Works for a closed week too — see week_view.build —
+    reading its stored figures rather than a proposal, so paging back to a
+    settled week is just this, not a second endpoint."""
+    return WeekViewOut.of(week_view.build(session, week, get_settings().tzinfo))
 
 
 # --- Endpoints -------------------------------------------------------------
@@ -285,7 +285,12 @@ def get_current_week(session: Session = Depends(get_session)) -> WeekViewOut:
 
 @router.get("/{week_id}", response_model=WeekViewOut)
 def get_week(week_id: int, session: Session = Depends(get_session)) -> WeekViewOut:
-    """Any open week, in the same shape. Refused once the week has closed."""
+    """Any week, open or closed, in the same shape.
+
+    A closed week comes back read-only: its own stored figures, no recovery
+    route, nothing claimable. This is what lets a screen page back through
+    history without a second endpoint to know about.
+    """
     week = session.get(Week, week_id)
     if week is None:
         raise HTTPException(

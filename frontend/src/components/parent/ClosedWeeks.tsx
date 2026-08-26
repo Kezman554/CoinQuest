@@ -25,6 +25,18 @@ import { shortDate } from '../../words'
 
 type Ask = { ask: (act: PinAct) => void }
 
+/** The one closed week the server will actually accept a reopen on — the
+ * most recent by start date. Exported so anything offering Reopen (this
+ * list, and a screen paging back to a specific week) agrees with the server
+ * about which week that is, rather than each working it out separately. */
+export function mostRecentClosedWeek(weeks: WeekSummary[]): WeekSummary | null {
+  const closed = weeks.filter((week) => week.status !== 'open')
+  if (closed.length === 0) return null
+  return closed.reduce((latest, week) =>
+    week.start_date > latest.start_date ? week : latest,
+  )
+}
+
 export function ClosedWeeks({ weeks, ask }: Ask & { weeks: WeekSummary[] }) {
   const closed = weeks.filter((week) => week.status !== 'open')
   const [open, setOpen] = useState<number | null>(null)
@@ -41,9 +53,7 @@ export function ClosedWeeks({ weeks, ask }: Ask & { weeks: WeekSummary[] }) {
   // The server accepts a reopen only on the most recent closed week — a week
   // with any closed week after it is refused, by name. Mirrored here so the
   // action is only ever offered where it will actually be accepted.
-  const mostRecent = closed.reduce((latest, week) =>
-    week.start_date > latest.start_date ? week : latest,
-  )
+  const mostRecent = mostRecentClosedWeek(weeks)
 
   return (
     <section className="panel">
@@ -65,7 +75,7 @@ export function ClosedWeeks({ weeks, ask }: Ask & { weeks: WeekSummary[] }) {
             {open === week.week_id && (
               <ClosedWeek
                 weekId={week.week_id}
-                canReopen={week.week_id === mostRecent.week_id}
+                canReopen={week.week_id === mostRecent?.week_id}
                 ask={ask}
               />
             )}
@@ -76,7 +86,11 @@ export function ClosedWeeks({ weeks, ask }: Ask & { weeks: WeekSummary[] }) {
   )
 }
 
-function ClosedWeek({
+/** A closed week's figures, fetched by id — exported so a screen paging
+ * back to a specific week (see WeekBrowser) can show the same detail this
+ * list already shows on expanding one, rather than a second rendering of
+ * the same facts. */
+export function ClosedWeek({
   weekId,
   canReopen,
   ask,

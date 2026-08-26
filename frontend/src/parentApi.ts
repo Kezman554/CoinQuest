@@ -25,6 +25,7 @@ export type Pending = {
   due_date: string | null
   week_id: number
   week_start_date: string
+  week_end_date: string
   claimed_at: string | null
   rejection_count: number
 }
@@ -64,6 +65,22 @@ export type WeekSummary = {
   end_date: string
   status: 'open' | 'settled' | 'voided'
   total_pence: number | null
+}
+
+/** What settlement would actually pay right now — the pessimistic figure a
+ * parent agrees to, distinct from the optimistic one the week's own screen
+ * reads. See app.services.settlement.propose's for_display. */
+export type Proposal = {
+  week_id: number
+  start_date: string
+  end_date: string
+  base_pence: number
+  chore_pay_at_stake_pence: number
+  chore_pay_pence: number
+  chore_pay_awarded: boolean
+  bonus_pence: number
+  reward_pence: number
+  total_pence: number
 }
 
 export type Reopening = {
@@ -250,6 +267,10 @@ const send = async <T>(path: string, body: unknown): Promise<T> =>
 export const loadQueue = () => get<Pending[]>('/api/parent/queue')
 export const loadWeeks = () => get<WeekSummary[]>('/api/weeks')
 export const loadWeek = (id: number) => get<SettledWeek>(`/api/weeks/${id}`)
+/** The true, pessimistic proposal — what settling this week right now would
+ * actually pay. Fetched fresh immediately before Settle opens its PIN
+ * dialog, never read off the week's own optimistic screen. */
+export const loadProposal = (id: number) => get<Proposal>(`/api/weeks/${id}/proposal`)
 /** Any week's own view, in the same shape the child's screen reads — used
  * here for a week that has been reopened but is not the calendar's current
  * one, so it can be re-settled through the ordinary screen. */

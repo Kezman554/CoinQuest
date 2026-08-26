@@ -41,8 +41,9 @@ from app.models.enums import (
 from app.models.waivers import Waiver
 from app.models.weeks import Week
 from app.services import payments, settlement
-from app.services.calendar import Period, elapsed, today
+from app.services.calendar import Period, current_week, elapsed, today
 from app.services.instances import WeekPlan, plan_week
+from app.services.recovery import RECOVERY_CAP
 
 #: How much of the recovery window has to be left before the wording changes.
 #: A day is the honest threshold: below it there is no tomorrow to do the
@@ -151,6 +152,12 @@ class Totals:
     hoover does not make an award smaller. But they are money owed for this
     week and payday hands them over with the rest, so the figure the child
     reads as "what this week is worth" has to include them.
+
+    `held_as_makegood_pence` is bonus money given up rather than paid, to
+    cover a miss. It is already absent from `bonus_pence` — a bonus chore is
+    paid or spent, never both — and it is carried here so a completed bonus
+    chore does not simply vanish from the screen with nothing to say where it
+    went; see the recovery panel's `spent` for which chore it was.
     """
 
     base_pence: int
@@ -160,6 +167,7 @@ class Totals:
     bonus_pence: int
     reward_pence: int
     ad_hoc_reward_pence: int
+    held_as_makegood_pence: int
     total_pence: int
     payable_total_pence: int
 
@@ -172,6 +180,11 @@ class WeekView:
     end_date: date
     status: WeekStatus
     today: date
+    #: True when this is the calendar's current week. A past week read
+    #: through the same shape (see `build`'s closed branch, and the {id}
+    #: route) carries False, which is what a screen paging back through
+    #: history uses to say plainly that it is not looking at now.
+    is_current: bool
     days: tuple[DayCard, ...]
     weekly: tuple[WeeklyCard, ...]
     waived_days: tuple[date, ...]
@@ -180,9 +193,28 @@ class WeekView:
 
 
 def build(
-    session: Session, week: Week, tz: tzinfo, *, now: datetime | None = None
+    session: Session,
+    week: Week,
+    tz: tzinfo,
+    *,
+    now: datetime | None = None,
+    for_display: bool = True,
 ) -> WeekView:
-    """Assemble the child's view of one open week. Writes nothing."""
+    """Assemble one week's view, standing at the kitchen screen. Writes nothing.
+
+    `for_display` governs an open week's figures only — see
+    `settlement.propose`. It defaults on: this module's whole job is
+    presenting the week the way a person reads it, not the way it would
+    settle if stopped this instant, so a screen asking for anything else has
+    to say so.
+
+    A closed week never calls `propose()` at all — that refuses a closed
+    week by design — and it never calls `assess_week` either, since a
+    "requirement" recomputed from today's definitions could disagree with
+    what actually applied when the week was open. Its figures come from its
+    own stored columns, the same discipline every other reader of a settled
+    week keeps; see `_closed_totals`.
+    """
     now = now or datetime.now(tz)
     period = settlement.week_period(week, tz)
 
@@ -194,7 +226,6 @@ def build(
         session.query(ChoreInstance).filter(ChoreInstance.week_id == week.id).all()
     )
     plan = plan_week(period, definitions.values(), waivers, week_id=week.id)
-    proposal = settlement.propose(session, week, tz)
 
     open_week = week.status is WeekStatus.OPEN
     day_reasons = {
@@ -212,18 +243,9 @@ def build(
     local_today = today(tz)
     ad_hoc = payments.ad_hoc_rewards(session, week.id)
 
-    return WeekView(
-        child_name=get_settings().child_name,
-        week_id=week.id,
-        start_date=week.start_date,
-        end_date=week.end_date,
-        status=week.status,
-        today=local_today,
-        days=_days(period, cards, plan.waived_days, day_reasons, local_today),
-        weekly=_weekly(plan, proposal, cards, definitions, waived_definitions),
-        waived_days=plan.waived_days,
-        recovery=_recovery(proposal, cards, period, now, open_week),
-        totals=Totals(
+    if open_week:
+        proposal = settlement.propose(session, week, tz, for_display=for_display)
+        totals = Totals(
             base_pence=proposal.base_pence,
             chore_pay_at_stake_pence=proposal.chore_pay_at_stake_pence,
             chore_pay_pence=proposal.chore_pay_pence,
@@ -231,9 +253,78 @@ def build(
             bonus_pence=proposal.bonus_pence,
             reward_pence=proposal.reward_pence,
             ad_hoc_reward_pence=ad_hoc,
+            held_as_makegood_pence=sum(
+                recovery.forgone_pence for recovery in proposal.recoveries
+            ),
             total_pence=proposal.total_pence,
             payable_total_pence=proposal.total_pence + ad_hoc,
-        ),
+        )
+        recovery = _recovery(proposal, cards, period, now, open_week)
+    else:
+        totals = _closed_totals(week, ad_hoc)
+        recovery = _empty_recovery(period)
+
+    return WeekView(
+        child_name=get_settings().child_name,
+        week_id=week.id,
+        start_date=week.start_date,
+        end_date=week.end_date,
+        status=week.status,
+        today=local_today,
+        is_current=week.start_date == current_week(tz).start,
+        days=_days(period, cards, plan.waived_days, day_reasons, local_today),
+        weekly=_weekly(plan, cards, definitions, waived_definitions),
+        waived_days=plan.waived_days,
+        recovery=recovery,
+        totals=totals,
+    )
+
+
+def _closed_totals(week: Week, ad_hoc: int) -> Totals:
+    """A closed week's totals, read from its own stored columns.
+
+    `held_as_makegood_pence` is read back from the settlement lines
+    themselves — a bonus chore spent on a recovery keeps its true value in
+    `unit_amount_pence` even though `amount_pence` (what it paid) is zero —
+    rather than from anything recomputed.
+    """
+    figures = settlement.stored_figures(week)
+    chore_pay = figures["chore_pay_pence"] or 0
+    total = figures["total_pence"] or 0
+    held = sum(
+        line.unit_amount_pence
+        for line in settlement.current_lines(week)
+        if line.note == "worked unpaid, to recover a miss"
+    )
+    return Totals(
+        base_pence=figures["base_pence"] or 0,
+        # Nothing is "still at stake" once a week is closed — it either paid
+        # or it did not, and this is simply what it paid.
+        chore_pay_at_stake_pence=chore_pay,
+        chore_pay_pence=chore_pay,
+        chore_pay_awarded=True,
+        bonus_pence=figures["bonus_pence"] or 0,
+        reward_pence=figures["reward_pence"] or 0,
+        ad_hoc_reward_pence=ad_hoc,
+        held_as_makegood_pence=held,
+        total_pence=total,
+        payable_total_pence=total + ad_hoc,
+    )
+
+
+def _empty_recovery(period: Period) -> RecoveryView:
+    """A closed week offers no recovery route — there is nothing left to act on."""
+    return RecoveryView(
+        needs=(),
+        outstanding=0,
+        covered=0,
+        cap=RECOVERY_CAP,
+        deadline=period.end,
+        seconds_remaining=0,
+        days_remaining=0,
+        urgent=False,
+        options=(),
+        spent=(),
     )
 
 
@@ -295,21 +386,25 @@ def _days(
 
 def _weekly(
     plan: WeekPlan,
-    proposal: settlement.Proposal,
     cards: list[InstanceCard],
     definitions: dict[int, ChoreDefinition],
     waived_definitions: set[int],
 ) -> tuple[WeeklyCard, ...]:
-    """The count-based chores and the week-long conditions, one card each."""
+    """The count-based chores and the week-long conditions, one card each.
+
+    Reads the requirement from `plan.required` rather than a settlement
+    proposal — the two say the same thing for every week-derived cadence
+    (assess_week's own `required` comes from this same plan), and reading it
+    here means this needs no proposal at all, which is what lets a closed
+    week's cards render without ever calling `propose()` on a week that has
+    already settled.
+    """
     by_definition: dict[int, list[InstanceCard]] = {}
     for card in cards:
         if card.due_date is None:
             by_definition.setdefault(card.definition_id, []).append(card)
 
-    required = {
-        requirement.definition_id: requirement.required
-        for requirement in proposal.requirements
-    }
+    required = plan.required
 
     weekly: list[WeeklyCard] = []
     for definition_id, group in by_definition.items():

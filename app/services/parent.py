@@ -43,6 +43,7 @@ class PendingClaim:
     due_date: date | None
     week_id: int
     week_start_date: date
+    week_end_date: date
     claimed_at: str | None
     rejection_count: int
 
@@ -75,6 +76,7 @@ def pending(session: Session) -> list[PendingClaim]:
             due_date=instance.due_date,
             week_id=week.id,
             week_start_date=week.start_date,
+            week_end_date=week.end_date,
             claimed_at=instance.claimed_at.isoformat() if instance.claimed_at else None,
             rejection_count=instance.rejection_count,
         )

@@ -496,9 +496,13 @@ def test_a_week_settles_on_the_figure_that_was_read_and_then_is_closed(
     instance_id = failing_week["pending"]["instance_id"]
     review(api, [{"instance_id": instance_id, "decision": "confirm"}])
 
+    # The figure to settle on comes from the proposal endpoint, not from the
+    # child's screen — those two can honestly differ now (the child's screen
+    # reads optimistically; see Proposal.for_display), and settling always
+    # reads the true, pessimistic figure.
     proposal = api.get("/api/week").json()
     week_id = proposal["week_id"]
-    total = proposal["totals"]["total_pence"]
+    total = api.get(f"/api/weeks/{week_id}/proposal").json()["total_pence"]
 
     # Disagreeing with the figure is refused rather than quietly settled.
     assert (
@@ -517,8 +521,11 @@ def test_a_week_settles_on_the_figure_that_was_read_and_then_is_closed(
     assert settled.json()["status"] == "settled"
     assert settled.json()["total_pence"] == total
 
-    # Closed: the week view refuses it, and it cannot be settled twice.
-    assert api.get(f"/api/week/{week_id}").status_code == 409
+    # Closed: the week view now reads it read-only rather than refusing, and
+    # it cannot be settled twice.
+    closed_view = api.get(f"/api/week/{week_id}")
+    assert closed_view.status_code == 200
+    assert closed_view.json()["status"] == "settled"
     assert (
         api.post(
             f"/api/weeks/{week_id}/settle",

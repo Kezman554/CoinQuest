@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
@@ -315,7 +315,11 @@ def _load(session: Session, week_id: int) -> Week:
 
 
 def _proposal(
-    session: Session, week: Week, override: OverrideRequest | None = None
+    session: Session,
+    week: Week,
+    override: OverrideRequest | None = None,
+    *,
+    for_display: bool = False,
 ) -> settlement.Proposal:
     try:
         return settlement.propose(
@@ -323,6 +327,7 @@ def _proposal(
             week,
             get_settings().tzinfo,
             override=override.supplied() if override is not None else None,
+            for_display=for_display,
         )
     except NotOpen as exc:
         raise HTTPException(
@@ -357,7 +362,18 @@ def list_weeks(session: Session = Depends(get_session)) -> list[WeekSummary]:
 
 @router.get("/{week_id}/proposal", response_model=ProposalView)
 def get_proposal(
-    week_id: int, session: Session = Depends(get_session)
+    week_id: int,
+    session: Session = Depends(get_session),
+    for_display: bool = Query(
+        False,
+        description=(
+            "Score the week the way a screen reads it, not the way it would"
+            " settle: a claim counts the moment it is made, and nothing"
+            " unconfirmed counts against the week until a parent actually"
+            " marks it missed. Never pass this to decide what to settle at —"
+            " settling always reads the default, pessimistic figure."
+        ),
+    ),
 ) -> ProposalView:
     """What this week is on track to pay. Applies nothing, needs no PIN.
 
@@ -365,7 +381,7 @@ def get_proposal(
     /api/weeks/{id}, never recomputed from today's chores.
     """
     week = _load(session, week_id)
-    return ProposalView.of(_proposal(session, week), week)
+    return ProposalView.of(_proposal(session, week, for_display=for_display), week)
 
 
 @router.post("/{week_id}/proposal", response_model=ProposalView)

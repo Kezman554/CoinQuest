@@ -216,6 +216,7 @@ def propose(
     base_pence: int | None = None,
     weekly_basic_pay_pence: int | None = None,
     override: Sequence[SuppliedRecovery] | None = None,
+    for_display: bool = False,
 ) -> Proposal:
     """Work out what an open week is worth. Writes nothing.
 
@@ -227,6 +228,16 @@ def propose(
     Refuses a closed week. That refusal is the whole guarantee: a settled
     week's figures are read from its own columns and there is no code path
     that would rebuild them from today's definitions.
+
+    `for_display` is never for settling — it is for a screen reading where
+    the week stands before anyone has ruled on everything. On, a claim
+    counts toward the requirement the moment it is made, and nothing untouched
+    counts against the child until a parent actually marks it missed; a miss
+    otherwise becomes real only at settlement, and this is what lets a screen
+    say so honestly mid-week rather than pricing in a miss nobody has decided
+    yet. See `recovery.assess_week` for exactly what changes. `settle()` never
+    passes this — it always calls `propose()` at its default, so what gets
+    agreed and stored is the same pessimistic, final reckoning it always was.
     """
     if week.status is not WeekStatus.OPEN:
         raise NotOpen(
@@ -251,6 +262,7 @@ def propose(
         instances,
         weekly_basic_pay_pence=weekly_basic_pay_pence,
         cap=cap,
+        for_display=for_display,
     )
 
     optimum = best_assignment(assessment)

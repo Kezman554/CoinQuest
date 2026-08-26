@@ -7,18 +7,24 @@
  * all, and a screen that presents them as one more button in a row is telling
  * the reader something untrue about what they do.
  *
- * The settle button carries the figure it is about to agree to, in the label.
- * The API refuses a settlement whose agreed figure no longer matches the
- * proposal, so an amount read here and agreed after somebody else confirmed
- * something is refused rather than quietly settled on a different number —
- * but the parent should be reading the figure they are agreeing, not a word.
+ * The figures panel reads the same optimistic "on track" figure the child's
+ * own screen does — a claim counts before it is confirmed, and nothing
+ * untouched counts against the week until a parent actually rules it missed.
+ * Settling never reads that figure, though: the true, pessimistic proposal —
+ * everything still untouched treated as the miss it would become — is
+ * fetched fresh the moment Settle is pressed, the same "ask, then show the
+ * consequence before the PIN" shape Confirm already uses for the queue. The
+ * two figures can honestly differ, and the one that gets agreed to has to be
+ * the one that is about to be stored.
  */
 
 import { useState } from 'react'
 import { money } from '../../api'
 import type { WeekView } from '../../api'
+import type { Proposal } from '../../parentApi'
 import type { PinAct } from './PinDialog'
 import {
+  loadProposal,
   markMissed,
   settleWeek,
   voidWeek,
@@ -45,7 +51,7 @@ export function ThisWeek({ week, ask, title = 'This week' }: Props) {
       </h2>
 
       <div className="figures">
-        <Figure label="On track to settle at" value={money(week.totals.total_pence)} big />
+        <Figure label="On track for" value={money(week.totals.total_pence)} big />
         <Figure label="Base" value={money(week.totals.base_pence)} />
         <Figure
           label="Chores"
@@ -76,31 +82,56 @@ export function ThisWeek({ week, ask, title = 'This week' }: Props) {
           recalculated, and no later change to the scheme reaches back into it.
         </p>
         <div className="closing-buttons">
-          <button
-            type="button"
-            className="button button-do"
-            onClick={() =>
-              ask({
-                title: 'Settle this week',
-                summary: `${shortDate(week.start_date)} to ${shortDate(
-                  week.end_date,
-                )} settles at ${money(week.totals.total_pence)}.`,
-                lines: settlementLines(week),
-                confirmLabel: `Settle at ${money(week.totals.total_pence)}`,
-                permanent: true,
-                run: (pin) =>
-                  settleWeek(pin, week.week_id, week.totals.total_pence).then(
-                    () => undefined,
-                  ),
-              })
-            }
-          >
-            Settle at {money(week.totals.total_pence)}
-          </button>
+          <SettleButton week={week} ask={ask} />
           <VoidWeek week={week} ask={ask} />
         </div>
       </div>
     </section>
+  )
+}
+
+/** Fetches the true, pessimistic proposal the instant it is pressed, and
+ * only then opens the PIN dialog — on that figure, never on the week's own
+ * optimistic screen. Mirrors Queue's own "Confirm" exactly: ask what this
+ * would actually do, show it, then ask for the PIN. */
+function SettleButton({ week, ask }: Props) {
+  const [checking, setChecking] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const settle = async () => {
+    setChecking(true)
+    setProblem(null)
+    try {
+      const proposal = await loadProposal(week.week_id)
+      ask({
+        title: 'Settle this week',
+        summary: `${shortDate(proposal.start_date)} to ${shortDate(
+          proposal.end_date,
+        )} settles at ${money(proposal.total_pence)}.`,
+        lines: settlementLines(proposal, week.totals.ad_hoc_reward_pence),
+        confirmLabel: `Settle at ${money(proposal.total_pence)}`,
+        permanent: true,
+        run: (pin) =>
+          settleWeek(pin, week.week_id, proposal.total_pence).then(() => undefined),
+      })
+    } catch (error) {
+      setProblem((error as Error).message)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <div className="settle-button">
+      <button type="button" className="button button-do" onClick={settle} disabled={checking}>
+        {checking ? 'Working out the true figure…' : 'Settle'}
+      </button>
+      {problem && (
+        <p className="dialog-error" role="alert">
+          {problem}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -126,25 +157,21 @@ function Figure({
   )
 }
 
-function settlementLines(week: WeekView): string[] {
+function settlementLines(proposal: Proposal, adHocRewardPence: number): string[] {
   const lines = [
-    `Base ${money(week.totals.base_pence)}, chores ${money(
-      week.totals.chore_pay_pence,
-    )}, bonus ${money(week.totals.bonus_pence)}.`,
+    `Base ${money(proposal.base_pence)}, chores ${money(
+      proposal.chore_pay_pence,
+    )}, bonus ${money(proposal.bonus_pence)}.`,
   ]
-  if (!week.totals.chore_pay_awarded && week.totals.chore_pay_at_stake_pence > 0) {
+  if (!proposal.chore_pay_awarded && proposal.chore_pay_at_stake_pence > 0) {
     lines.push(
       `The chore money is not awarded: ${money(
-        week.totals.chore_pay_at_stake_pence,
+        proposal.chore_pay_at_stake_pence,
       )} is lost to what is still outstanding.`,
     )
   }
-  if (week.totals.ad_hoc_reward_pence > 0) {
-    lines.push(
-      `${money(
-        week.totals.ad_hoc_reward_pence,
-      )} of rewards is owed on top and is paid with the week.`,
-    )
+  if (adHocRewardPence > 0) {
+    lines.push(`${money(adHocRewardPence)} of rewards is owed on top and is paid with the week.`)
   }
   return lines
 }

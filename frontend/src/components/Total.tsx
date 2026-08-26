@@ -15,15 +15,28 @@
  * own saying which of the two it currently is. A child who can see that £1.40
  * is at stake and why has something he can act on; a total that quietly went
  * down by £1.40 is just a number that got worse.
+ *
+ * A bonus chore held back as a make-good gets a line too. It is already
+ * absent from the bonus figure — spent, not paid — and leaving it out
+ * entirely would read as though it had simply been ignored rather than
+ * worked and given up on purpose.
+ *
+ * "On track for" is only honest while the week is still open. A closed week
+ * paged back to reads its own past tense — "Settled at" or "Voided at" —
+ * so a figure that is now permanent does not sound like a projection still
+ * moving.
  */
 
 import type { Totals } from '../api'
 import { money } from '../api'
 
-export function Total({ totals }: { totals: Totals }) {
+export function Total({ totals, status = 'open' }: { totals: Totals; status?: string }) {
+  const label =
+    status === 'settled' ? 'Settled at' : status === 'voided' ? 'Voided at' : 'On track for'
+
   return (
     <section className="total">
-      <p className="total-label">On track for</p>
+      <p className="total-label">{label}</p>
       <p className="total-amount">{money(totals.payable_total_pence)}</p>
 
       <dl className="breakdown">
@@ -47,6 +60,12 @@ export function Total({ totals }: { totals: Totals }) {
           <div>
             <dt>Rewards</dt>
             <dd>{money(totals.reward_pence + totals.ad_hoc_reward_pence)}</dd>
+          </div>
+        )}
+        {totals.held_as_makegood_pence > 0 && (
+          <div>
+            <dt>Held as a make-good</dt>
+            <dd>{money(totals.held_as_makegood_pence)}</dd>
           </div>
         )}
       </dl>

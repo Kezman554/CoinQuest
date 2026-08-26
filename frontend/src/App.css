@@ -161,6 +161,18 @@
   color: var(--done);
 }
 
+/* The same colour a waived day already reads in: set apart from the ordinary
+   flow of the week, not an alarm and not an achievement. */
+.notice-away {
+  background: var(--away-bg);
+  border-color: var(--away);
+  color: var(--away);
+}
+
+.notice-away .button {
+  margin-top: 0.75rem;
+}
+
 /* A small icon on the headline — decoration on top of a message the words
    already carry in full, never a substitute for them. */
 .notice-todo h2::before {
@@ -173,6 +185,24 @@
 
 .notice-sorted h2::before {
   content: '✅ ';
+}
+
+.notice-away h2::before {
+  content: '🕘 ';
+}
+
+/* --- Paging back through weeks -------------------------------------------- */
+
+.week-nav {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.week-nav-button {
+  flex: 1;
+  min-height: 3.5rem;
+  font-size: 1.1rem;
 }
 
 /* --- Panels -------------------------------------------------------------- */
@@ -538,6 +568,19 @@ select {
 
 /* --- The queue ----------------------------------------------------------- */
 
+.queue-week + .queue-week {
+  margin-top: 1.25rem;
+}
+
+.queue-week-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.5rem;
+}
+
 .queue {
   list-style: none;
   margin: 0 0 1rem;
@@ -696,6 +739,12 @@ select {
   display: flex;
   gap: 0.5rem;
   flex: 1 1 20rem;
+}
+
+.settle-button {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 /* --- Payday and savings -------------------------------------------------- */

@@ -76,6 +76,10 @@ export type Totals = {
   reward_pence: number
   /** Rewards a parent entered, which are owed on top of the settled figure. */
   ad_hoc_reward_pence: number
+  /** Bonus money given up, unpaid, to cover a miss — already absent from
+   * bonus_pence. Carried separately so a completed bonus chore does not just
+   * vanish from the screen; see recovery.spent for which chore it was. */
+  held_as_makegood_pence: number
   total_pence: number
   /** What he will actually be handed for this week: the two added up. */
   payable_total_pence: number
@@ -88,6 +92,8 @@ export type WeekView = {
   end_date: string
   status: string
   today: string
+  /** False for a past week read while paging back through history. */
+  is_current: boolean
   days: DayCard[]
   weekly: WeeklyCard[]
   waived_days: string[]
@@ -117,6 +123,26 @@ async function json<T>(response: Response): Promise<T> {
  */
 export async function loadWeek(): Promise<WeekView> {
   return json<WeekView>(await fetch('/api/week/open', { method: 'POST' }))
+}
+
+export type WeekSummary = {
+  week_id: number
+  start_date: string
+  end_date: string
+  status: 'open' | 'settled' | 'voided'
+  total_pence: number | null
+}
+
+/** Every week that exists as a row, oldest first — what paging back reads
+ * to know which weeks it can actually go to. Needs no credential. */
+export async function loadWeeks(): Promise<WeekSummary[]> {
+  return json<WeekSummary[]>(await fetch('/api/weeks'))
+}
+
+/** Any week, open or closed, in the same shape — read-only once closed.
+ * Used to page back to a week that is not the one currently open. */
+export async function loadWeekById(weekId: number): Promise<WeekView> {
+  return json<WeekView>(await fetch(`/api/week/${weekId}`))
 }
 
 export async function claim(instanceId: number): Promise<void> {

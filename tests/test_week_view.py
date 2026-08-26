@@ -364,9 +364,21 @@ def test_a_waived_day_costs_nothing(api, scheme, waived_day):
 
 
 def test_a_week_with_a_miss_a_recovery_and_a_waived_day(api, scheme, waived_day, week_dates):
-    """The case the screen was built for, read end to end."""
+    """The case the screen was built for, read end to end.
+
+    Also the card's own test plan for the "on track" fix: a fresh week, a
+    confirmed miss, a make-good, and settlement, with the displayed figure
+    checked against the settlement proposal at each step that matters.
+    """
     start, end = week_dates
     view = open_week(api)
+
+    # A fresh week, nothing touched yet: on track for the base and the whole
+    # chore pot. Nothing has been ruled against it, so nothing is deducted —
+    # this is the figure the "on track" fix exists to produce.
+    assert view["totals"]["chore_pay_pence"] == 50 + 90
+    assert view["totals"]["chore_pay_awarded"] is True
+    assert view["totals"]["total_pence"] == get_settings().weekly_base_pence + 50 + 90
 
     mark_missed(api, find_day(view, start)["chores"][0]["instance_id"])
     view = api.get("/api/week").json()
@@ -378,6 +390,8 @@ def test_a_week_with_a_miss_a_recovery_and_a_waived_day(api, scheme, waived_day,
 
     # A miss nothing covers fails the chore pay entirely — which is the whole
     # reason the recovery route exists, and what the screen has to make plain.
+    # This one is a parent's own ruling, not silence, so it counts even before
+    # the week is over.
     assert view["totals"]["chore_pay_pence"] == 0
     assert view["totals"]["chore_pay_awarded"] is False
 
@@ -390,11 +404,17 @@ def test_a_week_with_a_miss_a_recovery_and_a_waived_day(api, scheme, waived_day,
     assert view["recovery"]["needs"][0]["covered_by"] == "Wash the car"
     assert [card["name"] for card in view["recovery"]["spent"]] == ["Wash the car"]
 
-    # The projected total is still bleak, and correctly so: five days of
-    # bed-making and three hoovers have not happened yet, and a projection
-    # that assumed they would is not a projection. Work the rest of the week.
-    assert view["totals"]["chore_pay_pence"] == 0
+    # The one ruled miss is now covered, and the rest of the week — five more
+    # days of bed-making, three hoovers, nothing ruled against any of them —
+    # is on track rather than presumed lost. 140p of chore pay for 100p of
+    # bonus given up, said plainly as held back rather than simply vanished.
+    assert view["totals"]["chore_pay_awarded"] is True
+    assert view["totals"]["chore_pay_pence"] == 50 + 90
+    assert view["totals"]["bonus_pence"] == 0
+    assert view["totals"]["held_as_makegood_pence"] == 100
+    assert view["totals"]["total_pence"] == get_settings().weekly_base_pence + 50 + 90
 
+    # Work the rest of the week for real.
     for day in view["days"]:
         for chore in day["chores"]:
             if chore["can_claim"]:
@@ -405,9 +425,8 @@ def test_a_week_with_a_miss_a_recovery_and_a_waived_day(api, scheme, waived_day,
 
     view = api.get("/api/week").json()
 
-    # Now the ruled miss is the week's only shortfall, and the bonus worked
-    # unpaid buys the chore pay back: 140p of chore pay for 100p of bonus
-    # given up, which is why the optimiser takes it.
+    # Now the ruled miss is the week's only shortfall, genuinely, and the
+    # figure has not moved: what was on track is what actually happened.
     assert view["totals"]["chore_pay_awarded"] is True
     assert view["totals"]["chore_pay_pence"] == 50 + 90
     assert view["totals"]["bonus_pence"] == 0
@@ -415,26 +434,38 @@ def test_a_week_with_a_miss_a_recovery_and_a_waived_day(api, scheme, waived_day,
         get_settings().weekly_base_pence + 50 + 90
     )
 
+    # And it agrees with what settlement would actually pay right now — the
+    # optimistic screen and the pessimistic proposal, over the same, now
+    # genuinely-finished week.
+    settlement_proposal = api.get(f"/api/weeks/{view['week_id']}/proposal").json()
+    assert settlement_proposal["total_pence"] == view["totals"]["total_pence"]
+    assert settlement_proposal["chore_pay_pence"] == view["totals"]["chore_pay_pence"]
+
 
 def test_a_week_long_condition_counts_against_the_week_until_it_is_judged(
     api, scheme, condition
 ):
-    """Recorded rather than worked around, because this screen makes it visible.
+    """A known gap, recorded rather than worked around — and half-cured by
+    the "on track" fix, which is worth being precise about.
 
     A WEEKLY_CONDITION produces no instance, so there is nothing to claim and
-    nothing to confirm: `assess_week` counts it required-and-not-confirmed from
-    the first minute of the week, and no route exists by which anybody could
-    make it confirmed. Its shortfall is therefore a standing miss.
+    nothing to confirm, and no route exists by which anybody could rule it
+    either way. `assess_week`'s default (pessimistic, for-settling) scoring
+    still counts it required-and-unconfirmed from the first minute of the
+    week — that half of the gap is untouched here, and Session I's own
+    finding still holds against `settle()`: the optimiser quietly spends a
+    completed bonus chore covering a miss nobody can clear or even see ruled.
 
-    What that costs is not obvious from the figures. The miss is inferred
-    rather than ruled, so it appears nowhere in the recovery panel — correctly,
-    since there is nothing the child could do about it — while the optimiser
-    quietly spends a completed bonus chore covering it. A week in which
-    everything was done reads as chore pay in full and the bonus gone.
+    What changed is the screen. `for_display` scoring never infers a miss
+    from silence — only a parent's own ruling counts, and nobody can rule a
+    condition at all — so the child's own figures no longer show the bonus
+    being eaten by a miss he was never told about. The chore pay reads earned
+    and the bonus reads paid, which is honest about what the child can see
+    happening, even though the two proposals now disagree about this week
+    until settlement actually judges the condition.
 
-    The fix belongs with the parent view, where the judgement would be made.
-    Until then the frontend labels the card as judged on Sunday, so the figure
-    is at least explicable to whoever is reading it.
+    The fix for the condition itself still belongs with the parent view,
+    where the judgement would be made.
     """
     view = open_week(api)
 
@@ -457,12 +488,19 @@ def test_a_week_long_condition_counts_against_the_week_until_it_is_judged(
     assert view["recovery"]["outstanding"] == 0
     assert view["recovery"]["needs"] == []
 
-    # The condition is still counted against the week, and the bonus paid for
-    # it: 100p of "Wash the car" spent, unpaid, on a miss nobody can clear.
-    # The pot is flat regardless of how many basic chores gate it — a third
-    # one (the condition) does not add its own retired amount on top.
+    # The screen reads the week as fully earned: the condition costs nothing
+    # here because nobody has ruled against it, and "Wash the car" is paid
+    # rather than quietly spent.
     assert view["totals"]["chore_pay_pence"] == 50 + 90
-    assert view["totals"]["bonus_pence"] == 0
+    assert view["totals"]["bonus_pence"] == 100
+    assert view["totals"]["held_as_makegood_pence"] == 0
+
+    # The gap survives in what settlement would actually do right now: the
+    # default, pessimistic proposal still treats the untouched condition as a
+    # standing miss and still spends the bonus covering it.
+    pessimistic = api.get(f"/api/weeks/{view['week_id']}/proposal").json()
+    assert pessimistic["chore_pay_pence"] == 50 + 90
+    assert pessimistic["bonus_pence"] == 0
 
 
 # --- 7. What the endpoints refuse -------------------------------------------
@@ -474,7 +512,15 @@ def test_an_unopened_week_says_so_rather_than_showing_an_empty_one(api, scheme):
     assert "open" in response.json()["detail"]
 
 
-def test_a_closed_week_is_not_rebuilt_from_todays_chores(api, scheme, session):
+def test_a_closed_week_is_read_from_its_own_figures_not_rebuilt(api, scheme, session):
+    """A voided week, paged back to: read-only, and read from its own record.
+
+    Once a week is closed the view stops asking `propose()` anything —
+    voiding zeroes the base, the chore pay and the bonuses, and a
+    recomputation from today's chores would show something else the moment a
+    chore definition changed. This is what a screen paging back through
+    history reads, so it has to be the stored figures, not a rebuild.
+    """
     view = open_week(api)
     response = api.post(
         f"/api/weeks/{view['week_id']}/void",
@@ -482,6 +528,57 @@ def test_a_closed_week_is_not_rebuilt_from_todays_chores(api, scheme, session):
     )
     assert response.status_code == 200
 
-    refused = api.get(f"/api/week/{view['week_id']}")
-    assert refused.status_code == 409
-    assert "voided" in refused.json()["detail"]
+    closed = api.get(f"/api/week/{view['week_id']}").json()
+    assert closed["status"] == "voided"
+    assert closed["totals"]["total_pence"] == 0
+    assert closed["totals"]["chore_pay_pence"] == 0
+    assert closed["totals"]["base_pence"] == 0
+    assert closed["totals"]["bonus_pence"] == 0
+    assert closed["recovery"]["needs"] == []
+    assert closed["recovery"]["options"] == []
+
+
+# --- 8. Paging back through weeks -------------------------------------------
+
+
+def test_is_current_tells_the_present_week_from_the_past_apart(
+    api, scheme, session, week_dates
+):
+    """The flag a screen paging back reads to say plainly it is not now."""
+    start, end = week_dates
+    last_week = Week(
+        start_date=start - timedelta(days=7), end_date=end - timedelta(days=7)
+    )
+    session.add(last_week)
+    session.commit()
+    api.post(
+        f"/api/weeks/{last_week.id}/settle",
+        json={"pin": PIN, "agreed_total_pence": get_settings().weekly_base_pence},
+    )
+
+    current = open_week(api)
+    assert current["is_current"] is True
+
+    past = api.get(f"/api/week/{last_week.id}").json()
+    assert past["is_current"] is False
+    assert past["status"] == "settled"
+
+
+def test_paging_back_reaches_a_past_week_that_is_still_open(api, scheme, session, week_dates):
+    """A week nobody ever settled stays reachable, and reads as itself."""
+    start, end = week_dates
+    older = Week(start_date=start - timedelta(days=14), end_date=end - timedelta(days=14))
+    session.add(older)
+    session.commit()
+
+    current = open_week(api)
+    listed = {week["week_id"]: week for week in api.get("/api/weeks").json()}
+    assert set(listed) == {older.id, current["week_id"]}
+    assert listed[older.id]["status"] == "open"
+
+    view = api.get(f"/api/week/{older.id}").json()
+    assert view["is_current"] is False
+    assert view["status"] == "open"
+    # Still on track for the base and the whole pot — nothing has been ruled
+    # against it either, however old it is.
+    assert view["totals"]["chore_pay_pence"] == 50 + 90

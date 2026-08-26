@@ -113,8 +113,15 @@ def confirm(api, instance_id: int) -> None:
 # --- 1. A clean week --------------------------------------------------------
 
 
-def test_a_clean_week(api, scheme, week_dates):
-    """Nothing missed, nothing outstanding, no deadline to state."""
+def test_a_clean_week(api, scheme, week_dates, session):
+    """Nothing missed, nothing outstanding, no deadline to state.
+
+    Nothing ruled against the week yet either, so it is on track for the
+    base and the whole chore pot — not the base alone. The chore pay counts
+    as earned until something says otherwise, and silence is not that.
+    """
+    from app.services import scheme_settings
+
     start, end = week_dates
     open_week(api)
 
@@ -128,7 +135,10 @@ def test_a_clean_week(api, scheme, week_dates):
     assert payload["recovery_deadline"] is None
     assert payload["days_remaining"] >= 0
     assert isinstance(payload["projected_total_pence"], int)
-    assert payload["projected_total_pence"] == get_settings().weekly_base_pence
+    assert payload["projected_total_pence"] == (
+        get_settings().weekly_base_pence
+        + scheme_settings.weekly_basic_pay_pence(session)
+    )
 
 
 def test_a_week_nothing_has_happened_in_still_answers(api, scheme, session):
@@ -164,9 +174,11 @@ def test_the_total_follows_the_week(api, scheme, week_dates):
 
     assert payload["projected_total_pence"] == week["totals"]["payable_total_pence"]
     # Written by app.services.money, which is the one place currency is
-    # rendered on this side. A tile showing "£2.00" beside a screen showing
-    # "£2" is not a disagreement about the money.
-    assert payload["projected_total"] == "£2.00"
+    # rendered on this side. A tile showing "£4.00" beside a screen showing
+    # "£4" is not a disagreement about the money. Base (£1) + the whole,
+    # still-on-track chore pot (£2, nothing ruled against it) + the
+    # confirmed bonus (£1).
+    assert payload["projected_total"] == "£4.00"
 
 
 def test_a_reward_is_in_the_figure(api, scheme, week_dates):
@@ -334,7 +346,10 @@ def test_the_last_day_still_states_the_deadline(session, scheme, week_dates):
 
 def test_a_settled_week_reads_from_its_own_figures(api, scheme, week_dates):
     view = open_week(api)
-    total = view["totals"]["total_pence"]
+    # The figure to settle at is the true, pessimistic proposal — not the
+    # child's on-track screen, which reads optimistically and may honestly
+    # differ from it. See app.services.settlement.propose's for_display.
+    total = api.get(f"/api/weeks/{view['week_id']}/proposal").json()["total_pence"]
     assert (
         api.post(
             f"/api/weeks/{view['week_id']}/settle",
