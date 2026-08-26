@@ -1724,4 +1724,34 @@ again restored. The e2e seed gained one bonus chore, which is what makes a
 make-good possible at all; it adds no claim, so the confirm-flow spec's queue
 is exactly what it was. npm run build clean.
 
-Not deployed. No push.
+Pushed and deployed to the household stack the same day. This session has a
+migration that rebuilds a table, which is exactly the shape that broke a real
+deploy on 2026-08-25 — so the pre-migration backup was taken first and then
+actually used as the "before" figures rather than only kept
+(coinquest-2026-08-26-1859.tar.gz). Pulled CoinQuest on the Pi (AlfredHomeHub
+needed nothing), rebuilt with `docker compose up -d --build coinquest` from
+docker/ (ARM64, built on the Pi), container up healthy with a clean log:
+alembic ran 6131c9c1284a -> c3f8b21a7d40 against real rows and the table
+rebuild survived them, which is the thing a test against a freshly-migrated
+empty database cannot prove.
+
+Verified against the real household database, not only the container's
+health:
+
+  - The rebuilt chore_instances carries every constraint it had except the
+    one this session drops, and both partial unique indexes. Dumped and read,
+    not assumed.
+  - Row counts identical across all seven tables before and after (32 chore
+    instances, 3 definitions, 2 weeks, the four ledgers empty), pragma
+    integrity_check ok, pragma foreign_key_check empty, revision at head.
+  - The endpoints round-tripped on a real instance and put it back: marking
+    Thursday's chore missed with no PIN took /api/summary from £3.00 to
+    £1.00 — the whole pot, on the real week — clearing it with a wrong PIN
+    was refused 401, clearing it with the right one returned £3.00, and the
+    row afterwards is byte-for-byte what it was (untouched, missed_at,
+    miss_origin and authorised_by all null, rejection_count still 0).
+  - One thing the household's own data says that no test did: with no
+    on-demand bonus chore in this week's scheme, `recovery.options` is empty
+    and `make_good` stays null even with a miss outstanding. The line shows
+    nothing rather than telling him to do something he has not got — which
+    is the rule, meeting the real scheme for the first time.
