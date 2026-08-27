@@ -1921,3 +1921,21 @@ them. Reverting only the trigger restoration, keeping the copy_from fix, fails
 the trigger test alone and leaves the other four green - so each half is
 independently covered, the same way Session X's was. Full suite green,
 alembic check clean.
+
+Pushed and deployed to the household stack the same day. Like the deploy
+before it this one carries no migration: the change is to an existing
+revision's downgrade(), plus tests and docs, so head is still c3f8b21a7d40 and
+alembic found the database already there. Backup taken first anyway
+(coinquest-2026-08-27-1346.tar.gz). Pulled on the Pi, rebuilt with
+`docker compose up -d --build coinquest` from AlfredHomeHub/docker (ARM64,
+built on the Pi), healthy inside 30 seconds.
+
+Verified against the real household database: revision c3f8b21a7d40,
+integrity_check ok, foreign_key_check empty, row counts unchanged across all
+nine tables (4 definitions, 34 chore instances, 2 weeks, 1 scheme_settings,
+the rest empty), both weeks immutability triggers present, and the trigger
+still naming settled_chore_pay_pence - which is the check that matters here,
+since this session's work was about restoring the *other* shape of that same
+trigger on the way down. Head is unaffected, which is what it should be.
+/health, /api/summary (£3.00, week of 2026-08-23, 2 days remaining) and the
+/parent deep link all answer as before.
