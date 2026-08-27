@@ -72,6 +72,81 @@ WEEKS_TRIGGERS = {
 }
 
 
+# The same two triggers as 82826e03b64d left them — which is to say as the
+# initial schema wrote them, since nothing between the two touches `weeks`.
+# They name settled_basic_pence, the column downgrade() renames back to.
+# Repeated rather than imported, for the reason given on _weeks_table().
+PRIOR_WEEKS_TRIGGERS = {
+    "settled_week_figures_are_final": """
+        CREATE TRIGGER settled_week_figures_are_final
+        BEFORE UPDATE ON weeks
+        FOR EACH ROW WHEN OLD.status IN ('settled', 'voided') AND (
+               NEW.status               IS NOT OLD.status
+            OR NEW.start_date           IS NOT OLD.start_date
+            OR NEW.end_date             IS NOT OLD.end_date
+            OR NEW.settled_basic_pence  IS NOT OLD.settled_basic_pence
+            OR NEW.settled_bonus_pence  IS NOT OLD.settled_bonus_pence
+            OR NEW.settled_reward_pence IS NOT OLD.settled_reward_pence
+            OR NEW.settled_total_pence  IS NOT OLD.settled_total_pence
+            OR NEW.closed_at            IS NOT OLD.closed_at
+        )
+        BEGIN
+            SELECT RAISE(ABORT,
+                'a settled or voided week is closed forever; its figures cannot change');
+        END
+    """,
+    "a_closed_week_is_not_deleted": """
+        CREATE TRIGGER a_closed_week_is_not_deleted
+        BEFORE DELETE ON weeks
+        FOR EACH ROW WHEN OLD.status IN ('settled', 'voided')
+        BEGIN
+            SELECT RAISE(ABORT, 'a closed week cannot be deleted');
+        END
+    """,
+}
+
+
+# The CHECKs this revision's rebuild leaves on `weeks` that name either the new
+# column or the renamed one. Dropping a column does not drop the constraints
+# that mention it, and a CHECK naming a column the same rebuild removed is what
+# SQLite refuses — so these come off explicitly, by name.
+BASE_ALLOWANCE_CONSTRAINTS = (
+    "ck_weeks_closed_weeks_carry_their_figures",
+    "ck_weeks_a_voided_week_loses_base_chore_pay_and_bonuses",
+    "ck_weeks_base_not_negative",
+    "ck_weeks_chore_pay_not_negative",
+    "ck_weeks_total_is_the_sum_of_its_parts",
+)
+
+
+# And the ones 82826e03b64d had in their place, written against
+# settled_basic_pence, for downgrade() to put back in the same rebuild.
+PRIOR_WEEKS_CONSTRAINTS = {
+    "ck_weeks_closed_weeks_carry_their_figures": (
+        "(status = 'open'"
+        "   AND settled_total_pence IS NULL AND closed_at IS NULL)"
+        " OR (status IN ('settled', 'voided')"
+        "   AND settled_basic_pence IS NOT NULL"
+        "   AND settled_bonus_pence IS NOT NULL"
+        "   AND settled_reward_pence IS NOT NULL"
+        "   AND settled_total_pence IS NOT NULL"
+        "   AND closed_at IS NOT NULL)"
+    ),
+    # Restored as it was, not as this revision would prefer it. It is the
+    # constraint this revision exists to relax: it demands a voided week pay
+    # nothing at all, and a voided week's rewards are legitimate now. If real
+    # data disagrees with it the downgrade aborts here, loudly, and that is
+    # correct — quietly zeroing somebody's rewards to make the DDL apply is the
+    # one thing it must not do. Same judgement as c3f8b21a7d40's downgrade.
+    "ck_weeks_a_voided_week_pays_nothing": "status <> 'voided' OR settled_total_pence = 0",
+    "ck_weeks_basic_not_negative": "settled_basic_pence IS NULL OR settled_basic_pence >= 0",
+    "ck_weeks_total_is_the_sum_of_its_parts": (
+        "settled_total_pence IS NULL OR settled_total_pence ="
+        " settled_basic_pence + settled_bonus_pence + settled_reward_pence"
+    ),
+}
+
+
 def upgrade() -> None:
     for name in WEEKS_TRIGGERS:
         op.execute(f"DROP TRIGGER IF EXISTS {name}")
@@ -105,10 +180,40 @@ def downgrade() -> None:
     for name in WEEKS_TRIGGERS:
         op.execute(f"DROP TRIGGER IF EXISTS {name}")
 
-    with op.batch_alter_table("weeks", schema=None) as batch_op:
+    # copy_from and recreate="always" for the same reason upgrade() uses them,
+    # and for one more: without a target shape Alembic reflects the live table
+    # and carries every CHECK's raw SQL into the rebuild, including the ones
+    # naming the column this rebuild drops. SQLite then refuses with `no such
+    # column: settled_base_pence`, and the downgrade dies with the triggers
+    # already gone.
+    #
+    # One rebuild does the whole reversal, which is why the rename happens
+    # inside the batch here and outside it in upgrade(): the restored CHECKs
+    # below name settled_basic_pence, so the column has to be called that by
+    # the time the replacement table is written.
+    with op.batch_alter_table(
+        "weeks", schema=None, copy_from=_weeks_table(), recreate="always"
+    ) as batch_op:
+        for name in BASE_ALLOWANCE_CONSTRAINTS:
+            batch_op.drop_constraint(op.f(name), type_="check")
         batch_op.drop_column("settled_base_pence")
+        batch_op.alter_column(
+            "settled_chore_pay_pence",
+            new_column_name="settled_basic_pence",
+            existing_type=sa.Integer(),
+        )
+        for name, sqltext in PRIOR_WEEKS_CONSTRAINTS.items():
+            batch_op.create_check_constraint(op.f(name), sqltext)
 
-    op.execute("ALTER TABLE weeks RENAME COLUMN settled_chore_pay_pence TO settled_basic_pence")
+    # The triggers as 82826e03b64d left them. Nothing below this revision puts
+    # them back — 82826e03b64d does not touch `weeks` at all — so if they are
+    # not restored here they are not restored anywhere, and a database that had
+    # merely stepped back one revision would sit there with a settled week's
+    # figures editable and a closed week deletable. A downgrade that refuses to
+    # run is recoverable; one that silently disarms the append-only guarantee
+    # the whole ledger rests on is not.
+    for statement in PRIOR_WEEKS_TRIGGERS.values():
+        op.execute(statement)
 
 
 def _weeks_table():

@@ -1858,3 +1858,66 @@ one thing this session could conceivably have disturbed, since restoring them
 correctly on the way down is half of what it changed. /health, /api/summary
 (£3.00, week of 2026-08-23, 2 days remaining) and the /parent deep link all
 answer as they did before.
+
+Follow-on to Session X (2026-08-27) - the same defect, one revision lower
+
+Session X found 4e720209aaba's downgrade() carrying the identical bug it had
+just fixed in 1eb8e8b3e4ae and parked it as out of remit. This clears it.
+
+Same fix, and it needed more of it than the first one did, because this
+revision does three things at once and the downgrade has to undo all three in
+a single rebuild. copy_from=_weeks_table() with recreate="always"; the five
+CHECKs naming settled_base_pence or settled_chore_pay_pence dropped by name
+first, since dropping a column does not drop the constraints that mention it;
+the column dropped; and - the part that differs from 1eb8e8b3e4ae - the rename
+back to settled_basic_pence done *inside* the same batch rather than outside
+it as upgrade() does, because the four restored CHECKs name that column and it
+has to be called that by the time the replacement table is written.
+
+The triggers again. This downgrade drops the two weeks immutability triggers
+at the top and never put them back, and 82826e03b64d does not touch weeks at
+all, so nothing below would have. Restored in their initial-schema shape,
+naming settled_basic_pence.
+
+Verified structurally rather than by absence of error: the table left behind
+after the downgrade was dumped and compared element by element against what
+82826e03b64d actually leaves when reached by upgrade. Identical - same
+columns, same constraint names, same CHECK text - and the trigger SQL matches
+the initial schema's.
+
+One judgement recorded in the code and the scribble pad: the downgrade
+restores ck_weeks_a_voided_week_pays_nothing, which is the constraint this
+revision exists to relax. A voided week carrying rewards is legitimate now and
+would fail it, so a downgrade over such a week aborts loudly rather than
+zeroing somebody's rewards to make the DDL apply. That is c3f8b21a7d40's
+precedent, not 9040ce063e24's - the difference being that leaving the relaxed
+constraint in place would have meant another rebuild there, and here the
+rebuild is already happening.
+
+DOWNGRADE_FLOOR is gone from tests/test_migration_against_real_data.py, along
+with the comment explaining why it existed. The walk now reaches base. That
+last step - the initial schema's own downgrade, dropping every table while
+seeded chore_instances still reference weeks under ON DELETE RESTRICT - is the
+step with the most to say about the 2026-08-25 incident, and it destroys the
+evidence it is standing on, so it got its own test rather than a line at the
+end of the round trip:
+
+  - test_the_chain_walks_down_and_back_up_against_seeded_data now walks to the
+    first revision, asserts there that the settled week survives with its
+    figures under the pre-rename column name, then comes back up and asserts
+    the same figures under the post-rename one.
+  - test_the_walk_reaches_base_with_real_rows_still_referencing takes the last
+    step, confirms nothing but alembic_version remains, and re-applies the
+    whole chain - a chain that cannot be re-applied after a full teardown has
+    not been proved to walk.
+  - test_the_downgrade_leaves_the_immutability_triggers_armed now checks the
+    trigger names none of the four columns that do not exist at the bottom of
+    the walk, settled_chore_pay_pence included, and still refuses an UPDATE
+    and a DELETE against the settled week.
+
+Proved as regression tests. Reverting the whole fix fails three of the five
+with the original "no such column: settled_base_pence"; restoring it passes
+them. Reverting only the trigger restoration, keeping the copy_from fix, fails
+the trigger test alone and leaves the other four green - so each half is
+independently covered, the same way Session X's was. Full suite green,
+alembic check clean.

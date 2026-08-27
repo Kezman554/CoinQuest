@@ -33,16 +33,22 @@ quietly in a progress-log paragraph nobody re-reads.
   survives them); the backup-restore side, described in this paragraph,
   still has not been drilled against seeded data and remains open.
 
-- **`4e720209aaba`'s `downgrade()` is broken the same way — found
-  2026-08-27, not fixed.** Exactly the defect above, one revision lower:
-  `batch_alter_table("weeks", ...)` drops `settled_base_pence` with no
-  `copy_from`, Alembic reflects the live table, and the reflected CHECKs still
-  name the column being dropped — `no such column: settled_base_pence`. It is
-  the floor of the round-trip walk in
-  `tests/test_migration_against_real_data.py` (`DOWNGRADE_FLOOR`), which is
-  why that walk stops one revision above `base` instead of reaching it. Fix it
-  the same way `1eb8e8b3e4ae` was fixed, then delete `DOWNGRADE_FLOOR` and
-  walk the test to `"base"` — the constant exists to be removed.
+- **`4e720209aaba`'s `downgrade()` was broken the same way — found and fixed
+  2026-08-27.** Exactly the defect below, one revision lower. Fixed the same
+  way: `copy_from=_weeks_table()` with `recreate="always"`, the five CHECKs
+  naming `settled_base_pence` or `settled_chore_pay_pence` dropped by name,
+  the rename done inside the same batch, the four pre-revision CHECKs restored
+  in its place, and the two `weeks` immutability triggers put back in their
+  `settled_basic_pence` shape — nothing below that revision touches `weeks`,
+  so nowhere else would have. `DOWNGRADE_FLOOR` is gone from
+  `tests/test_migration_against_real_data.py` and the walk now reaches `base`,
+  teardown included.
+
+  One judgement worth remembering: the downgrade restores
+  `ck_weeks_a_voided_week_pays_nothing`, the constraint that revision exists to
+  relax. A voided week carrying rewards is legitimate now and would fail it, so
+  a downgrade over such a week aborts loudly rather than zeroing the rewards to
+  make the DDL apply — the same call `c3f8b21a7d40`'s downgrade makes.
 
 - **`e42da40283c5` cannot migrate a database holding a confirmed chore
   instance — found 2026-08-27, not fixed.** It adds `authorised_by` nullable
