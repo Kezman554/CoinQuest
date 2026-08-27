@@ -1755,3 +1755,86 @@ health:
     and `make_good` stays null even with a miss outstanding. The line shows
     nothing rather than telling him to do something he has not got — which
     is the rule, meeting the real scheme for the first time.
+
+
+Session X (2026-08-27) - a downgrade that has never been run is not a
+downgrade
+
+1eb8e8b3e4ae's downgrade() had never executed once. Its batch_alter_table on
+weeks dropped the three override columns without passing copy_from, so Alembic
+reflected the live table to build the replacement and carried every CHECK
+constraint's raw SQL across with it - including two that name overridden_by,
+a column that same rebuild was dropping. SQLite refused the CREATE TABLE with
+"no such column: overridden_by". Every sibling migration that rebuilds weeks
+passes an explicit copy_from=_weeks_table() on both directions; this one had
+it on upgrade() only.
+
+Fixed to match them: copy_from=_weeks_table() and recreate="always". That
+alone is not enough, because dropping a column does not drop the constraints
+that mention it - the three CHECKs this revision added come off explicitly
+first, by name, wrapped in op.f() so the metadata naming convention does not
+prefix them a second time.
+
+The second half was worse than the first. The downgrade drops the two weeks
+immutability triggers at the top, as it must - the rebuild cannot happen with
+them attached - and never put them back. The revision below it in the chain,
+9040ce063e24, downgrades to nothing at all, so nothing else would have put
+them back either. A database that had merely stepped back one revision would
+have sat there with a settled week's figures freely editable and a closed week
+freely deletable, and no error anywhere to say so. The whole append-only
+design rests on those triggers; a downgrade that silently disarms them is a
+worse outcome than one that refuses to run. They are restored in their
+pre-revision shape - without the three lines naming the columns that no longer
+exist - from a PRIOR_WEEKS_TRIGGERS block written out in full, the same way
+every migration in this directory keeps its own copy rather than importing
+one that can change meaning later.
+
+Two new tests in tests/test_migration_against_real_data.py, seeded from
+real-shaped data rather than an empty database: the existing seed gained a
+settled week carrying its stored figures, seven more chore_instances, and a
+second row in each ledger and in settlement_lines, all referencing it under
+ON DELETE RESTRICT. Rebuilding a table means dropping it, and SQLite refuses
+while real rows reference it - which is exactly why every earlier rebuild
+passed at first deploy and failed in anger.
+
+  - test_the_chain_walks_down_and_back_up_against_seeded_data walks every
+    downgrade the chain can run, one revision at a time so a failure names the
+    step, then comes back up and checks the version, integrity_check,
+    foreign_key_check, every seeded row count, and the settled week's stored
+    figures byte for byte.
+  - test_the_downgrade_leaves_the_immutability_triggers_armed asserts the
+    state the database is actually left in at the bottom: both triggers
+    present, neither naming a dropped column, and - the part that matters -
+    an UPDATE and a DELETE against the settled week both refused. Asserting a
+    trigger exists proves only that something with the right name is in
+    sqlite_master.
+
+Both up legs go through app.db.run_migrations(), not a plain alembic CLI call.
+The CLI never imports app.db and therefore never turns foreign-key enforcement
+on, so it would pass on a database the app itself cannot migrate - the same
+distinction Session V's incident turned on.
+
+Proved to be regression tests rather than a claim of coverage. Reverting the
+whole fix fails both new tests with the original "no such column:
+overridden_by"; restoring it passes them. Reverting only the trigger
+restoration, keeping the copy_from fix, fails the trigger test alone and
+leaves the other three green - so each half of the fix is independently
+covered. Full suite 526 passed.
+
+The walk stops one revision above base rather than reaching it, and the test
+says so in a named constant. 4e720209aaba's downgrade has exactly the same
+defect, one revision lower - drops settled_base_pence with no copy_from, dies
+on "no such column: settled_base_pence". Fixing a second historical migration
+was not this session's remit. It is logged in docs/scribble.md with the note
+that DOWNGRADE_FLOOR exists to be deleted when it is fixed.
+
+One more thing surfaced and parked: e42da40283c5 adds authorised_by nullable
+with a CHECK requiring it for any confirmed instance, and backfills nothing,
+so it cannot migrate a database that already holds a confirmed chore instance.
+82826e03b64d has the same shape for missed and miss_origin. Both have already
+run against the live database without incident, so this is latent rather than
+live - it bites a restore-then-migrate from a backup taken before those
+revisions, which is precisely the drill still listed as undone at the top of
+the scribble pad. It is also why the new seed's settled week holds claimed
+instances rather than confirmed ones, said in a comment where a later reader
+will need it.

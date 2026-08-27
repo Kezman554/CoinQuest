@@ -33,6 +33,40 @@ quietly in a progress-log paragraph nobody re-reads.
   survives them); the backup-restore side, described in this paragraph,
   still has not been drilled against seeded data and remains open.
 
+- **`4e720209aaba`'s `downgrade()` is broken the same way — found
+  2026-08-27, not fixed.** Exactly the defect above, one revision lower:
+  `batch_alter_table("weeks", ...)` drops `settled_base_pence` with no
+  `copy_from`, Alembic reflects the live table, and the reflected CHECKs still
+  name the column being dropped — `no such column: settled_base_pence`. It is
+  the floor of the round-trip walk in
+  `tests/test_migration_against_real_data.py` (`DOWNGRADE_FLOOR`), which is
+  why that walk stops one revision above `base` instead of reaching it. Fix it
+  the same way `1eb8e8b3e4ae` was fixed, then delete `DOWNGRADE_FLOOR` and
+  walk the test to `"base"` — the constant exists to be removed.
+
+- **`e42da40283c5` cannot migrate a database holding a confirmed chore
+  instance — found 2026-08-27, not fixed.** It adds `authorised_by` nullable
+  and a CHECK saying `state <> 'confirmed' OR authorised_by IS NOT NULL`,
+  with no backfill, so any instance already in the `confirmed` state fails the
+  new constraint the moment the table is rebuilt. `82826e03b64d` has the same
+  shape for `missed` and `miss_origin`. Both already ran against the live
+  database without incident, so this is latent rather than live — it bites a
+  restore-then-migrate from a backup taken before those revisions, which is
+  precisely the drill still listed as undone at the top of this file. It is
+  also why the migration test seeds its settled week's instances as `claimed`
+  rather than `confirmed`, noted in a comment there.
+
+- **`1eb8e8b3e4ae`'s `downgrade()` was broken against real data — found
+  2026-08-25, fixed 2026-08-27 (Session X).** Done as described below. It now
+  passes `copy_from=_weeks_table()` and `recreate="always"` the way its own
+  `upgrade()` and every sibling do, drops the three override CHECK constraints
+  explicitly (dropping a column does not drop the constraints that mention it),
+  and puts the two `weeks` immutability triggers back in their pre-revision
+  shape — the revision below it downgrades to nothing, so nowhere else would
+  have. Covered by `test_the_chain_walks_down_and_back_up_against_seeded_data`
+  and `test_the_downgrade_leaves_the_immutability_triggers_armed`, both proved
+  by reverting each half of the fix and watching the matching test fail.
+
 - **`1eb8e8b3e4ae`'s `downgrade()` is broken against real data — found
   2026-08-25, not fixed.** Its `batch_alter_table("weeks", ...)` drops
   three columns without supplying `copy_from`, so Alembic reflects the

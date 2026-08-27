@@ -69,6 +69,47 @@ WEEKS_TRIGGERS = {
 }
 
 
+# The same two triggers as 9040ce063e24 left them, for downgrade() to restore.
+# Repeated rather than imported, for the reason above.
+PRIOR_WEEKS_TRIGGERS = {
+    "settled_week_figures_are_final": """
+        CREATE TRIGGER settled_week_figures_are_final
+        BEFORE UPDATE ON weeks
+        FOR EACH ROW WHEN OLD.status IN ('settled', 'voided') AND (
+               NEW.status                  IS NOT OLD.status
+            OR NEW.start_date              IS NOT OLD.start_date
+            OR NEW.end_date                IS NOT OLD.end_date
+            OR NEW.settled_base_pence      IS NOT OLD.settled_base_pence
+            OR NEW.settled_chore_pay_pence IS NOT OLD.settled_chore_pay_pence
+            OR NEW.settled_bonus_pence     IS NOT OLD.settled_bonus_pence
+            OR NEW.settled_reward_pence    IS NOT OLD.settled_reward_pence
+            OR NEW.settled_total_pence     IS NOT OLD.settled_total_pence
+            OR NEW.closed_at               IS NOT OLD.closed_at
+        )
+        BEGIN
+            SELECT RAISE(ABORT,
+                'a settled or voided week is closed forever; its figures cannot change');
+        END
+    """,
+    "a_closed_week_is_not_deleted": """
+        CREATE TRIGGER a_closed_week_is_not_deleted
+        BEFORE DELETE ON weeks
+        FOR EACH ROW WHEN OLD.status IN ('settled', 'voided')
+        BEGIN
+            SELECT RAISE(ABORT, 'a closed week cannot be deleted');
+        END
+    """,
+}
+
+# The CHECK constraints this revision's rebuild adds, which name the three
+# columns it adds. They come off with them.
+OVERRIDE_CONSTRAINTS = (
+    "ck_weeks_an_override_is_recorded_in_full",
+    "ck_weeks_only_an_override_has_a_reason",
+    "ck_weeks_optimum_not_negative",
+)
+
+
 def _weeks_table():
     """The weeks table as this revision leaves it.
 
@@ -199,7 +240,29 @@ def downgrade() -> None:
     for name in WEEKS_TRIGGERS:
         op.execute(f"DROP TRIGGER IF EXISTS {name}")
 
-    with op.batch_alter_table("weeks", schema=None) as batch_op:
+    # copy_from and recreate="always" for the same reason upgrade() uses them,
+    # and for one more: without a target shape Alembic reflects the live table
+    # and carries every CHECK's raw SQL into the rebuild, including the two
+    # that name a column this rebuild is dropping. SQLite then refuses, and the
+    # downgrade dies with the triggers already gone.
+    with op.batch_alter_table(
+        "weeks", schema=None, copy_from=_weeks_table(), recreate="always"
+    ) as batch_op:
+        # Dropping a column does not drop the constraints that mention it, so
+        # the three this revision added go back explicitly, before the columns.
+        for name in OVERRIDE_CONSTRAINTS:
+            batch_op.drop_constraint(op.f(name), type_="check")
         batch_op.drop_column("optimum_total_pence")
         batch_op.drop_column("override_reason")
         batch_op.drop_column("overridden_by")
+
+    # The triggers as 9040ce063e24 left them: without the three columns, and so
+    # without the three lines of the immutability trigger that name them. The
+    # revision below this one downgrades to nothing at all, so if these are not
+    # put back here they are not put back anywhere, and a database that had
+    # merely stepped back one revision would sit there with a settled week's
+    # figures editable and a closed week deletable. A downgrade that refuses to
+    # run is recoverable; one that silently disarms the append-only guarantee
+    # the whole ledger rests on is not.
+    for statement in PRIOR_WEEKS_TRIGGERS.values():
+        op.execute(statement)
