@@ -1838,3 +1838,23 @@ revisions, which is precisely the drill still listed as undone at the top of
 the scribble pad. It is also why the new seed's settled week holds claimed
 instances rather than confirmed ones, said in a comment where a later reader
 will need it.
+
+Pushed and deployed to the household stack the same day. Unlike the last two
+deploys this one carries no migration at all: the change is to an existing
+revision's downgrade(), plus tests and docs, so head is still c3f8b21a7d40 and
+alembic had nothing to run. The pre-migration backup was taken anyway
+(coinquest-2026-08-27-1318.tar.gz) — it costs seconds, and "no migration this
+time" is exactly the assumption that is wrong once. Pulled CoinQuest on the
+Pi, rebuilt with `docker compose up -d --build coinquest` from
+AlfredHomeHub/docker (ARM64, built on the Pi), container healthy in under 30
+seconds with a clean log: alembic connected, found the database already at
+head, and said nothing further.
+
+Verified against the real household database: revision c3f8b21a7d40,
+integrity_check ok, foreign_key_check empty, row counts unchanged across all
+nine tables (4 definitions, 34 chore instances, 2 weeks, 1 scheme_settings,
+the rest empty), and both weeks immutability triggers present — which is the
+one thing this session could conceivably have disturbed, since restoring them
+correctly on the way down is half of what it changed. /health, /api/summary
+(£3.00, week of 2026-08-23, 2 days remaining) and the /parent deep link all
+answer as they did before.
