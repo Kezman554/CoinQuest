@@ -912,6 +912,83 @@ select {
   color: var(--ink-soft);
 }
 
+/* --- The lifetime chart ---------------------------------------------------- */
+
+.lifetime-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.lifetime-chart-axis {
+  stroke: var(--line);
+  stroke-width: 2;
+}
+
+.lifetime-line {
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A path is an open line — no fill, or the browser closes the gap between
+   its two ends into a solid wedge. A circle (a single-point series with
+   nothing to draw a line between) is the one place this chart wants a
+   fill, so the tag-qualified selectors below only turn it on there. */
+path.lifetime-line {
+  fill: none;
+}
+
+.lifetime-line-real {
+  stroke: var(--ink-soft);
+}
+
+.lifetime-line-counterfactual {
+  stroke: var(--accent);
+}
+
+circle.lifetime-line-real {
+  fill: var(--ink-soft);
+}
+
+circle.lifetime-line-counterfactual {
+  fill: var(--accent);
+}
+
+.lifetime-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.lifetime-legend li {
+  position: relative;
+  padding-left: 1.3rem;
+}
+
+.lifetime-legend li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  width: 0.9rem;
+  height: 0.3rem;
+  border-radius: 999px;
+}
+
+.lifetime-legend-real::before {
+  background: var(--ink-soft);
+}
+
+.lifetime-legend-counterfactual::before {
+  background: var(--accent);
+}
+
 /* --- Closed weeks -------------------------------------------------------- */
 
 .closed-list {

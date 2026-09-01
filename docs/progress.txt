@@ -2130,3 +2130,75 @@ savings-match endpoints all answer correctly against live data - the
 proposal endpoint in particular correctly refuses with "nothing to match
 yet" rather than erroring, since this household's savings ledger has no
 entries at all yet.
+
+2026-09-01 — Session Z, third follow-on: the Lifetime page
+
+The last of the three savings screens (see the memory note this ran under:
+[[savings-surfaces-scoped-not-built]]) - total earned to date, and the
+never-withdrawn comparison, read-only and Oliver-facing. No new table:
+both figures are replayed fresh from the earnings and savings ledgers on
+every read.
+
+Total earned is `SUM(earnings_ledger.amount_pence)` and nothing more -
+every settled week (settlement.settle/void already write one
+WEEK_SETTLEMENT entry each) and every ad-hoc reward (rewards.py's own
+REWARD entry) already lands in that one append-only ledger, independent of
+whether the money was later kept as cash or banked. Confirmed nothing else
+in the codebase already computed this.
+
+The never-withdrawn comparison is app/services/lifetime.py's
+counterfactual_trajectory: walks the same calendar months
+savings_match.propose walks, over a balance of its own that a withdrawal
+never touches (opening balances, deposits and reversals are replayed;
+withdrawals are skipped outright, not merely excluded from a month's low
+the way they are in the real ladder - see _KEPT_TYPES for why a reversal
+stays in while a withdrawal does not). Reuses the real ladder's own
+formula rather than a second copy of it: `savings_match._match_pence` is
+now the public `match_pence`, exported specifically so this module could
+call it instead of reimplementing rounding that has to agree with what
+actually settles. Tested against the real ladder itself, not just a
+worked example: with no withdrawal ever and every elapsed month actually
+settled in reality too, the counterfactual must land on exactly the same
+figures the real one did, since both read the same live scheme_settings -
+test_matches_the_real_ladder_when_nothing_was_ever_withdrawn asserts
+that equality point for point, not only on the final balance. A subtlety
+worth recording: the counterfactual does NOT gate on whether a parent
+actually pressed Settle for a given month in reality - it projects every
+elapsed month's match regardless, which means even with zero real
+withdrawals the two trajectories can still diverge if real settlement has
+fallen behind. That is a deliberate reading of "recompute each month's
+match under that assumption", not an oversight.
+
+Frontend: LifetimeView.tsx, a fourth screen, reached from a third quiet
+footer button (no PIN, alongside Savings) - the .total gradient card for
+the headline figure, matching every other screen's biggest number.
+components/LifetimeChart.tsx is a hand-rolled inline SVG line chart, not a
+charting library - this app depends on nothing but react and react-dom,
+and two polylines were not worth a new dependency. Found and fixed one real
+bug by actually looking at the rendered output rather than trusting the
+code: giving `.lifetime-line-real`/`-counterfactual` a `fill` alongside
+`stroke` closed each open path into a solid wedge, because a CSS class
+beats the element's own `fill="none"` attribute. Fixed with tag-qualified
+selectors (`path.lifetime-line { fill: none }`, `circle.lifetime-line-*`
+for the one place a fill is wanted - a series with only one point, which
+has nothing to draw a line between and gets a dot instead).
+
+tests/test_lifetime.py: 13 tests - the total-earned sum directly and via a
+real settle-and-reward flow, the real trajectory checked against
+savings.history() verbatim, the counterfactual's equality-with-the-real-
+ladder proof above, a withdrawal case where the counterfactual pulls
+ahead, a reversal proved to still reduce the counterfactual (unlike a
+withdrawal), an in-progress month contributing no match to either side,
+and the endpoint's empty-not-error state with no history at all. Full
+suite: 563 passed.
+
+Verified by hand again, the same way as the two-screens follow-on:
+scratch database, real API and Vite dev server, seeded four months of
+history including a withdrawal, and looked at the actual chart - which is
+what caught the fill bug above; the unit tests could not have, since they
+never render anything. Final screenshot: the real line visibly dipping at
+the withdrawal, the counterfactual line climbing past it, legend and both
+headline figures correct (£41.74 real against £70.10 if nothing had ever
+been withdrawn, on that seeded data). tsc -b, vite build, oxlint (still
+the same four pre-existing warnings) and the Playwright e2e suite (4/4,
+rerun after the footer changed again) all clean.

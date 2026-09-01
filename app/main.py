@@ -13,6 +13,7 @@ from app.frontend import mount_frontend
 from app.routers import (
     chores,
     claims,
+    lifetime,
     parent,
     rewards,
     savings_match,
@@ -40,6 +41,7 @@ app.include_router(claims.router)
 app.include_router(weeks.router)
 app.include_router(weeks.savings_router)
 app.include_router(savings_match.router)
+app.include_router(lifetime.router)
 app.include_router(rewards.router)
 app.include_router(week_view.router)
 app.include_router(parent.router)

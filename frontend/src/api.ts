@@ -132,6 +132,18 @@ export type SavingsMatchProposal = {
   clean_months_in_a_row: number
 }
 
+export type BalancePoint = { occurred_on: string; balance_pence: number }
+
+/** Everything ever earned, and the two savings trajectories — the real one
+ * and, if no withdrawal had ever happened, what it would be instead. See
+ * app.services.lifetime: the counterfactual is framed as "how money grows
+ * if you leave it alone", never as "what you would have had". */
+export type Lifetime = {
+  total_earned_pence: number
+  real: BalancePoint[]
+  counterfactual: BalancePoint[]
+}
+
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let detail = `The app returned ${response.status}`
@@ -187,6 +199,12 @@ export async function loadSavingsBalance(): Promise<SavingsBalance> {
  * screen catches it rather than treating it as an error to display. */
 export async function loadSavingsMatchProposal(): Promise<SavingsMatchProposal> {
   return json<SavingsMatchProposal>(await fetch('/api/savings/match/proposal'))
+}
+
+/** Never rejects — an account with no history at all reads as all-zero and
+ * empty trajectories, not an error. */
+export async function loadLifetime(): Promise<Lifetime> {
+  return json<Lifetime>(await fetch('/api/lifetime'))
 }
 
 export async function claim(instanceId: number): Promise<void> {

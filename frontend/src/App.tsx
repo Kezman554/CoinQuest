@@ -1,16 +1,17 @@
 /**
- * Three screens on one wall.
+ * Four screens on one wall.
  *
- * The child's week is what the app opens on, every time. Savings and Parent
- * are both reached by deliberately quiet controls at the foot of the page and
- * neither is what a fresh load lands on: the screen lives in a kitchen and is
- * read a dozen times a day by someone who came to see the week, not to
- * navigate a dashboard.
+ * The child's week is what the app opens on, every time. Savings, Lifetime
+ * and Parent are all reached by deliberately quiet controls at the foot of
+ * the page and none is what a fresh load lands on: the screen lives in a
+ * kitchen and is read a dozen times a day by someone who came to see the
+ * week, not to navigate a dashboard.
  *
- * The two are not the same kind of quiet, though. Savings is read-only and
- * needs no credential — offering it costs nothing, and it is where "how much
- * have I got" actually lives now that this feature exists. Parent asks for a
- * PIN the moment anything on it tries to move money.
+ * Parent is not the same kind of quiet as the other two. Savings and
+ * Lifetime are read-only and need no credential — offering them costs
+ * nothing, and between them they are where "how much have I got" and "what
+ * has this ever come to" actually live now that both features exist. Parent
+ * asks for a PIN the moment anything on it tries to move money.
  *
  * The switch is presentation and nothing else. It hides no authorisation —
  * every act on the parent side carries a PIN the server checks, and a person
@@ -30,11 +31,12 @@ import { Recovery } from './components/Recovery'
 import { Total } from './components/Total'
 import { Weekly } from './components/Weekly'
 import { NotCurrentBanner, WeekNav } from './components/WeekNav'
+import { LifetimeView } from './LifetimeView'
 import { ParentView } from './ParentView'
 import { SavingsView } from './SavingsView'
 import { longDate, shortDate, weekdayOf } from './words'
 
-type Screen = 'child' | 'savings' | 'parent'
+type Screen = 'child' | 'savings' | 'lifetime' | 'parent'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('child')
@@ -43,6 +45,7 @@ function App() {
     <main className="page">
       {screen === 'child' && <ChildWeek />}
       {screen === 'savings' && <SavingsView />}
+      {screen === 'lifetime' && <LifetimeView />}
       {screen === 'parent' && <Parent />}
 
       <footer className="switcher">
@@ -50,6 +53,9 @@ function App() {
           <>
             <button type="button" className="button button-quiet" onClick={() => setScreen('savings')}>
               Savings
+            </button>
+            <button type="button" className="button button-quiet" onClick={() => setScreen('lifetime')}>
+              Lifetime
             </button>
             <button type="button" className="button button-quiet" onClick={() => setScreen('parent')}>
               Parent

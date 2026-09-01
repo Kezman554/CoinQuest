@@ -224,12 +224,18 @@ def _clean_streak(session: Session, *, had_withdrawal: bool) -> int:
     return streak
 
 
-def _match_pence(*, low_pence: int, rate_percent: int, cap_pence: int) -> int:
+def match_pence(*, low_pence: int, rate_percent: int, cap_pence: int) -> int:
     """The rate applied to whichever is lower, the low or the cap.
 
     Rounded to the nearest penny, ties rounding up — the ladder never touches
     a float, and a rate that does not divide the base evenly needs some
     settled rule rather than a silent truncation.
+
+    Public rather than a module-private helper: app.services.lifetime reuses
+    this exact formula to recompute the never-withdrawn counterfactual's own
+    monthly matches, and a second copy of it living over there is exactly
+    the kind of thing that quietly drifts from the one that actually
+    settles.
     """
     base = min(low_pence, cap_pence)
     return (base * rate_percent + 50) // 100
@@ -252,7 +258,7 @@ def propose(session: Session, tz) -> MonthlyMatchProposal:
     low_pence, had_withdrawal = _low_and_had_withdrawal(before, within)
     rate_percent = _rate_percent(session, had_withdrawal=had_withdrawal)
     cap_pence = scheme_settings.savings_match_cap_pence(session)
-    match_pence = _match_pence(low_pence=low_pence, rate_percent=rate_percent, cap_pence=cap_pence)
+    match = match_pence(low_pence=low_pence, rate_percent=rate_percent, cap_pence=cap_pence)
     clean_months_in_a_row = _clean_streak(session, had_withdrawal=had_withdrawal)
 
     return MonthlyMatchProposal(
@@ -262,7 +268,7 @@ def propose(session: Session, tz) -> MonthlyMatchProposal:
         had_withdrawal=had_withdrawal,
         rate_percent=rate_percent,
         cap_pence=cap_pence,
-        match_pence=match_pence,
+        match_pence=match,
         month_has_ended=today(tz) > period.end,
         clean_months_in_a_row=clean_months_in_a_row,
     )

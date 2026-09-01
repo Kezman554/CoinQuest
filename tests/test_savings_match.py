@@ -245,7 +245,7 @@ def test_multiple_withdrawals_in_one_month_use_the_lowest_point_after_the_first(
 def test_match_pence_matches_the_worked_example(session, tz):
     """A £250 balance at 10%, capped at £100, pays £10 — not £25."""
     assert (
-        savings_match._match_pence(low_pence=250_00, rate_percent=10, cap_pence=100_00) == 1000
+        savings_match.match_pence(low_pence=250_00, rate_percent=10, cap_pence=100_00) == 1000
     )
 
 
