@@ -2375,3 +2375,36 @@ savings_ledger's two append-only triggers are still there. /health,
 /api/summary, /parent and the new /api/savings/deposits/depositors all
 answer correctly, the last one confirming PARENT_NAMES reached the
 container: {"child_name": "Oliver", "parent_names": ["Nick"]}.
+
+Standalone deposits' immediate follow-on: the parent Savings panel's old
+"Opening balance" act - its own amount field, Record button and copy -
+removed. Redundant the moment ad hoc deposits landed: an entry becomes
+the ledger's first simply by being entered first, no special-casing
+needed, so a deposit noted "opening balance" already does exactly what
+the dedicated act did. One mechanism, not two.
+
+Frontend-only. Confirmed first: grepped for every caller of
+recordOpeningBalance and /api/savings/opening-balance before touching
+anything. The frontend had exactly one - the block being removed - so it
+and its now-dead opening/openingPence state came out too. The backend
+endpoint, savings.record_opening_balance and the OPENING_BALANCE entry
+type were not touched: nothing in this card asked for that, and all of
+test_lockout.py, test_parent.py, test_payday.py, test_savings_match.py
+and test_lifetime.py call that endpoint or service function directly as
+a fixture-builder, independent of any UI. It is simply no longer reachable
+from a button - which is correct, since the deposit act already reaches
+the same place.
+
+The `empty` branch that used to render the opening-balance act now
+renders nothing: withdrawing from and reconciling an account that does
+not exist yet were never sensible either, so both stay hidden until
+there is a first entry - which, now, only the deposit act can supply.
+
+Verified by hand: a freshly seeded, empty database, the real app - no
+"Opening balance" heading anywhere on the parent screen, only "Record a
+deposit" where it used to sit alongside it; recorded £10 with the note
+"Opening balance" through that act and confirmed it lands as the
+ledger's very first entry, exactly as the card predicted. tsc -b, vite
+build (bundle a shade smaller), oxlint (same five pre-existing warnings)
+and the Playwright e2e suite (4/4) all clean; full pytest suite
+unaffected as expected since nothing backend changed.

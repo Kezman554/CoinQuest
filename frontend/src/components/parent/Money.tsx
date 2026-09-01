@@ -14,7 +14,6 @@ import {
   confirmDeposit,
   payWeeks,
   reconcile,
-  recordOpeningBalance,
   recordParentDeposit,
   recordPreset,
   recordReward,
@@ -239,11 +238,9 @@ export function SavingsPanel({
   const [reason, setReason] = useState('')
   const [actual, setActual] = useState('')
   const [checked, setChecked] = useState<Reconciliation | null>(null)
-  const [opening, setOpening] = useState('')
 
   const pence = parsePence(amount)
   const ready = pence !== null && pence > 0 && reason.trim().length > 0
-  const openingPence = parsePence(opening)
   const empty = savings.entries.length === 0
 
   return (
@@ -256,46 +253,14 @@ export function SavingsPanel({
         <PendingDeposits requests={pendingDeposits} ask={ask} />
       )}
 
-      {empty ? (
-        <div className="act">
-          <h3>Opening balance</h3>
-          <p className="act-note">
-            What was already in the account when this started. Recorded once,
-            and it has to be first: everything after it is a movement from a
-            balance.
-          </p>
-          <div className="act-row">
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="e.g. £12.40"
-              value={opening}
-              onChange={(event) => setOpening(event.target.value)}
-            />
-            <button
-              type="button"
-              className="button"
-              disabled={openingPence === null}
-              onClick={() =>
-                openingPence !== null &&
-                ask({
-                  title: 'Record the opening balance',
-                  summary: `${money(openingPence)} was already in the account.`,
-                  lines: ['This can only be done once.'],
-                  confirmLabel: 'Record it',
-                  permanent: true,
-                  run: (pin) =>
-                    recordOpeningBalance(pin, openingPence).then(() => {
-                      setOpening('')
-                    }),
-                })
-              }
-            >
-              Record
-            </button>
-          </div>
-        </div>
-      ) : (
+      {/* Nothing shows here while the account is empty: there is nothing to
+          withdraw and nothing to reconcile yet, and depositing — the
+          Record-a-deposit act above, with a note like "opening balance" for
+          the very first one — is the only mechanism for getting money in.
+          There used to be a second, opening-balance-only act here; it did
+          exactly what a deposit already does, since an entry lands as the
+          ledger's first simply by being entered first. */}
+      {!empty && (
         <>
           <div className="act">
             <h3>Log a withdrawal</h3>

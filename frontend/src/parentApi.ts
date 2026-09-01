@@ -429,12 +429,6 @@ export const recordWithdrawal = (pin: string, amount: number, reason: string) =>
     reason,
   })
 
-export const recordOpeningBalance = (pin: string, amount: number) =>
-  send<SavingsEntry>('/api/savings/opening-balance', {
-    pin,
-    amount_pence: amount,
-  })
-
 /** A parent posting a deposit directly — authorised at submission, so it
  * lands immediately and never waits in the pending queue. */
 export const recordParentDeposit = (
