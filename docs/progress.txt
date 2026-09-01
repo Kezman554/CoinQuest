@@ -2202,3 +2202,19 @@ headline figures correct (£41.74 real against £70.10 if nothing had ever
 been withdrawn, on that seeded data). tsc -b, vite build, oxlint (still
 the same four pre-existing warnings) and the Playwright e2e suite (4/4,
 rerun after the footer changed again) all clean.
+
+Pushed and deployed to the household stack the same day. No migration this
+time - lifetime.py adds no table, only reads the two existing ledgers - so
+head stayed at 7b10cc8d801f and this was the lower-risk kind of deploy.
+Backed up anyway before rebuilding (coinquest-2026-09-01-1554.tar.gz),
+same discipline regardless of whether the schema moves. Pulled and rebuilt
+with `docker compose up -d --build coinquest` from AlfredHomeHub/docker,
+healthy inside 10 seconds.
+
+Verified against the real household database: revision unchanged at
+7b10cc8d801f, integrity_check ok, foreign_key_check empty. /health,
+/api/summary and the /parent deep link answer as before; /api/lifetime
+returns {"total_earned_pence": 0, "real": [], "counterfactual": []} rather
+than erroring, correctly, since this household has no earnings or savings
+history yet - the empty-not-error path this session's own tests exist to
+cover.
