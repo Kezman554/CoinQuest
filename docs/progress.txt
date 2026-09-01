@@ -2103,3 +2103,30 @@ diffing against the same lint run on the prior commit.
 
 Not pushed or deployed, same as the parent commit. coinquest.db is
 untouched and still one revision behind, per the note above.
+
+Pushed and deployed to the household stack the same day, both of this
+session's commits at once (0a3f907 the backend/API, 0110f1c the two
+screens). This is the first deploy to carry the new migration
+(7b10cc8d801f) over real data - the household database had been sitting
+one revision behind on purpose since Session Z started. A backup had
+already been taken minutes earlier while checking the backup script's
+invocation (coinquest-2026-09-01-1538.tar.gz, offsite leg skipped - the
+manual run doesn't carry RESTIC_REPOSITORY the way the 03:57 cron does),
+which stood in for the deliberate pre-migration snapshot DEPLOY.md asks
+for. Pulled on the Pi, rebuilt with `docker compose up -d --build
+coinquest` from AlfredHomeHub/docker (ARM64, built on the Pi), healthy
+inside 10 seconds.
+
+Verified against the real household database: revision 7b10cc8d801f,
+integrity_check ok, foreign_key_check empty, row counts unchanged across
+the original nine tables (4 definitions, 34 chore instances, 2 weeks, 1
+scheme_settings, the rest empty) plus the new tenth,
+savings_month_matches, present and empty - no household use of savings yet.
+Both of its immutability triggers present. scheme_settings carries the
+three new columns seeded to exactly the intended defaults (5%, 10%,
+£100.00) via the migration's server_default backfill, not a manual
+UPDATE. /health, /api/summary, the /parent deep link, and the three new
+savings-match endpoints all answer correctly against live data - the
+proposal endpoint in particular correctly refuses with "nothing to match
+yet" rather than erroring, since this household's savings ledger has no
+entries at all yet.
