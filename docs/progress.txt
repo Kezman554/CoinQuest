@@ -2408,3 +2408,9 @@ ledger's very first entry, exactly as the card predicted. tsc -b, vite
 build (bundle a shade smaller), oxlint (same five pre-existing warnings)
 and the Playwright e2e suite (4/4) all clean; full pytest suite
 unaffected as expected since nothing backend changed.
+
+Pushed and deployed to the household stack the same day. Backed up first
+(coinquest-2026-09-01-1758.tar.gz). No migration - frontend-only - so
+head stayed at 8a5d83828968; confirmed against the real household
+database, integrity_check ok, foreign_key_check empty. /health,
+/api/summary and /parent all answered 200 within seconds of the rebuild.
