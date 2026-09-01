@@ -49,7 +49,12 @@ export function Chore({
   const body = (
     <>
       {chore.name && <span className="chore-name">{chore.name}</span>}
-      {showAmount && (
+      {/* A basic chore pays as part of the flat weekly chore pot, never on
+          its own — a figure beside it reads as "this one pays £X", which
+          isn't true of any single basic chore, so it gets no chore-side at
+          all. Bonus and reward amounts are real per-chore figures and keep
+          showing exactly as before. */}
+      {showAmount && chore.category !== 'basic' && (
         <span className="chore-side">
           {chore.category === 'bonus' && <span className="tag tag-bonus">Bonus</span>}
           <span className="chore-amount">{money(chore.amount_pence)}</span>

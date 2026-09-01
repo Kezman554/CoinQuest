@@ -111,7 +111,12 @@ export function recoveryNotice(
 
   const outstanding = recovery.needs.filter((need) => !need.covered_by)
   const missed = list(outstanding.map((need) => need.miss_name))
-  const options = recovery.options.map((option) => option.name)
+  // `options` is one entry per claimable occasion, not one per chore — a
+  // bonus chore wanted more than once a week can still have two occasions
+  // open at once, and both name the same chore. Naming it twice reads as two
+  // choices ("do X or X") when it is one, so the sentence is built from the
+  // distinct names, in the order they first appear.
+  const options = [...new Set(recovery.options.map((option) => option.name))]
   const them = plural(outstanding.length, 'it', 'them')
 
   // Nothing left to do it with. Saying how long is left would be pointing at

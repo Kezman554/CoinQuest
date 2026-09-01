@@ -35,10 +35,16 @@ export function Weekly({ weekly, onClaim, busyId, deadlineWeekday }: Props) {
             className={`weekly-card${card.waived ? ' weekly-waived' : ''}`}
           >
             <h3>{card.name}</h3>
-            <p className="weekly-side">
-              {card.category === 'bonus' && <span className="tag tag-bonus">Bonus</span>}
-              <span className="chore-amount">{money(card.amount_pence)}</span>
-            </p>
+            {/* A basic chore pays as part of the flat weekly chore pot, not
+                per card — showing a figure here (£0 for a chore whose value
+                is genuinely folded into the weekly amount) reads as paying
+                per task. Bonus cards keep their real per-chore value. */}
+            {card.category !== 'basic' && (
+              <p className="weekly-side">
+                {card.category === 'bonus' && <span className="tag tag-bonus">Bonus</span>}
+                <span className="chore-amount">{money(card.amount_pence)}</span>
+              </p>
+            )}
 
             {card.waived ? (
               <p className="waived">

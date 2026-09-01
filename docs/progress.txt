@@ -2218,3 +2218,44 @@ returns {"total_earned_pence": 0, "real": [], "counterfactual": []} rather
 than erroring, correctly, since this household has no earnings or savings
 history yet - the empty-not-error path this session's own tests exist to
 cover.
+
+Session Z, fourth follow-on: three display fixes on the wall screen and
+the parent page, found by using the live app rather than reported as
+bugs from a card - all three display-layer only, no backend or data
+model touched.
+
+The parent page's "back to the week" control was reachable only at the
+foot of the page; the parent screen has grown to carry chores, the
+queue, the week, savings and the monthly match all on one page since it
+was first built, and the way back is now offered at the top as well -
+App.tsx's Parent component takes an onBack prop and renders a second
+button above the masthead. The footer one stays.
+
+Basic-chore rows (Chore.tsx's day tiles, Weekly.tsx's weekly-board cards)
+stopped showing a per-entry £ figure. A basic chore pays as part of the
+flat weekly pot, never on its own, and showing a number beside it read
+as "this one pays £X" - never true of any single basic chore, and
+actively confusing for a weekly-cadence one seeded at £0 since its value
+is folded entirely into the pot. Bonus (and reward) rows are unchanged;
+the condition is category !== 'basic', nothing about cadence.
+
+The make-good banner's "Do X or X to put it right" was a real duplicate,
+not a phrasing bug - week_view.py's own comment already says why:
+"the option is an instance rather than a chore", so a bonus chore wanted
+twice a week with both occasions still open appears twice in
+recovery.options, and recoveryNotice() in words.ts was joining names
+without deduping first. Fixed by building the sentence from the distinct
+names ([...new Set(...)]), in first-seen order - list()'s own length<=1
+case already renders a single name with no "or", so this was the whole
+fix. Confirmed the two-genuinely-different-chores case still says "or"
+correctly.
+
+Verified against a live seed rather than only the unit level: a basic
+daily chore marked missed, a basic weekly chore at £0, a bonus weekly
+chore wanted twice with both occasions open and nothing else available.
+Screenshotted the rendered banner ("Do Water the plants to put it
+right." - no duplicate) and both boards (no £ on either basic row, £30p
+and the Bonus tag intact on the bonus one), and counted two "Back to the
+week" buttons on the parent page, top and bottom. tsc -b, vite build,
+oxlint and the Playwright e2e suite (4/4) all clean; full pytest suite
+563/563, unaffected as expected since nothing backend changed.

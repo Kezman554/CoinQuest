@@ -46,7 +46,7 @@ function App() {
       {screen === 'child' && <ChildWeek />}
       {screen === 'savings' && <SavingsView />}
       {screen === 'lifetime' && <LifetimeView />}
-      {screen === 'parent' && <Parent />}
+      {screen === 'parent' && <Parent onBack={() => setScreen('child')} />}
 
       <footer className="switcher">
         {screen === 'child' ? (
@@ -71,9 +71,19 @@ function App() {
   )
 }
 
-function Parent() {
+/**
+ * The parent screen carries far more than a screenful — chores, the queue,
+ * the week, savings and the monthly match all stack on one page — so the way
+ * back is offered at the top as well as the bottom. The footer control is
+ * still there for whoever has scrolled to it; this one is for whoever
+ * hasn't.
+ */
+function Parent({ onBack }: { onBack: () => void }) {
   return (
     <>
+      <button type="button" className="button button-quiet button-back-top" onClick={onBack}>
+        Back to the week
+      </button>
       <header className="masthead">
         <h1>Parent</h1>
         <p className="dates">Everything here is authorised one submission at a time</p>
