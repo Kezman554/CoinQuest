@@ -1,11 +1,12 @@
 """The savings ledger.
 
-Nothing in the app computes a monthly match yet. The ledger is here anyway,
-from the first payday, because the match rewards money left alone and that can
+The ledger has been kept from the first payday, well before anything computed
+a match from it — because the match rewards money left alone and that can
 only be worked out from a balance history nobody kept at the time. Deferring
-the feature is a choice about when to build something; deferring the record is
-a choice to make the feature impossible when it arrives. The first is
-reversible and the second is not.
+the feature was a choice about when to build something; deferring the record
+would have been a choice to make the feature impossible when it arrived. The
+first is reversible and the second is not. See app.services.savings_match for
+the match itself, computed by replaying exactly this ledger.
 
 Every entry carries the balance after it. That is a running total written once
 into a row that cannot be edited — not a mutable field that could drift out of
@@ -161,6 +162,32 @@ def record_reversal(
         balance_after_pence=balance - amount_pence,
         occurred_on=occurred_on,
         week_id=week_id,
+        reason=reason,
+    )
+    session.add(entry)
+    session.flush()
+    return entry
+
+
+def record_match(
+    session: Session, *, amount_pence: int, occurred_on: date, reason: str | None = None
+) -> SavingsEntry:
+    """The monthly match, once a month settles. Written by
+    app.services.savings_match.settle, never called directly by a router.
+
+    Unlike a deposit, zero is allowed: a month whose low was nil, or whose
+    rate applied to nil, still closes on that figure, and the ledger records
+    it plainly rather than skipping a row for it — the same choice
+    settlement.settle makes when a week's total comes to nothing.
+    """
+    if amount_pence < 0:
+        raise SavingsError("A match cannot be negative.")
+
+    entry = SavingsEntry(
+        entry_type=SavingsType.MATCH,
+        amount_pence=amount_pence,
+        balance_after_pence=current_balance(session) + amount_pence,
+        occurred_on=occurred_on,
         reason=reason,
     )
     session.add(entry)

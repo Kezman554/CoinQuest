@@ -2,9 +2,8 @@
 
 One row. Unlike app.config.Settings (an env var read once at process start,
 requiring a restart to change), this table holds figures reviewed and edited
-through the app itself — currently the one figure the scheme needs like
-this. Nothing here is per-week or per-chore; that is what ChoreDefinition and
-the ledgers are for.
+through the app itself. Nothing here is per-week or per-chore; that is what
+ChoreDefinition and the ledgers are for.
 """
 
 from __future__ import annotations
@@ -36,12 +35,40 @@ class SchemeSettings(Base):
     #: unconditional allowance and is not this.
     weekly_basic_pay_pence: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    #: Where the monthly savings-match ladder starts, in whole percent — the
+    #: rate a clean first month, or a month straight after a withdrawal,
+    #: earns. See app.services.savings_match for the ladder itself; this and
+    #: the two settings below are only its tunable ends, reviewed at whatever
+    #: cadence a household reviews pocket money at all.
+    savings_match_start_rate_percent: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    #: Where the ladder stops climbing, in whole percent. A run of consecutive
+    #: clean months rises one point at a time and holds here.
+    savings_match_ceiling_rate_percent: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    #: The matched portion of a month's low tops out here. A rate ceiling, not
+    #: a stop: a balance past this figure keeps earning the match, just on no
+    #: more than this much of itself. See savings_match._match_pence.
+    savings_match_cap_pence: Mapped[int] = mapped_column(Integer, nullable=False)
+
     updated_at: Mapped[datetime] = mapped_column(
         UtcDateTime, nullable=False, default=utcnow, onupdate=utcnow
     )
 
     __table_args__ = (
         CheckConstraint("weekly_basic_pay_pence >= 0", name="weekly_basic_pay_not_negative"),
+        CheckConstraint(
+            "savings_match_start_rate_percent >= 0"
+            " AND savings_match_start_rate_percent <= savings_match_ceiling_rate_percent",
+            name="savings_match_start_rate_within_range",
+        ),
+        CheckConstraint(
+            "savings_match_ceiling_rate_percent <= 100",
+            name="savings_match_ceiling_rate_at_most_100",
+        ),
+        CheckConstraint(
+            "savings_match_cap_pence >= 0", name="savings_match_cap_not_negative"
+        ),
     )
 
     def __repr__(self) -> str:

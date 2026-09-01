@@ -15,6 +15,7 @@ from app.routers import (
     claims,
     parent,
     rewards,
+    savings_match,
     settings as settings_router,
     summary,
     waivers,
@@ -38,6 +39,7 @@ app.include_router(chores.router)
 app.include_router(claims.router)
 app.include_router(weeks.router)
 app.include_router(weeks.savings_router)
+app.include_router(savings_match.router)
 app.include_router(rewards.router)
 app.include_router(week_view.router)
 app.include_router(parent.router)

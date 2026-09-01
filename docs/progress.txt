@@ -1939,3 +1939,84 @@ since this session's work was about restoring the *other* shape of that same
 trigger on the way down. Head is unaffected, which is what it should be.
 /health, /api/summary (£3.00, week of 2026-08-23, 2 days remaining) and the
 /parent deep link all answer as before.
+
+2026-09-01 — Session Z: the monthly savings match
+
+Closed the gap app/routers/weeks.py had named since Session H: nothing
+computed a match from the savings ledger. §8 of the pocket-money rules is
+referenced from that gap but is not itself in this repository (checked
+docs/, scribble.md, every migration and service - only one PRD line naming
+the rule's shape, no numbers), so the arithmetic below came from Nick
+directly rather than being inferred, and is recorded here since nowhere else
+does:
+
+  - The rate starts at a configured start rate (seeded 5%) and climbs one
+    point a consecutive clean (no-withdrawal) month, up to a configured
+    ceiling (seeded 10%). A first month with no withdrawal counts as clean,
+    however partial.
+  - A withdrawal resets that *same* month's own rate to the start rate, and
+    that month is matched on the "dipped-to" low - the lowest balance after
+    the withdrawal, not the whole month's. A reversal (a reopened week's
+    payment, unwound) is not a withdrawal for this: it neither resets the
+    ladder nor triggers the dipped-to-low treatment.
+  - The match is the rate applied to whichever is lower, the month's low or
+    a configured cap (seeded £100) - a rate ceiling on the matched portion,
+    not a stop, so a balance past the cap keeps earning the same match.
+  - The opening balance earns the match from month one, the same as a
+    deposit would.
+
+Followed settlement.py's shape exactly: `app/services/savings_match.py`
+gains `propose()` (replays the savings ledger, writes nothing, safe to call
+repeatedly) and `settle()` (checked against a fresh existence test and the
+agreed figure, writes once, closes the month forever). There is no way to
+ask propose() for an arbitrary month - only ever "the next one after the
+last settled", which is what makes the ladder mean anything; a backlog of
+unsettled months has to be worked through in order.
+
+`SavingsMonthMatch` (savings_month_matches) is new: one row per settled
+month, storing the low it matched on, whether a withdrawal happened, the
+rate and cap in force, and the match - never a pointer back to
+scheme_settings, for the same reason `weeks` stores its own settled figures
+rather than rereading a chore definition. Its own CHECK reproduces the match
+formula (`match_pence = (MIN(low, cap) * rate + 50) / 100`), so a row that
+disagrees with its own arithmetic is refused by the database, not only by
+whatever wrote it. Immutability triggers, unconditional this time (unlike
+`weeks`, nothing about a settled month stays writable after payday). A
+second settlement of the same month is refused both by the service (a fresh
+query before writing) and by the table's own unique constraint on
+period_start - reopening a settled month is deliberately out of scope, a
+separate card, same as the prompt asked.
+
+scheme_settings gained the three tunable figures (start rate, ceiling rate,
+cap) alongside weekly_basic_pay_pence, reviewable through the same
+`/api/settings` endpoint - now a whole-form POST (all four fields together,
+no partial update) rather than the one-field write it used to be. Migration
+7b10cc8d801f adds those columns plus savings_month_matches; head is now
+7b10cc8d801f. `savings.record_match()` is the new ledger primitive (allows
+zero, unlike record_deposit) and `app/routers/savings_match.py` is a new
+router: GET /api/savings/match (settled months), GET
+/api/savings/match/proposal (no PIN), POST /api/savings/match/settle (PIN).
+
+tests/test_savings_match.py: the ladder climbing 5→10% across six clean
+months and holding there on the seventh; a withdrawal resetting the same
+month to 5% and paying on the dipped-to low, traced by hand against a
+multi-withdrawal month; a reversal proved *not* to reset the ladder; the cap
+example from the brief itself (£250 at 10%, capped at £100, pays £10 - as
+its own pure function test) plus the same behaviour proved through a real
+six-month climb where the balance is well past the cap by the time it
+matters; a settled month's figures read unchanged after the cap and ceiling
+are both raised; PIN-guarded settling; double-settlement refused; a stale
+agreed figure refused; the match landing on the savings ledger as its own
+entry. tests/test_scheme_settings.py extended for the three new fields and
+the start-above-ceiling refusal. Full suite green (549), including
+test_migration_against_real_data.py's walk up and down through the new
+revision.
+
+Not pushed or deployed. coinquest.db (the real household database, mounted
+on the Pi via AlfredHomeHub/docker) sits at c3f8b21a7d40, one revision
+behind - deliberately left alone this session rather than migrated in
+passing, given this repo's own history with migrations run for the first
+time against real data (Session V). Whoever runs the migration next should
+back up first, the way every deploy since has. No frontend surface yet -
+this card was the computation and the endpoints, not a screen; the proposal
+and settle actions exist only via the API today.
