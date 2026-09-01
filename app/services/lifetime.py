@@ -1,6 +1,6 @@
 """Lifetime totals, and the never-withdrawn comparison.
 
-Nothing here is stored. Two figures, both rebuilt fresh from the existing
+Nothing here is stored. Every figure is rebuilt fresh from the existing
 ledgers on every read — no new table, no cache, no field on an existing one.
 
 `total_earned_pence` is everything the earnings ledger has ever recorded,
@@ -11,6 +11,13 @@ for an ad-hoc one (see app.models.ledgers) — independent of whether the
 money was later kept as cash or banked. Summing that ledger is the whole
 computation; nothing here re-derives an amount from a chore definition or a
 week's own columns.
+
+`savings_breakdown` answers a different question — not everything ever
+earned, but why what is actually in the account got there: split into what
+came from a payday, what came in as a standalone deposit (a gift, birthday
+money — see app.services.savings_deposits), and what the account earned
+purely by being left alone, added up from every month the match has
+actually settled. See SavingsBreakdown.
 
 The never-withdrawn comparison is two trajectories of the savings balance
 over time:
@@ -46,7 +53,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.enums import SavingsType
-from app.models.ledgers import EarningEntry
+from app.models.ledgers import EarningEntry, SavingsEntry
 from app.services import savings, savings_match, scheme_settings
 from app.services.calendar import month_containing, today
 
@@ -57,10 +64,65 @@ class BalancePoint:
     balance_pence: int
 
 
+@dataclass(frozen=True)
+class SavingsBreakdown:
+    """Why the money actually in the account is there, split three ways.
+
+    A different question from total_earned_pence, and a different total: not
+    everything ever earned, cash or banked, but only what was ever deposited
+    or matched — the positive side of the savings ledger, broken down by
+    source rather than added into one figure. from_match_pence in particular
+    is not earned by anything he did; it exists because leaving money in the
+    account pays on its own.
+    """
+
+    #: DEPOSIT entries that split off a payday (see app.services.payments) —
+    #: identified by carrying a week_id, the same way those entries always
+    #: have.
+    from_payday_pence: int
+    #: DEPOSIT entries with no week_id: a standalone deposit, confirmed from
+    #: Oliver or posted directly by a parent (see
+    #: app.services.savings_deposits) — birthday money, a gift, anything
+    #: that did not come from a payday split.
+    from_gifts_pence: int
+    #: Every settled month's match, added up. Read from
+    #: savings_match.settled_months rather than recomputed — those rows are
+    #: the actual figures a month closed on, and this totals them rather
+    #: than re-deriving anything from the ladder.
+    from_match_pence: int
+
+
 def total_earned_pence(session: Session) -> int:
     """Everything ever earned, added up. See the module note."""
     total = session.query(func.sum(EarningEntry.amount_pence)).scalar()
     return total or 0
+
+
+def savings_breakdown(session: Session) -> SavingsBreakdown:
+    """The account's own money, split by why it's there. See SavingsBreakdown."""
+    from_payday = (
+        session.query(func.sum(SavingsEntry.amount_pence))
+        .filter(
+            SavingsEntry.entry_type == SavingsType.DEPOSIT,
+            SavingsEntry.week_id.isnot(None),
+        )
+        .scalar()
+    ) or 0
+    from_gifts = (
+        session.query(func.sum(SavingsEntry.amount_pence))
+        .filter(
+            SavingsEntry.entry_type == SavingsType.DEPOSIT,
+            SavingsEntry.week_id.is_(None),
+        )
+        .scalar()
+    ) or 0
+    from_match = sum(month.match_pence for month in savings_match.settled_months(session))
+
+    return SavingsBreakdown(
+        from_payday_pence=from_payday,
+        from_gifts_pence=from_gifts,
+        from_match_pence=from_match,
+    )
 
 
 def real_trajectory(session: Session) -> list[BalancePoint]:

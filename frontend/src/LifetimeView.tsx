@@ -1,12 +1,18 @@
 /**
- * Oliver's lifetime page: what has been earned in total, and the case for
- * not withdrawing.
+ * Oliver's lifetime page: what has been earned in total, where the savings
+ * actually came from, and the case for not withdrawing.
  *
- * Deliberately narrow — two things, nothing else. Not the Savings page's
+ * Deliberately narrow — three things, nothing else. Not the Savings page's
  * this-month detail, and not a place a parent settles anything from; both
  * belong on their own screens. Read-only, the same as Savings, and built
  * from the same shapes: the `.total` gradient card for the one figure that
- * matters most, `.figures` for the pair beside the chart.
+ * matters most, `.figures` for the rest.
+ *
+ * The breakdown is deliberately not folded into the total-earned card above
+ * it, and does not sum to that figure — it answers a different question
+ * (why what's in the account is there, not everything ever earned) and
+ * mixing the two would read as though the three parts added up to the
+ * headline number. See app.services.lifetime.SavingsBreakdown.
  *
  * "How money grows if you leave it alone" is the heading on purpose — the
  * counterfactual is a lesson about leaving money in, not a running tally of
@@ -57,6 +63,25 @@ export function LifetimeView() {
       <section className="total">
         <p className="total-label">Total earned to date</p>
         <p className="total-amount">{money(data.total_earned_pence)}</p>
+      </section>
+
+      <section className="panel">
+        <h2>Where the savings came from</h2>
+        <p className="act-note">
+          Some of it was never earned at all — the account pays just for
+          being left alone, not only for what goes into it.
+        </p>
+        <div className="figures">
+          <Figure label="From payday" value={money(data.savings_breakdown.from_payday_pence)} />
+          <Figure
+            label="Gifts and extras"
+            value={money(data.savings_breakdown.from_gifts_pence)}
+          />
+          <Figure
+            label="Earned from the match alone"
+            value={money(data.savings_breakdown.from_match_pence)}
+          />
+        </div>
       </section>
 
       <section className="panel">

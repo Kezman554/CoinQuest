@@ -2414,3 +2414,59 @@ Pushed and deployed to the household stack the same day. Backed up first
 head stayed at 8a5d83828968; confirmed against the real household
 database, integrity_check ok, foreign_key_check empty. /health,
 /api/summary and /parent all answered 200 within seconds of the rebuild.
+
+Standalone deposits' second follow-on: a savings breakdown on the
+Lifetime page, beneath (not folded into) the existing "total earned to
+date" figure. Three sources, all sourced from the ledger rather than
+recomputed: what a payday split off (a DEPOSIT entry carrying a week_id
+- app.services.payments always sets one), what arrived as a standalone
+deposit (a DEPOSIT entry with none - the previous session's feature),
+and what the match alone has ever paid, totalled from
+savings_match.settled_months rather than re-derived from the ladder.
+app/services/lifetime.py's new SavingsBreakdown dataclass and
+savings_breakdown() do the summing; app/routers/lifetime.py adds it to
+LifetimeView as its own nested object.
+
+Deliberately not folded into total_earned_pence, in the model or the
+screen: the three do not sum to it (total_earned counts everything ever
+earned whether kept as cash or banked; the breakdown counts only what
+is actually in the account, and from_match_pence in particular was
+never earned by anything he did - the account pays for being left
+alone). Stacking the breakdown inside the same .total card would have
+read as though the three parts added up to the headline number, so it
+is its own panel, "Where the savings came from", directly beneath it -
+keeping the point worth keeping in the copy: saving pays, not only
+what goes in.
+
+An opening balance entered through the old (now UI-unreachable but
+still-live) dedicated endpoint counts toward neither bucket - it is not
+a DEPOSIT at all, and the card names exactly three sources, not four.
+Tested explicitly as an intentional gap, not an oversight: the three
+figures are not claimed to account for every penny in the account,
+matching total_earned_pence's own "does not have to sum to anything
+else" note.
+
+tests/test_lifetime.py: 9 new tests - a real payday deposit (settled
+week, actually paid) landing under from_payday, a confirmed standalone
+deposit landing under from_gifts and not from_payday (the exact case
+the card asked to be tested), a parent-direct deposit doing the same, a
+still-pending unconfirmed deposit counting nowhere yet, an opening
+balance counting toward neither, the match figure proven equal to
+settled_months' own sum across a clean run and one with a withdrawal in
+it, the endpoint reporting the full breakdown, and - the third thing
+the card asked to be tested - the counterfactual chart still rendering
+correctly with a standalone deposit included, its final balance checked
+against the real trajectory's. Fixed one now-stale test along the way:
+the endpoint's empty-ledger response is no longer three keys but four.
+Full suite: 593 passed.
+
+Frontend: LifetimeView.tsx gains a "Where the savings came from" panel
+using the same Figure/.figures shapes the rest of the page already
+uses. Verified by hand: a live seed with a real settled-and-paid week, a
+backdated gift deposit and a settled month, screenshotted -
+"From payday £2", "Gifts and extras £5", "Earned from the match alone
+10p" - each figure read directly off a fresh /api/lifetime response
+before trusting the screenshot. The chart beneath it rendered correctly
+throughout, real £7.10 against a never-withdrawn £12.62 on that same
+seed. tsc -b, vite build, oxlint (same five pre-existing warnings) and
+the Playwright e2e suite (4/4) all clean.

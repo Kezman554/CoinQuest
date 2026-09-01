@@ -152,12 +152,24 @@ export type SavingsMatchProposal = {
 
 export type BalancePoint = { occurred_on: string; balance_pence: number }
 
-/** Everything ever earned, and the two savings trajectories — the real one
- * and, if no withdrawal had ever happened, what it would be instead. See
- * app.services.lifetime: the counterfactual is framed as "how money grows
- * if you leave it alone", never as "what you would have had". */
+/** Why the money in the account is there — savings-only, and a different
+ * total from total_earned_pence: these three do not sum to it.
+ * from_match_pence is never earned by anything he did; it's what the
+ * account pays for being left alone. See app.services.lifetime. */
+export type SavingsBreakdown = {
+  from_payday_pence: number
+  from_gifts_pence: number
+  from_match_pence: number
+}
+
+/** Everything ever earned, the savings breakdown, and the two savings
+ * trajectories — the real one and, if no withdrawal had ever happened,
+ * what it would be instead. See app.services.lifetime: the counterfactual
+ * is framed as "how money grows if you leave it alone", never as "what
+ * you would have had". */
 export type Lifetime = {
   total_earned_pence: number
+  savings_breakdown: SavingsBreakdown
   real: BalancePoint[]
   counterfactual: BalancePoint[]
 }

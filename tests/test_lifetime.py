@@ -23,6 +23,8 @@ from app.services import lifetime, savings, savings_match
 from app.services.authorisation import Authorisation
 
 PIN = "0000"
+CHILD = "Test Child"
+PARENT = "Test Parent"
 
 
 @pytest.fixture()
@@ -63,6 +65,47 @@ def settle_next_month(session, tz):
     )
     session.commit()
     return row
+
+
+def payday_deposit(api, session, *, deposited_pence, week_start=date(2026, 1, 4)):
+    """A real payday deposit — settle a perfect week, then bank part of it —
+    rather than a bare savings.record_deposit call, so this exercises the
+    actual week_id-carrying path app.services.payments writes."""
+    from app.models import Cadence, Category, ChoreDefinition, ChoreInstance, InstanceState, Week
+    from app.services import scheme_settings
+
+    beds = ChoreDefinition(
+        name="Make bed", cadence=Cadence.DAILY, category=Category.BASIC, amount_pence=0
+    )
+    session.add(beds)
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 350
+    session.commit()
+
+    week = Week(start_date=week_start, end_date=date.fromordinal(week_start.toordinal() + 6))
+    session.add(week)
+    session.commit()
+    for offset in range(7):
+        session.add(
+            ChoreInstance(
+                definition_id=beds.id,
+                week_id=week.id,
+                due_date=date.fromordinal(week.start_date.toordinal() + offset),
+                state=InstanceState.CONFIRMED,
+                confirmed_at=week.created_at,
+                authorised_by="parent",
+            )
+        )
+    session.commit()
+
+    assert api.post(
+        f"/api/weeks/{week.id}/settle", json={"pin": PIN, "agreed_total_pence": 450}
+    ).status_code == 200
+    response = api.post(
+        "/api/weeks/payments",
+        json={"pin": PIN, "week_ids": [week.id], "deposited_pence": deposited_pence},
+    )
+    assert response.status_code == 200
+    return week
 
 
 def settle_every_elapsed_month(session, tz):
@@ -272,7 +315,16 @@ def test_reading_needs_no_pin(api):
 
 def test_the_endpoint_is_empty_and_not_an_error_with_no_history(api):
     body = api.get("/api/lifetime").json()
-    assert body == {"total_earned_pence": 0, "real": [], "counterfactual": []}
+    assert body == {
+        "total_earned_pence": 0,
+        "savings_breakdown": {
+            "from_payday_pence": 0,
+            "from_gifts_pence": 0,
+            "from_match_pence": 0,
+        },
+        "real": [],
+        "counterfactual": [],
+    }
 
 
 def test_the_endpoint_reports_both_trajectories(api, session):
@@ -290,3 +342,144 @@ def test_the_endpoint_reports_both_trajectories(api, session):
     # simply does not see it happen.
     assert [p["balance_pence"] for p in body["real"]] == [1000, 800]
     assert [p["balance_pence"] for p in body["counterfactual"]] == [1000]
+
+
+# --- The savings breakdown --------------------------------------------------
+
+
+def test_a_payday_deposit_counts_under_from_payday(api, session):
+    payday_deposit(api, session, deposited_pence=200)
+
+    breakdown = lifetime.savings_breakdown(session)
+    assert breakdown.from_payday_pence == 200
+    assert breakdown.from_gifts_pence == 0
+    assert breakdown.from_match_pence == 0
+
+
+def test_a_confirmed_standalone_deposit_counts_as_a_gift_not_payday(api, session):
+    """The exact case the card asks to be tested: log an ad hoc deposit and
+    confirm it lands under gifts/ad-hoc, not payday."""
+    payday_deposit(api, session, deposited_pence=200)
+
+    request = api.post(
+        "/api/savings/deposits",
+        json={"amount_pence": 500, "note": "Birthday money", "posted_by": CHILD},
+    ).json()
+    confirmed = api.post(
+        f"/api/savings/deposits/{request['id']}/confirm", json={"pin": PIN}
+    )
+    assert confirmed.status_code == 200
+
+    breakdown = lifetime.savings_breakdown(session)
+    assert breakdown.from_gifts_pence == 500
+    assert breakdown.from_payday_pence == 200
+
+
+def test_a_parent_posted_deposit_also_counts_as_a_gift(api, session):
+    response = api.post(
+        "/api/savings/deposits/parent",
+        json={"pin": PIN, "amount_pence": 300, "note": "Gift from Grandma", "posted_by": PARENT},
+    )
+    assert response.status_code == 201
+
+    breakdown = lifetime.savings_breakdown(session)
+    assert breakdown.from_gifts_pence == 300
+    assert breakdown.from_payday_pence == 0
+
+
+def test_a_pending_unconfirmed_deposit_counts_nowhere_yet(api, session):
+    """A submitted-but-not-confirmed deposit has not reached the ledger at
+    all — see app.services.savings_deposits. Neither breakdown figure
+    should see it until a parent confirms it."""
+    opening_balance(session, amount_pence=1000)
+    session.commit()
+    api.post(
+        "/api/savings/deposits",
+        json={"amount_pence": 500, "note": "Birthday money", "posted_by": CHILD},
+    )
+
+    breakdown = lifetime.savings_breakdown(session)
+    assert breakdown.from_gifts_pence == 0
+
+
+def test_the_opening_balance_entry_counts_toward_neither_bucket(session):
+    """OPENING_BALANCE is not a DEPOSIT, and this breakdown is not asked to
+    account for it — the card names payday and standalone deposits, plus
+    the match, as the three sources; an opening balance entered through the
+    now-legacy dedicated endpoint is deliberately outside all three, the
+    same way it is outside total_earned_pence."""
+    opening_balance(session, amount_pence=1000)
+
+    breakdown = lifetime.savings_breakdown(session)
+    assert breakdown.from_payday_pence == 0
+    assert breakdown.from_gifts_pence == 0
+
+
+def test_the_match_figure_is_the_sum_of_every_settled_months_match(session, tz):
+    """Not recomputed — totalled from the same rows the monthly-match
+    history already stores."""
+    opening_balance(session, amount_pence=100_00, on=date(2026, 1, 5))
+    session.commit()
+
+    for _ in range(4):
+        settle_next_month(session, tz)
+
+    expected = sum(month.match_pence for month in savings_match.settled_months(session))
+    assert expected > 0  # sanity: the ladder actually paid something
+
+    breakdown = lifetime.savings_breakdown(session)
+    assert breakdown.from_match_pence == expected
+
+
+def test_a_withdrawal_month_still_contributes_its_match(session, tz):
+    """A withdrawal resets the rate, not the fact that the month still
+    settles on some figure — that figure still belongs in the total."""
+    opening_balance(session, amount_pence=100_00, on=date(2026, 1, 5))
+    session.commit()
+    settle_next_month(session, tz)  # January, clean
+
+    withdraw(session, amount_pence=10_00, on=date(2026, 2, 10))
+    session.commit()
+    settle_next_month(session, tz)  # February, reset by the withdrawal
+
+    expected = sum(month.match_pence for month in savings_match.settled_months(session))
+    breakdown = lifetime.savings_breakdown(session)
+    assert breakdown.from_match_pence == expected
+
+
+def test_the_endpoint_reports_the_breakdown(api, session):
+    payday_deposit(api, session, deposited_pence=200)
+    api.post(
+        "/api/savings/deposits/parent",
+        json={"pin": PIN, "amount_pence": 300, "note": "Gift", "posted_by": PARENT},
+    )
+
+    body = api.get("/api/lifetime").json()
+    assert body["savings_breakdown"] == {
+        "from_payday_pence": 200,
+        "from_gifts_pence": 300,
+        "from_match_pence": 0,
+    }
+
+
+def test_the_counterfactual_still_renders_with_a_standalone_deposit_included(api, session, tz):
+    """The chart needs no changes to pick up an ad hoc deposit — it already
+    replays every DEPOSIT-type entry regardless of source. Proved here
+    rather than assumed."""
+    opening_balance(session, amount_pence=100_00, on=date(2026, 1, 5))
+    session.commit()
+
+    gift = api.post(
+        "/api/savings/deposits/parent",
+        json={"pin": PIN, "amount_pence": 20_00, "note": "Birthday money", "posted_by": PARENT},
+    )
+    assert gift.status_code == 201
+
+    settle_every_elapsed_month(session, tz)
+
+    body = api.get("/api/lifetime").json()
+    assert body["counterfactual"], "the chart has points to draw"
+    # The gift is real money in the account; the counterfactual's final
+    # balance has to reflect it, the same as the real trajectory does.
+    assert body["counterfactual"][-1]["balance_pence"] == body["real"][-1]["balance_pence"]
+    assert body["real"][-1]["balance_pence"] >= 100_00 + 20_00
