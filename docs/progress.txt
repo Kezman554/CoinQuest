@@ -2470,3 +2470,13 @@ before trusting the screenshot. The chart beneath it rendered correctly
 throughout, real £7.10 against a never-withdrawn £12.62 on that same
 seed. tsc -b, vite build, oxlint (same five pre-existing warnings) and
 the Playwright e2e suite (4/4) all clean.
+
+Pushed and deployed to the household stack the same day. Backed up first
+(coinquest-2026-09-01-1812.tar.gz). No migration - nothing here is
+stored, every figure is recomputed on read - so head stayed at
+8a5d83828968. Confirmed against the real household database,
+integrity_check ok, foreign_key_check empty; /api/lifetime correctly
+returns the four-key empty-not-error shape
+({"total_earned_pence": 0, "savings_breakdown": {"from_payday_pence": 0,
+"from_gifts_pence": 0, "from_match_pence": 0}, "real": [],
+"counterfactual": []}) since this household has no savings history yet.
