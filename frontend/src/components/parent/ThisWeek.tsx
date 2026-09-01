@@ -143,7 +143,9 @@ function SettleButton({ week, ask }: WeekAct) {
   )
 }
 
-function Figure({
+/** A labelled figure in a `.figures` grid — shared with SavingsMatch and
+ * the Oliver-facing savings page rather than each growing its own copy. */
+export function Figure({
   label,
   value,
   big,

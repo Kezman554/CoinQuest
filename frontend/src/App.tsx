@@ -1,10 +1,16 @@
 /**
- * Two screens on one wall.
+ * Three screens on one wall.
  *
- * The child's week is what the app opens on, every time. The parent's view is
- * reached by a deliberately quiet control at the foot of the page and is never
- * what a fresh load lands on: the screen lives in a kitchen and is read a
- * dozen times a day by the person who does not need it.
+ * The child's week is what the app opens on, every time. Savings and Parent
+ * are both reached by deliberately quiet controls at the foot of the page and
+ * neither is what a fresh load lands on: the screen lives in a kitchen and is
+ * read a dozen times a day by someone who came to see the week, not to
+ * navigate a dashboard.
+ *
+ * The two are not the same kind of quiet, though. Savings is read-only and
+ * needs no credential — offering it costs nothing, and it is where "how much
+ * have I got" actually lives now that this feature exists. Parent asks for a
+ * PIN the moment anything on it tries to move money.
  *
  * The switch is presentation and nothing else. It hides no authorisation —
  * every act on the parent side carries a PIN the server checks, and a person
@@ -25,25 +31,35 @@ import { Total } from './components/Total'
 import { Weekly } from './components/Weekly'
 import { NotCurrentBanner, WeekNav } from './components/WeekNav'
 import { ParentView } from './ParentView'
+import { SavingsView } from './SavingsView'
 import { longDate, shortDate, weekdayOf } from './words'
 
-type Screen = 'child' | 'parent'
+type Screen = 'child' | 'savings' | 'parent'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('child')
 
   return (
     <main className="page">
-      {screen === 'child' ? <ChildWeek /> : <Parent />}
+      {screen === 'child' && <ChildWeek />}
+      {screen === 'savings' && <SavingsView />}
+      {screen === 'parent' && <Parent />}
 
       <footer className="switcher">
-        <button
-          type="button"
-          className="button button-quiet"
-          onClick={() => setScreen(screen === 'child' ? 'parent' : 'child')}
-        >
-          {screen === 'child' ? 'Parent' : "Back to the week"}
-        </button>
+        {screen === 'child' ? (
+          <>
+            <button type="button" className="button button-quiet" onClick={() => setScreen('savings')}>
+              Savings
+            </button>
+            <button type="button" className="button button-quiet" onClick={() => setScreen('parent')}>
+              Parent
+            </button>
+          </>
+        ) : (
+          <button type="button" className="button button-quiet" onClick={() => setScreen('child')}>
+            Back to the week
+          </button>
+        )}
       </footer>
     </main>
   )

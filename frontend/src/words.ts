@@ -184,6 +184,13 @@ export function shortDate(iso: string): string {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
 }
 
+/** "September 2026", for a month named rather than dated — the savings
+ * match settles by the calendar month, not by a week's own dates. */
+export function monthName(iso: string): string {
+  const date = new Date(`${iso}T12:00:00`)
+  return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+}
+
 export function weekdayOf(iso: string): string {
   const date = new Date(`${iso}T12:00:00`)
   return date.toLocaleDateString('en-GB', { weekday: 'long' })

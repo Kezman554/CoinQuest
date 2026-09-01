@@ -199,7 +199,12 @@ function WeeklyBasicPay({ settings, ask }: Ask & { settings: SchemeSettings }) {
               ],
               confirmLabel: 'Save',
               run: (pin) =>
-                updateSchemeSettings(pin, pence).then(() => {
+                updateSchemeSettings(pin, {
+                  weekly_basic_pay_pence: pence,
+                  savings_match_start_rate_percent: settings.savings_match_start_rate_percent,
+                  savings_match_ceiling_rate_percent: settings.savings_match_ceiling_rate_percent,
+                  savings_match_cap_pence: settings.savings_match_cap_pence,
+                }).then(() => {
                   setEditing(false)
                 }),
             })

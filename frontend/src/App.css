@@ -524,6 +524,7 @@
   margin-top: 2rem;
   display: flex;
   justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .button {
@@ -882,6 +883,33 @@ select {
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-top: 0.75rem;
+}
+
+/* --- Progress toward the savings-match cap -------------------------------- */
+
+.savings-cap {
+  margin-top: 1rem;
+}
+
+.savings-cap-bar {
+  height: 0.9rem;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.savings-cap-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.3s ease;
+}
+
+.savings-cap-note {
+  margin-top: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
 }
 
 /* --- Closed weeks -------------------------------------------------------- */

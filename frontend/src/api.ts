@@ -115,6 +115,23 @@ export type WeekView = {
   totals: Totals
 }
 
+export type SavingsBalance = { balance_pence: number }
+
+/** What the next unsettled month is worth, whether or not it has finished
+ * yet — see app.services.savings_match.propose. `month_has_ended` is what
+ * tells a live, still-moving preview apart from a final, settled figure. */
+export type SavingsMatchProposal = {
+  period_start: string
+  period_end: string
+  balance_low_pence: number
+  had_withdrawal: boolean
+  rate_percent: number
+  cap_pence: number
+  match_pence: number
+  month_has_ended: boolean
+  clean_months_in_a_row: number
+}
+
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let detail = `The app returned ${response.status}`
@@ -157,6 +174,19 @@ export async function loadWeeks(): Promise<WeekSummary[]> {
  * Used to page back to a week that is not the one currently open. */
 export async function loadWeekById(weekId: number): Promise<WeekView> {
   return json<WeekView>(await fetch(`/api/week/${weekId}`))
+}
+
+/** What's in the account. Read-only, needs no credential — the same as
+ * every other GET on this screen. */
+export async function loadSavingsBalance(): Promise<SavingsBalance> {
+  return json<SavingsBalance>(await fetch('/api/savings'))
+}
+
+/** May reject — a 409 when the savings ledger has no entries at all yet.
+ * That is a real state ("nothing to match"), not a failure, so the savings
+ * screen catches it rather than treating it as an error to display. */
+export async function loadSavingsMatchProposal(): Promise<SavingsMatchProposal> {
+  return json<SavingsMatchProposal>(await fetch('/api/savings/match/proposal'))
 }
 
 export async function claim(instanceId: number): Promise<void> {

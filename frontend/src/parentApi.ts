@@ -225,10 +225,43 @@ export type ChoreWrite = {
   is_administered: boolean
 }
 
-/** The scheme's own settings — currently the one figure the basic chores share. */
+/** The scheme's own settings: the weekly basic pay, and the two ends of the
+ * savings-match ladder — see SavingsMatchProposal for the ladder itself. */
 export type SchemeSettings = {
   weekly_basic_pay_pence: number
   weekly_basic_pay: string
+  savings_match_start_rate_percent: number
+  savings_match_ceiling_rate_percent: number
+  savings_match_cap_pence: number
+  savings_match_cap: string
+}
+
+/** What the next unsettled month is worth, whether or not it has finished.
+ * `month_has_ended` is what tells a live, still-moving preview apart from a
+ * final figure ready to settle — see app.services.savings_match.propose. */
+export type SavingsMatchProposal = {
+  period_start: string
+  period_end: string
+  balance_low_pence: number
+  had_withdrawal: boolean
+  rate_percent: number
+  cap_pence: number
+  match_pence: number
+  month_has_ended: boolean
+  clean_months_in_a_row: number
+}
+
+export type SettledMonth = {
+  id: number
+  period_start: string
+  period_end: string
+  balance_low_pence: number
+  had_withdrawal: boolean
+  rate_percent: number
+  cap_pence: number
+  match_pence: number
+  settled_by: string
+  settled_at: string
 }
 
 async function json<T>(response: Response): Promise<T> {
@@ -282,6 +315,12 @@ export const loadPresets = () => get<Preset[]>('/api/rewards/presets')
 export const loadCurrentWeek = () => get<WeekView>('/api/week')
 export const loadChores = () => get<ChoreDefinition[]>('/api/chores')
 export const loadSchemeSettings = () => get<SchemeSettings>('/api/settings')
+export const loadSettledMonths = () => get<SettledMonth[]>('/api/savings/match')
+/** May reject with a 409 — nothing to project yet, when the savings ledger
+ * has no entries at all. That is a real state to show, not an error to
+ * surface: callers catch it and render accordingly. */
+export const loadSavingsMatchProposal = () =>
+  get<SavingsMatchProposal>('/api/savings/match/proposal')
 
 /** What a batch would do. Applies nothing, so it carries no PIN. */
 export const previewReview = (decisions: DecisionIn[]) =>
@@ -382,8 +421,25 @@ export const editChore = (pin: string, id: number, chore: ChoreWrite) =>
 export const retireChore = (pin: string, id: number) =>
   send<ChoreDefinition>(`/api/chores/${id}/retire`, { pin })
 
-export const updateSchemeSettings = (pin: string, weeklyBasicPayPence: number) =>
-  send<SchemeSettings>('/api/settings', {
+/** All four settings travel together on every write — see the module note
+ * on SchemeSettings and app/routers/settings.py: there is no partial update,
+ * so a caller changing one figure still has to send the other three back
+ * exactly as it read them. */
+export const updateSchemeSettings = (
+  pin: string,
+  settings: {
+    weekly_basic_pay_pence: number
+    savings_match_start_rate_percent: number
+    savings_match_ceiling_rate_percent: number
+    savings_match_cap_pence: number
+  },
+) => send<SchemeSettings>('/api/settings', { pin, ...settings })
+
+/** Close the next unsettled month on a figure a parent has read and
+ * agreed — refused server-side if that month has not finished yet, or if
+ * the figure no longer matches what it currently proposes. */
+export const settleMonth = (pin: string, agreedMatchPence: number) =>
+  send<SettledMonth>('/api/savings/match/settle', {
     pin,
-    weekly_basic_pay_pence: weeklyBasicPayPence,
+    agreed_match_pence: agreedMatchPence,
   })

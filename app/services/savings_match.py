@@ -63,7 +63,8 @@ RATE_STEP_PERCENT = 1
 
 
 class MonthNotOver(Exception):
-    """There is no final low to match on until the month has actually ended."""
+    """Raised by settle(), never propose(): a month can be previewed before
+    it ends, but not closed on a figure that could still move."""
 
 
 class NoSavingsYet(Exception):
@@ -86,7 +87,14 @@ class ProposalChanged(Exception):
 
 @dataclass(frozen=True)
 class MonthlyMatchProposal:
-    """What the next unsettled month is worth. Applied to nothing."""
+    """What the next unsettled month is worth. Applied to nothing.
+
+    Computable whether or not that month has finished — a screen reading
+    "what would this pay right now" is legitimate mid-month, the low and the
+    rate replay exactly the same either way. `month_has_ended` is what tells
+    the two situations apart: everything else on this month keeps moving
+    until it does, and only settle() refuses to close on it before then.
+    """
 
     period_start: date
     period_end: date
@@ -95,6 +103,11 @@ class MonthlyMatchProposal:
     rate_percent: int
     cap_pence: int
     match_pence: int
+    month_has_ended: bool
+    #: However many months in a row, this one included if it is clean so
+    #: far, produced `rate_percent` — the true streak, uncapped, which can
+    #: run past the ceiling even once the rate itself has stopped climbing.
+    clean_months_in_a_row: int
 
 
 def latest_settled(session: Session) -> SavingsMonthMatch | None:
@@ -195,6 +208,22 @@ def _rate_percent(session: Session, *, had_withdrawal: bool) -> int:
     return min(previous.rate_percent + RATE_STEP_PERCENT, ceiling_rate)
 
 
+def _clean_streak(session: Session, *, had_withdrawal: bool) -> int:
+    """This month, if it is clean so far, plus however many settled months
+    before it were clean too — walking back until the first withdrawal or
+    the ledger's own start. Zero for a month a withdrawal has already
+    touched."""
+    if had_withdrawal:
+        return 0
+
+    streak = 1
+    for month in reversed(settled_months(session)):
+        if month.had_withdrawal:
+            break
+        streak += 1
+    return streak
+
+
 def _match_pence(*, low_pence: int, rate_percent: int, cap_pence: int) -> int:
     """The rate applied to whichever is lower, the low or the cap.
 
@@ -207,21 +236,24 @@ def _match_pence(*, low_pence: int, rate_percent: int, cap_pence: int) -> int:
 
 
 def propose(session: Session, tz) -> MonthlyMatchProposal:
-    """What the next unsettled month is worth. Writes nothing.
+    """What the next unsettled month is worth right now. Writes nothing.
 
-    Refuses a month that has not finished yet — the low is only final once
-    the month is over — and a ledger with no entries at all, since there is
-    no month to match against an account that does not exist.
+    Computable mid-month on purpose — a screen reading "what would this pay
+    today" is a legitimate question before the month is over, and the two
+    screens that read this (Oliver's savings page, and the parent panel
+    that settles it) both need exactly that. `month_has_ended` says whether
+    the figures are final; only settle() refuses to close on one that is
+    not. Refuses only a ledger with no entries at all, since there is no
+    month to match against an account that does not exist yet.
     """
     period = _next_period(session, tz)
-    if today(tz) <= period.end:
-        raise MonthNotOver(f"{period} has not finished yet.")
 
     before, within = _balance_before_and_within(session, period)
     low_pence, had_withdrawal = _low_and_had_withdrawal(before, within)
     rate_percent = _rate_percent(session, had_withdrawal=had_withdrawal)
     cap_pence = scheme_settings.savings_match_cap_pence(session)
     match_pence = _match_pence(low_pence=low_pence, rate_percent=rate_percent, cap_pence=cap_pence)
+    clean_months_in_a_row = _clean_streak(session, had_withdrawal=had_withdrawal)
 
     return MonthlyMatchProposal(
         period_start=period.start,
@@ -231,6 +263,8 @@ def propose(session: Session, tz) -> MonthlyMatchProposal:
         rate_percent=rate_percent,
         cap_pence=cap_pence,
         match_pence=match_pence,
+        month_has_ended=today(tz) > period.end,
+        clean_months_in_a_row=clean_months_in_a_row,
     )
 
 
@@ -248,7 +282,18 @@ def settle(
     status — so two requests racing to settle the same month cannot both
     succeed, and the table's own unique constraint stands behind this as the
     last word if they somehow still tried to.
+
+    Refuses a proposal whose month has not finished yet: propose() will
+    compute one anyway, for a screen reading how the month stands so far,
+    but the low it reports is not final until the month is, and settling on
+    it would store a figure the rest of the month could still have moved.
     """
+    if not proposal.month_has_ended:
+        raise MonthNotOver(
+            f"{proposal.period_start.isoformat()} has not finished yet;"
+            " there is nothing final to settle."
+        )
+
     already = (
         session.query(SavingsMonthMatch)
         .filter(SavingsMonthMatch.period_start == proposal.period_start)

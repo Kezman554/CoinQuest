@@ -2020,3 +2020,86 @@ time against real data (Session V). Whoever runs the migration next should
 back up first, the way every deploy since has. No frontend surface yet -
 this card was the computation and the endpoints, not a screen; the proposal
 and settle actions exist only via the API today.
+
+2026-09-01 — Session Z follow-on: two screens for the match, and a backend
+gap that surfacing it exposed
+
+Nick confirmed the spec actually envisages three savings screens, not one:
+an Oliver-facing Savings page, a Lifetime page (total earned and the
+never-withdrawn counterfactual - separate, out of scope, coming later,
+deliberately not folded into either of these two), and a parent panel to
+review and settle the match. Built the first and third; the Lifetime page
+stays unbuilt on purpose.
+
+Building either screen surfaced a real gap in what Session Z shipped:
+`propose()` refused outright with MonthNotOver until a month had actually
+finished, which meant there was no way to answer "what would this pay right
+now" for the month in progress - and both screens need exactly that
+("the month's low so far", "what it will pay if nothing changes"). Fixed by
+moving the refusal to where it actually belongs: `propose()` now computes
+the same figures whether or not the month has ended, returning a new
+`month_has_ended` flag; `settle()` is what refuses to close on one that
+hasn't. Added `clean_months_in_a_row` too - the true streak behind the rate,
+uncapped, so a screen can say "8 months clean" even once the rate itself
+has been sitting at the ceiling for two of them - computed server-side
+rather than reimplemented in TypeScript, the same judgement App.tsx's own
+docstring already makes about not giving a screen a second copy of a rule
+that has to agree with the one that actually settles.
+
+tests/test_savings_match.py updated for the new split: propose() proved to
+preview a live in-progress month without raising, settle() proved to refuse
+one that hasn't ended, and clean_months_in_a_row asserted through the
+ladder-climb and withdrawal-reset tests already there. 20 tests, still
+green; full suite unaffected elsewhere.
+
+Frontend, two new pieces:
+
+  Parent panel (components/parent/SavingsMatch.tsx, wired into
+  ParentView.tsx alongside SavingsPanel) - the rate in force, the month's
+  low so far, and what it pays, with a Settle button that only appears once
+  `month_has_ended` is true. Settle re-fetches the proposal the instant it
+  is pressed and opens the PIN dialog on that fresh figure, never on
+  whatever the panel last rendered - the identical readback-before-commit
+  shape ThisWeek's own SettleButton already uses, down to fetching fresh
+  and refusing to open the dialog if the month has stopped being the one
+  waiting to settle in the meantime. The most recently settled month reads
+  as a quiet line above it, the closest analogue this feature has to
+  ClosedWeeks' read-only closed-week display - there is no "already
+  settled, mid-transition" state to speak of, since propose() only ever
+  names the next unsettled month and a parent watching this panel simply
+  sees it roll forward to the following one the moment Settle succeeds.
+
+  Oliver's Savings page (SavingsView.tsx, a third screen alongside child
+  and parent, reached from a new "Savings" button in the footer - needs no
+  PIN, so it sits beside Parent rather than behind it) - balance, current
+  rate, clean months in a row, what next month pays if nothing changes,
+  this month's low so far, and a progress bar toward the cap. Built from
+  the same `.total` gradient card and `.figures` grid ThisWeek and Total.tsx
+  already use, deliberately, rather than a second visual language - `Figure`
+  itself is now exported from ThisWeek.tsx and shared by both new pieces,
+  the same way PinDialog already crosses the child/parent boundary in
+  App.tsx.
+
+Fixed in passing: `updateSchemeSettings` on the frontend still only sent
+`weekly_basic_pay_pence`, which the settings endpoint had required alone
+until this session's earlier work made all four fields travel together on
+every write - a real regression the Weekly Basic Pay editor would have hit
+the next time anyone used it. Chores.tsx's call site now sends the other
+three fields back exactly as it read them.
+
+Verified by hand rather than only by test: started the real API against a
+scratch database and the Vite dev server, seeded an opening balance, and
+drove both screens with Playwright end to end - including forcing a month
+into month_has_ended by dating the opening balance into August, settling it
+through the actual Settle button and PIN dialog, and confirming the ladder
+rolled forward to 6% on the new balance and the entry landed on the ledger
+with the right reason string. No console errors from either screen. (One
+pre-existing, unrelated console error was seen and left alone: POST
+/api/week/open double-firing under React StrictMode's dev-mode double
+effect invocation, on an endpoint neither this session nor Session Z
+touched.) tsc -b, vite build, oxlint and the full Playwright e2e suite
+(4/4) all clean; oxlint's four warnings are pre-existing, confirmed by
+diffing against the same lint run on the prior commit.
+
+Not pushed or deployed, same as the parent commit. coinquest.db is
+untouched and still one revision behind, per the note above.

@@ -75,13 +75,32 @@ def test_no_savings_yet_refuses_a_proposal(session, tz):
         savings_match.propose(session, tz)
 
 
-def test_the_current_month_has_not_finished_yet(session, tz):
+def test_the_current_month_can_be_previewed_but_not_settled(session, tz):
+    """propose() computes a live figure mid-month — Oliver's page and the
+    parent panel both read it that way — but settle() refuses to close on
+    one that has not finished yet."""
     from app.services.calendar import today
 
     opening_balance(session, on=today(tz).replace(day=1))
     session.commit()
+
+    proposal = savings_match.propose(session, tz)
+    assert proposal.month_has_ended is False
+
+    authorisation = Authorisation(party="parent", at=utcnow())
     with pytest.raises(MonthNotOver):
-        savings_match.propose(session, tz)
+        savings_match.settle(
+            session, proposal, authorisation, agreed_match_pence=proposal.match_pence
+        )
+    assert session.query(SavingsMonthMatch).count() == 0
+
+
+def test_a_finished_months_proposal_says_so(session, tz):
+    opening_balance(session, on=date(2026, 1, 10))
+    session.commit()
+
+    proposal = savings_match.propose(session, tz)
+    assert proposal.month_has_ended is True
 
 
 def test_a_proposal_writes_nothing_however_often_it_is_read(session, tz):
@@ -118,14 +137,17 @@ def test_the_rate_climbs_a_point_a_clean_month_up_to_the_ceiling(session, tz):
 
     # Six clean months: 5, 6, 7, 8, 9, 10 — the ceiling reached on the sixth.
     row = None
-    for expected_rate in (5, 6, 7, 8, 9, 10):
+    for month_number, expected_rate in enumerate((5, 6, 7, 8, 9, 10), start=1):
         row, proposal = settle(session, tz)
         assert proposal.rate_percent == expected_rate
+        assert proposal.clean_months_in_a_row == month_number
         assert row.rate_percent == expected_rate
 
-    # A seventh clean month holds at the ceiling rather than climbing past it.
+    # A seventh clean month holds at the ceiling rather than climbing past it
+    # — but the true streak keeps counting past where the rate stops.
     row, proposal = settle(session, tz)
     assert proposal.rate_percent == 10
+    assert proposal.clean_months_in_a_row == 7
 
 
 def test_a_withdrawal_resets_that_same_months_rate_to_the_start(session, tz):
@@ -144,10 +166,13 @@ def test_a_withdrawal_resets_that_same_months_rate_to_the_start(session, tz):
     row, proposal = settle(session, tz)
     assert proposal.had_withdrawal is True
     assert row.rate_percent == 5
+    assert proposal.clean_months_in_a_row == 0
 
-    # Fifth month, clean again: climbs from the reset rate, not from 7%.
-    row, _ = settle(session, tz)
+    # Fifth month, clean again: climbs from the reset rate, not from 7%, and
+    # the streak starts over at one rather than resuming from three.
+    row, proposal = settle(session, tz)
     assert row.rate_percent == 6
+    assert proposal.clean_months_in_a_row == 1
 
 
 def test_a_reversal_is_not_a_withdrawal_and_does_not_reset_the_ladder(session, tz):

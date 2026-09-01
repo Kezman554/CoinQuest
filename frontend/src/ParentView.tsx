@@ -23,8 +23,10 @@ import type {
   Owed,
   Pending,
   Preset,
+  SavingsMatchProposal,
   SchemeSettings,
   Savings,
+  SettledMonth,
   WeekSummary,
 } from './parentApi'
 import {
@@ -34,7 +36,9 @@ import {
   loadPresets,
   loadQueue,
   loadSavings,
+  loadSavingsMatchProposal,
   loadSchemeSettings,
+  loadSettledMonths,
   loadWeeks,
   loadWeekView,
   submitReview,
@@ -45,6 +49,7 @@ import { Payday, Rewards, SavingsPanel } from './components/parent/Money'
 import type { PinAct } from './components/parent/PinDialog'
 import { PinDialog } from './components/parent/PinDialog'
 import { Queue } from './components/parent/Queue'
+import { SavingsMatch } from './components/parent/SavingsMatch'
 import { ThisWeek } from './components/parent/ThisWeek'
 import { WeekBrowser } from './components/parent/WeekBrowser'
 import { batchAction, consequenceLines, consequenceSummary } from './parentWords'
@@ -58,6 +63,12 @@ type Everything = {
   presets: Preset[]
   chores: ChoreDefinition[]
   schemeSettings: SchemeSettings
+  settledMonths: SettledMonth[]
+  //: Null when there is nothing yet to project — the savings ledger has no
+  //: entries at all. Not the same as an error: the panel reads it as "no
+  //: match to show yet", the way an unopened week reads as "nothing owed".
+  savingsMatchProposal: SavingsMatchProposal | null
+  savingsMatchProposalError: string | null
   //: Weeks that are open but are not the calendar's current one — in
   //: practice, a week that has been reopened and is waiting to be settled
   //: again. More than one can exist: reopening is eligible on "the most
@@ -74,18 +85,30 @@ export function ParentView() {
 
   const refresh = useCallback(async () => {
     try {
-      const [queue, weeks, owed, savings, presets, chores, schemeSettings] = await Promise.all([
-        loadQueue(),
-        loadWeeks(),
-        loadOwed(),
-        loadSavings(),
-        loadPresets(),
-        loadChores(),
-        loadSchemeSettings(),
-      ])
+      const [queue, weeks, owed, savings, presets, chores, schemeSettings, settledMonths] =
+        await Promise.all([
+          loadQueue(),
+          loadWeeks(),
+          loadOwed(),
+          loadSavings(),
+          loadPresets(),
+          loadChores(),
+          loadSchemeSettings(),
+          loadSettledMonths(),
+        ])
       // The current week may not be open, or may not exist yet. Neither is an
       // error, and neither should empty the rest of the screen.
       const week = await loadCurrentWeek().catch(() => null)
+
+      // No proposal to show is a real state too — the savings ledger has no
+      // entries yet — not a reason to empty the rest of the screen either.
+      let savingsMatchProposal = null
+      let savingsMatchProposalError: string | null = null
+      try {
+        savingsMatchProposal = await loadSavingsMatchProposal()
+      } catch (problem) {
+        savingsMatchProposalError = (problem as Error).message
+      }
 
       // Any other open week is one a reopen put back there, waiting to be
       // settled again.
@@ -94,7 +117,20 @@ export function ParentView() {
         .map((w) => w.week_id)
       const reopenedWeeks = await Promise.all(reopenedIds.map(loadWeekView))
 
-      setData({ queue, week, weeks, owed, savings, presets, chores, schemeSettings, reopenedWeeks })
+      setData({
+        queue,
+        week,
+        weeks,
+        owed,
+        savings,
+        presets,
+        chores,
+        schemeSettings,
+        settledMonths,
+        savingsMatchProposal,
+        savingsMatchProposalError,
+        reopenedWeeks,
+      })
       setError(null)
     } catch (problem) {
       setError((problem as Error).message)
@@ -161,6 +197,12 @@ export function ParentView() {
       <Rewards presets={data.presets} ask={ask} />
       <Payday owed={data.owed} ask={ask} />
       <SavingsPanel savings={data.savings} ask={ask} />
+      <SavingsMatch
+        proposal={data.savingsMatchProposal}
+        proposalError={data.savingsMatchProposalError}
+        settledMonths={data.settledMonths}
+        ask={ask}
+      />
       <Chores chores={data.chores} schemeSettings={data.schemeSettings} ask={ask} />
       <ClosedWeeks weeks={data.weeks} ask={ask} />
 

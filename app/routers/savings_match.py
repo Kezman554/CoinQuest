@@ -33,6 +33,11 @@ class MonthlyMatchProposalView(BaseModel):
     rate_percent: int
     cap_pence: int
     match_pence: int
+    #: False while the month is still in progress — the figures above are a
+    #: preview and will keep moving. True once there is nothing left for
+    #: them to do but be settled.
+    month_has_ended: bool
+    clean_months_in_a_row: int
 
     @classmethod
     def of(cls, proposal: MonthlyMatchProposal) -> MonthlyMatchProposalView:
@@ -44,6 +49,8 @@ class MonthlyMatchProposalView(BaseModel):
             rate_percent=proposal.rate_percent,
             cap_pence=proposal.cap_pence,
             match_pence=proposal.match_pence,
+            month_has_ended=proposal.month_has_ended,
+            clean_months_in_a_row=proposal.clean_months_in_a_row,
         )
 
 
@@ -82,7 +89,7 @@ class SettleMonthRequest(AuthorisedRequest):
 def _proposal(session: Session) -> MonthlyMatchProposal:
     try:
         return savings_match.propose(session, get_settings().tzinfo)
-    except (NoSavingsYet, MonthNotOver) as exc:
+    except NoSavingsYet as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from None
@@ -96,10 +103,10 @@ def list_settled_months(session: Session = Depends(get_session)) -> list[Settled
 
 @router.get("/proposal", response_model=MonthlyMatchProposalView)
 def get_proposal(session: Session = Depends(get_session)) -> MonthlyMatchProposalView:
-    """What the next unsettled month is on track to match. Applies nothing.
+    """What the next unsettled month is worth, whether or not it has ended
+    yet — see `month_has_ended`. Applies nothing, needs no PIN.
 
-    409 when that month has not finished yet, or the savings ledger has no
-    entries at all to match against.
+    409 only when the savings ledger has no entries at all to match against.
     """
     return MonthlyMatchProposalView.of(_proposal(session))
 
@@ -110,7 +117,12 @@ def settle_month(
     body: SettleMonthRequest,
     session: Session = Depends(get_session),
 ) -> SettledMonthView:
-    """Close the next unsettled month on a figure a parent has read and agreed."""
+    """Close the next unsettled month on a figure a parent has read and agreed.
+
+    Refused with 409 if that month has not finished yet — propose() will
+    happily preview it, but nothing may be settled on figures still able to
+    move.
+    """
     authorisation = authorise(request, body)
 
     try:
@@ -119,7 +131,7 @@ def settle_month(
             session, proposal, authorisation, agreed_match_pence=body.agreed_match_pence
         )
         session.commit()
-    except (ProposalChanged, MonthAlreadySettled) as exc:
+    except (MonthNotOver, ProposalChanged, MonthAlreadySettled) as exc:
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
