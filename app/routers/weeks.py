@@ -634,6 +634,9 @@ class SavingsEntryView(BaseModel):
     occurred_on: str
     week_id: int | None
     reason: str | None
+    #: Who posted a standalone deposit — see app.services.savings_deposits.
+    #: Null for a payday-split deposit and every other entry type.
+    posted_by: str | None
 
 
 class SavingsView(BaseModel):
@@ -650,6 +653,7 @@ def _entry_view(entry) -> SavingsEntryView:
         occurred_on=entry.occurred_on.isoformat(),
         week_id=entry.week_id,
         reason=entry.reason,
+        posted_by=entry.posted_by,
     )
 
 

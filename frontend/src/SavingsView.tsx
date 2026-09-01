@@ -15,35 +15,50 @@
  * way PinDialog already crosses that boundary the other way in App.tsx.
  */
 
-import { useEffect, useState } from 'react'
-import { loadSavingsBalance, loadSavingsMatchProposal, money } from './api'
-import type { SavingsBalance, SavingsMatchProposal } from './api'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  loadDepositors,
+  loadMyPendingDeposits,
+  loadSavingsBalance,
+  loadSavingsMatchProposal,
+  money,
+  parsePence,
+  submitDeposit,
+} from './api'
+import type { DepositRequest, Depositors, SavingsBalance, SavingsMatchProposal } from './api'
 import { Figure } from './components/parent/ThisWeek'
-import { monthName } from './words'
+import { monthName, shortDate } from './words'
 
 export function SavingsView() {
   const [balance, setBalance] = useState<SavingsBalance | null>(null)
   const [proposal, setProposal] = useState<SavingsMatchProposal | null>(null)
   const [proposalNote, setProposalNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [depositors, setDepositors] = useState<Depositors | null>(null)
+  const [pending, setPending] = useState<DepositRequest[]>([])
+
+  const refresh = useCallback(async () => {
+    try {
+      setBalance(await loadSavingsBalance())
+    } catch (problem) {
+      setError((problem as Error).message)
+      return
+    }
+    try {
+      setProposal(await loadSavingsMatchProposal())
+    } catch {
+      // No savings entries at all yet — nothing to project. The balance
+      // above already says the account is empty; this is not an error.
+      setProposalNote('Nothing saved yet for the match to work from.')
+    }
+    const who = await loadDepositors()
+    setDepositors(who)
+    setPending(await loadMyPendingDeposits(who.child_name))
+  }, [])
 
   useEffect(() => {
-    void (async () => {
-      try {
-        setBalance(await loadSavingsBalance())
-      } catch (problem) {
-        setError((problem as Error).message)
-        return
-      }
-      try {
-        setProposal(await loadSavingsMatchProposal())
-      } catch {
-        // No savings entries at all yet — nothing to project. The balance
-        // above already says the account is empty; this is not an error.
-        setProposalNote('Nothing saved yet for the match to work from.')
-      }
-    })()
-  }, [])
+    void refresh()
+  }, [refresh])
 
   if (error) {
     return (
@@ -104,7 +119,104 @@ export function SavingsView() {
           <p className="nothing">{proposalNote}</p>
         </section>
       )}
+
+      {depositors && (
+        <DepositForm
+          childName={depositors.child_name}
+          pending={pending}
+          onSubmitted={refresh}
+        />
+      )}
     </>
+  )
+}
+
+/**
+ * Propose a deposit — birthday money, a gift, anything that did not come
+ * through payday. No PIN: it waits for a parent the same way a claim does,
+ * and the balance above does not move until one confirms it.
+ */
+function DepositForm({
+  childName,
+  pending,
+  onSubmitted,
+}: {
+  childName: string
+  pending: DepositRequest[]
+  onSubmitted: () => void
+}) {
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const pence = parsePence(amount)
+  const ready = pence !== null && pence > 0 && note.trim().length > 0
+
+  const submit = async () => {
+    if (!ready) return
+    setBusy(true)
+    setError(null)
+    try {
+      await submitDeposit(pence, note.trim(), childName)
+      setAmount('')
+      setNote('')
+      await onSubmitted()
+    } catch (problem) {
+      setError((problem as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2>Add money you got another way</h2>
+      <p className="act-note">
+        Birthday money, a gift — anything that did not come from your weekly
+        pay. It waits for a parent to say yes before it counts.
+      </p>
+
+      <div className="act-row">
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="Amount, e.g. £5"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="Where it came from"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+        />
+        <button type="button" className="button" disabled={!ready || busy} onClick={submit}>
+          {busy ? 'Sending…' : 'Add it'}
+        </button>
+      </div>
+
+      {error && (
+        <p className="problem" role="alert">
+          {error}
+        </p>
+      )}
+
+      {pending.length > 0 && (
+        <ul className="deposit-pending">
+          {pending.map((request) => (
+            <li key={request.id}>
+              <span>
+                {money(request.amount_pence)} — {request.note}
+              </span>
+              <span className="deposit-pending-note">
+                Waiting for a parent, added {shortDate(request.occurred_on)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 

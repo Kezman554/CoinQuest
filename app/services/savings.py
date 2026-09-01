@@ -78,8 +78,14 @@ def record_deposit(
     occurred_on: date,
     week_id: int | None = None,
     reason: str | None = None,
+    posted_by: str | None = None,
 ) -> SavingsEntry:
-    """Money kept back from a payday and put into the account."""
+    """Money going into the account: kept back from a payday, or standalone.
+
+    posted_by names who a standalone deposit was posted by — see
+    app.services.savings_deposits, the only caller that ever passes it. A
+    payday's own deposit names nobody; it belongs to the week it split from.
+    """
     if amount_pence <= 0:
         raise SavingsError("A deposit is money going in; it must be positive.")
 
@@ -90,6 +96,7 @@ def record_deposit(
         occurred_on=occurred_on,
         week_id=week_id,
         reason=reason,
+        posted_by=posted_by,
     )
     session.add(entry)
     session.flush()

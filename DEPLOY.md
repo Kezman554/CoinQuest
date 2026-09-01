@@ -163,6 +163,7 @@ so without it every `${VAR}` in the compose file resolves empty and
 | -------- | --------------- | --- |
 | `CHILD_NAME` | *(none)* | Required, no default. The child is configuration — see CLAUDE.md. |
 | `PARENT_PIN` | *(none)* | Required, no default. Verified server-side only, never returned to a client. |
+| `PARENT_NAMES` | *(none)* | Required, no default. Comma-separated; who the PIN may act as when posting a savings deposit directly. Adding a name is an env change, not a deploy. |
 | `DATABASE_URL` | `sqlite:////data/coinquest.db` | Absolute. A relative path resolves against the working directory and dies with the container. |
 | `TZ` | `Europe/London` | Every week boundary, payday and monthly period depends on this. The container clock is UTC. |
 | `FRONTEND_DIR` | `/app/frontend_dist` | The built bundle, served at `/`. Baked into the image; not meant to be overridden at deploy time. |

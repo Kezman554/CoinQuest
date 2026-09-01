@@ -30,6 +30,7 @@ db_path = Path(sys.argv[1]).resolve()
 # the first time it is touched.
 os.environ["CHILD_NAME"] = "E2E Kid"
 os.environ["PARENT_PIN"] = "0000"
+os.environ["PARENT_NAMES"] = "E2E Parent"
 os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
 os.environ["TZ"] = "Europe/London"
 

@@ -2266,3 +2266,97 @@ in app/ changed - so head stayed at 7b10cc8d801f; confirmed against the
 real household database, integrity_check ok, foreign_key_check empty.
 /health, /api/summary and the /parent deep link all answered 200 within
 seconds of the rebuild.
+
+2026-09-01 — Standalone savings deposits
+
+A second route into the savings ledger, independent of payday: birthday
+money, a gift, or the opening balance at go-live, arriving outside the
+cash/bank split at settlement.
+
+Two doors, mirroring app/routers/claims.py's own split rather than one
+endpoint branching on who the body claims to be. Oliver's (POST
+/api/savings/deposits) needs no credential and can only ever create a
+pending request in his own name — refused for anyone else's, whatever the
+frontend sent. A parent's (POST /api/savings/deposits/parent) carries the
+PIN and writes straight to the ledger; there is no pending step, because
+the PIN already proves the party. Confirming or rejecting one of Oliver's
+(POST .../{id}/confirm|reject) is a parent act too, and mirrors
+claims.py's confirm/reject exactly: confirm calls the same
+savings.record_deposit every other deposit already goes through, reject
+never touches the ledger at all.
+
+Who may post what is app.config.parent_names — a new required env var,
+PARENT_NAMES, comma-separated, alongside CHILD_NAME. Deliberately not a
+database enum: enum_column's CHECK would make a third name (Jess, later)
+a migration, and the whole point of a fixed list here is that it isn't
+one. app/services/savings_deposits.py reads it fresh on every call, no
+caching, so the env change is the whole deploy.
+
+savings_ledger gains posted_by (null for everything but a standalone
+deposit — a payday deposit belongs to its week, not a person).
+savings_deposit_requests is new and, unlike either ledger, not
+append-only: Oliver's own proposal, sitting pending until a parent rules,
+the same claimed/confirmed shape chore_instances already is.
+
+The migration nearly shipped a real bug: batch_alter_table on
+savings_ledger to add posted_by silently dropped its two append-only
+triggers, because SQLite's batch rebuild recreates the table and neither
+SQLAlchemy nor Alembic knows triggers exist to carry them over. Caught by
+actually inspecting sqlite_master after running the migration, not by
+trusting it because the SQL looked right. Fixed the way 6131c9c1284a
+already had to for this exact table: drop the triggers, rebuild via
+copy_from (which has to be the shape the real table has *right now*, not
+either end state — copy_from feeds the data-copying SELECT, and add/drop
+of the new column and CHECK still go through ordinary batch_op calls),
+recreate the triggers after. Verified with a real upgrade/downgrade/
+upgrade round-trip, checking sqlite_master for the triggers at each step,
+not just that the commands exited zero.
+
+`alembic check` also surfaced a pre-existing, unrelated drift on
+savings_month_matches (a unique constraint named differently in the
+model than the migration that created it) - left alone rather than
+folded in, since fixing it means the same rebuild-and-restore-triggers
+surgery on a table this session had no other reason to touch. Noted in
+the migration's own docstring.
+
+Nothing here touches the monthly match's ladder or streak logic
+(app/services/savings_match.py) at all - it was never going to. That
+logic keys only on SavingsType.WITHDRAWAL, and a standalone deposit,
+confirmed or posted directly, is a plain SavingsType.DEPOSIT going
+through the same savings.record_deposit every other deposit already
+uses. Proved rather than assumed: tests settle a month after a confirmed
+and a parent-posted deposit and assert rate_percent, clean_months_in_a_row
+and had_withdrawal are exactly what they would have been without either.
+
+tests/test_savings_deposits.py: 21 tests - pending and inert until
+confirmed, needs no PIN to submit, a parent cannot use the child's door
+and vice versa, an unrecognised name is refused, amount/note validation,
+PIN enforcement on confirm/reject/parent-post, double-deciding refused,
+404 on an unknown request, the parent-direct route landing immediately
+with no pending row ever created, the opening-balance-shaped case (a
+parent's first deposit, note "opening balance"), and the two ladder/
+streak non-interference tests above. Full suite: 584 passed.
+
+Frontend: SavingsView.tsx gains "Add money you got another way" - amount,
+note, no PIN, no posted_by picker since it's always him - with his own
+pending list underneath so submitting doesn't feel like it vanished.
+Money.tsx's SavingsPanel gains "Record a deposit" (parent-direct, PIN,
+a posted_by <select> that only renders once parent_names has more than
+one name in it) and "From Oliver, waiting" (confirm/decline, PIN either
+way). Both reuse the existing ask()/PinDialog machinery, so a global
+refresh follows either exactly like every other parent act already does
+- no new plumbing for that. The ledger table also now shows who posted a
+standalone deposit, since the data exists and the history is what that
+table is for.
+
+Verified by hand past the unit and API level: a live seed, the real
+built app, Playwright driving the actual flow rather than calling the
+endpoints directly - Oliver submits a deposit, the balance does not move,
+the parent screen shows it waiting, confirms it with the PIN, the balance
+updates on both screens with no manual reload; a parent posts one
+directly and it lands immediately with no pending row. Screenshotted at
+each step. tsc -b, vite build, oxlint (same four pre-existing warnings
+plus the one identical one SavingsView.tsx's own load-on-mount effect now
+also carries) and the Playwright e2e suite (4/4) all clean.
+
+Not pushed or deployed yet.

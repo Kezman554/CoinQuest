@@ -14,6 +14,7 @@ from app.models.enums import (
     WEEK_SCOPED_CADENCES,
     Cadence,
     Category,
+    DepositRequestState,
     EarningType,
     InstanceState,
     MissOrigin,
@@ -22,6 +23,7 @@ from app.models.enums import (
     WeekStatus,
 )
 from app.models.ledgers import EarningEntry, SavingsEntry
+from app.models.savings_deposits import PendingSavingsDeposit
 from app.models.savings_match import SavingsMonthMatch
 from app.models.settings import SchemeSettings
 from app.models.waivers import Waiver
@@ -36,10 +38,12 @@ __all__ = [
     "Category",
     "ChoreDefinition",
     "ChoreInstance",
+    "DepositRequestState",
     "EarningEntry",
     "EarningType",
     "InstanceState",
     "MissOrigin",
+    "PendingSavingsDeposit",
     "SavingsEntry",
     "SavingsMonthMatch",
     "SavingsType",

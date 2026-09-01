@@ -9,14 +9,17 @@
 
 import { useState } from 'react'
 import { money, parsePence } from '../../api'
-import type { Owed, Preset, Savings } from '../../parentApi'
+import type { DepositRequest, Depositors, Owed, Preset, Savings } from '../../parentApi'
 import {
+  confirmDeposit,
   payWeeks,
   reconcile,
   recordOpeningBalance,
+  recordParentDeposit,
   recordPreset,
   recordReward,
   recordWithdrawal,
+  rejectDeposit,
 } from '../../parentApi'
 import type { Reconciliation } from '../../parentApi'
 import type { PinAct } from './PinDialog'
@@ -222,7 +225,16 @@ export function Payday({ owed, ask }: Ask & { owed: Owed[] }) {
 
 // --- Savings ---------------------------------------------------------------
 
-export function SavingsPanel({ savings, ask }: Ask & { savings: Savings }) {
+export function SavingsPanel({
+  savings,
+  depositors,
+  pendingDeposits,
+  ask,
+}: Ask & {
+  savings: Savings
+  depositors: Depositors | null
+  pendingDeposits: DepositRequest[]
+}) {
   const [amount, setAmount] = useState('')
   const [reason, setReason] = useState('')
   const [actual, setActual] = useState('')
@@ -237,6 +249,12 @@ export function SavingsPanel({ savings, ask }: Ask & { savings: Savings }) {
   return (
     <section className="panel">
       <h2>Savings — {money(savings.balance_pence)}</h2>
+
+      {depositors && <DepositAct depositors={depositors} ask={ask} />}
+
+      {pendingDeposits.length > 0 && (
+        <PendingDeposits requests={pendingDeposits} ask={ask} />
+      )}
 
       {empty ? (
         <div className="act">
@@ -377,7 +395,12 @@ export function SavingsPanel({ savings, ask }: Ask & { savings: Savings }) {
             {[...savings.entries].reverse().map((entry) => (
               <tr key={entry.id}>
                 <td>{shortDate(entry.occurred_on)}</td>
-                <td>{entry.reason ?? entry.entry_type}</td>
+                <td>
+                  {entry.reason ?? entry.entry_type}
+                  {entry.posted_by && (
+                    <span className="ledger-posted-by"> — {entry.posted_by}</span>
+                  )}
+                </td>
                 <td className="ledger-amount">
                   {entry.amount_pence < 0 ? '−' : '+'}
                   {money(Math.abs(entry.amount_pence))}
@@ -389,5 +412,132 @@ export function SavingsPanel({ savings, ask }: Ask & { savings: Savings }) {
         </table>
       )}
     </section>
+  )
+}
+
+/**
+ * A parent posting a deposit directly — birthday money, a gift, or the
+ * opening balance at go-live, entered here with a note like "opening
+ * balance" rather than through the dedicated one-off endpoint. Authorised
+ * the moment it is submitted: there is no pending step, because the PIN
+ * already proves the party.
+ */
+function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
+  const [postedBy, setPostedBy] = useState(depositors.parent_names[0] ?? '')
+
+  const pence = parsePence(amount)
+  const ready = pence !== null && pence > 0 && note.trim().length > 0 && postedBy !== ''
+
+  return (
+    <div className="act">
+      <h3>Record a deposit</h3>
+      <p className="act-note">
+        Money that did not come from payday — a gift, birthday money, or the
+        opening balance at the very start. Lands in the account straight
+        away.
+      </p>
+      <div className="act-row">
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="Amount, e.g. £10"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="Where it came from"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+        />
+        {depositors.parent_names.length > 1 && (
+          <select value={postedBy} onChange={(event) => setPostedBy(event.target.value)}>
+            {depositors.parent_names.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        )}
+        <button
+          type="button"
+          className="button"
+          disabled={!ready}
+          onClick={() =>
+            ready &&
+            ask({
+              title: 'Record a deposit',
+              summary: `${money(pence)} — ${note.trim()}`,
+              confirmLabel: `Record ${money(pence)}`,
+              run: (pin) =>
+                recordParentDeposit(pin, pence, note.trim(), postedBy).then(() => {
+                  setAmount('')
+                  setNote('')
+                }),
+            })
+          }
+        >
+          Record
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** What Oliver has proposed, waiting on a parent — the same wait a claimed
+ * chore sits in, and the same asymmetry: confirming carries the PIN because
+ * it hands money over, and so, here, does declining, if only because both
+ * are the one credential this queue has. */
+function PendingDeposits({ requests, ask }: Ask & { requests: DepositRequest[] }) {
+  return (
+    <div className="act">
+      <h3>From {requests[0].posted_by}, waiting</h3>
+      <ul className="deposit-pending">
+        {requests.map((request) => (
+          <li key={request.id}>
+            <span>
+              {money(request.amount_pence)} — {request.note}
+              <span className="deposit-pending-note">
+                {' '}
+                added {shortDate(request.occurred_on)}
+              </span>
+            </span>
+            <span className="act-row">
+              <button
+                type="button"
+                className="button button-do"
+                onClick={() =>
+                  ask({
+                    title: 'Confirm this deposit',
+                    summary: `${money(request.amount_pence)} — ${request.note}`,
+                    confirmLabel: 'Confirm',
+                    run: (pin) => confirmDeposit(pin, request.id).then(() => undefined),
+                  })
+                }
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                className="button button-danger"
+                onClick={() =>
+                  ask({
+                    title: 'Decline this deposit',
+                    summary: `${money(request.amount_pence)} — ${request.note}`,
+                    lines: ['It never reaches the ledger; nothing is recorded.'],
+                    confirmLabel: 'Decline',
+                    run: (pin) => rejectDeposit(pin, request.id).then(() => undefined),
+                  })
+                }
+              >
+                Decline
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Integer, Text
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UtcDateTime, enum_column, utcnow
@@ -105,6 +105,16 @@ class SavingsEntry(Base):
     occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
 
     reason: Mapped[str | None] = mapped_column(Text)
+
+    #: Who a standalone deposit was posted by — one of app.config's
+    #: parent_names, or the child, chosen at the point of posting. Null for a
+    #: deposit split from a payday, which belongs to the week rather than to
+    #: a person, and for every other entry type: a match and a reversal are
+    #: the scheme's own arithmetic, and an opening balance predates anyone
+    #: choosing anything. See app.services.savings_deposits, the only writer
+    #: of a standalone deposit.
+    posted_by: Mapped[str | None] = mapped_column(String(60))
+
     created_at: Mapped[datetime] = mapped_column(
         UtcDateTime, nullable=False, default=utcnow
     )
@@ -116,6 +126,10 @@ class SavingsEntry(Base):
             "(entry_type IN ('withdrawal', 'reversal') AND amount_pence < 0)"
             " OR (entry_type NOT IN ('withdrawal', 'reversal') AND amount_pence >= 0)",
             name="a_withdrawal_or_reversal_is_negative",
+        ),
+        CheckConstraint(
+            "posted_by IS NULL OR entry_type = 'deposit'",
+            name="only_a_deposit_names_who_posted_it",
         ),
         # The account cannot go overdrawn: there is nowhere for the money to
         # come from, and a negative balance would corrupt the monthly low.

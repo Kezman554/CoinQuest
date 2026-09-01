@@ -138,9 +138,30 @@ export type SavingsEntry = {
   occurred_on: string
   week_id: number | null
   reason: string | null
+  posted_by: string | null
 }
 
 export type Savings = { balance_pence: number; entries: SavingsEntry[] }
+
+/** The fixed list a deposit's "posted by" may be chosen from — config, not
+ * schema, so a third name (Jess) shows up here the moment it is deployed. */
+export type Depositors = { child_name: string; parent_names: string[] }
+
+export type DepositRequestState = 'pending' | 'confirmed' | 'rejected'
+
+/** A deposit Oliver has proposed. Pending until a parent rules on it — see
+ * app.services.savings_deposits. */
+export type DepositRequest = {
+  id: number
+  amount_pence: number
+  note: string
+  posted_by: string
+  occurred_on: string
+  state: DepositRequestState
+  submitted_at: string
+  decided_at: string | null
+  decided_by: string | null
+}
 
 export type Reconciliation = {
   recorded_balance_pence: number
@@ -316,6 +337,8 @@ export const loadCurrentWeek = () => get<WeekView>('/api/week')
 export const loadChores = () => get<ChoreDefinition[]>('/api/chores')
 export const loadSchemeSettings = () => get<SchemeSettings>('/api/settings')
 export const loadSettledMonths = () => get<SettledMonth[]>('/api/savings/match')
+export const loadDepositors = () => get<Depositors>('/api/savings/deposits/depositors')
+export const loadPendingDeposits = () => get<DepositRequest[]>('/api/savings/deposits/pending')
 /** May reject with a 409 — nothing to project yet, when the savings ledger
  * has no entries at all. That is a real state to show, not an error to
  * surface: callers catch it and render accordingly. */
@@ -411,6 +434,29 @@ export const recordOpeningBalance = (pin: string, amount: number) =>
     pin,
     amount_pence: amount,
   })
+
+/** A parent posting a deposit directly — authorised at submission, so it
+ * lands immediately and never waits in the pending queue. */
+export const recordParentDeposit = (
+  pin: string,
+  amount: number,
+  note: string,
+  postedBy: string,
+) =>
+  send<SavingsEntry>('/api/savings/deposits/parent', {
+    pin,
+    amount_pence: amount,
+    note,
+    posted_by: postedBy,
+  })
+
+/** Agree a deposit Oliver proposed: it lands in the real ledger, for real. */
+export const confirmDeposit = (pin: string, requestId: number) =>
+  send<DepositRequest>(`/api/savings/deposits/${requestId}/confirm`, { pin })
+
+/** Decline one instead. The ledger never hears about it. */
+export const rejectDeposit = (pin: string, requestId: number) =>
+  send<DepositRequest>(`/api/savings/deposits/${requestId}/reject`, { pin })
 
 export const createChore = (pin: string, chore: ChoreWrite) =>
   send<ChoreDefinition>('/api/chores', { pin, ...chore })

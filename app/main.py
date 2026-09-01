@@ -16,6 +16,7 @@ from app.routers import (
     lifetime,
     parent,
     rewards,
+    savings_deposits,
     savings_match,
     settings as settings_router,
     summary,
@@ -40,6 +41,7 @@ app.include_router(chores.router)
 app.include_router(claims.router)
 app.include_router(weeks.router)
 app.include_router(weeks.savings_router)
+app.include_router(savings_deposits.router)
 app.include_router(savings_match.router)
 app.include_router(lifetime.router)
 app.include_router(rewards.router)

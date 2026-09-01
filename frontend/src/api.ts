@@ -117,6 +117,24 @@ export type WeekView = {
 
 export type SavingsBalance = { balance_pence: number }
 
+export type Depositors = { child_name: string; parent_names: string[] }
+
+export type DepositRequestState = 'pending' | 'confirmed' | 'rejected'
+
+/** A deposit Oliver has proposed — pending until a parent confirms it with
+ * the PIN, the same wait a claimed chore sits in. */
+export type DepositRequest = {
+  id: number
+  amount_pence: number
+  note: string
+  posted_by: string
+  occurred_on: string
+  state: DepositRequestState
+  submitted_at: string
+  decided_at: string | null
+  decided_by: string | null
+}
+
 /** What the next unsettled month is worth, whether or not it has finished
  * yet — see app.services.savings_match.propose. `month_has_ended` is what
  * tells a live, still-moving preview apart from a final, settled figure. */
@@ -199,6 +217,35 @@ export async function loadSavingsBalance(): Promise<SavingsBalance> {
  * screen catches it rather than treating it as an error to display. */
 export async function loadSavingsMatchProposal(): Promise<SavingsMatchProposal> {
   return json<SavingsMatchProposal>(await fetch('/api/savings/match/proposal'))
+}
+
+/** Who a deposit's "posted by" may name. Read-only, needs no credential. */
+export async function loadDepositors(): Promise<Depositors> {
+  return json<Depositors>(await fetch('/api/savings/deposits/depositors'))
+}
+
+/** Oliver's own deposits still waiting on a parent. */
+export async function loadMyPendingDeposits(childName: string): Promise<DepositRequest[]> {
+  const all = await json<DepositRequest[]>(await fetch('/api/savings/deposits/pending'))
+  return all.filter((request) => request.posted_by === childName)
+}
+
+/**
+ * Propose a deposit. No PIN — see markMissed's own note on why: this moves
+ * no money by itself, and waits for a parent the same way a claim does.
+ */
+export async function submitDeposit(
+  amountPence: number,
+  note: string,
+  postedBy: string,
+): Promise<DepositRequest> {
+  return json<DepositRequest>(
+    await fetch('/api/savings/deposits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount_pence: amountPence, note, posted_by: postedBy }),
+    }),
+  )
 }
 
 /** Never rejects — an account with no history at all reads as all-zero and

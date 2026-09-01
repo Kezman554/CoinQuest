@@ -39,6 +39,17 @@ class Settings:
     def __init__(self) -> None:
         self.child_name: str = _get("CHILD_NAME")
         self.parent_pin: str = _get("PARENT_PIN")
+
+        # Who may post a savings deposit directly, authorised by the one PIN
+        # above — today one name, a second (Jess) later. A comma-separated
+        # list rather than a database enum specifically so that day is a
+        # config change here, not a migration: see app.services.depositors,
+        # the one place that reads this.
+        names = [name.strip() for name in _get("PARENT_NAMES").split(",")]
+        self.parent_names: list[str] = [name for name in names if name]
+        if not self.parent_names:
+            raise ConfigError("PARENT_NAMES is set but names to no one.")
+
         self.database_url: str = _get("DATABASE_URL", "sqlite:///./coinquest.db")
 
         # The base allowance: paid every week regardless of how the chores

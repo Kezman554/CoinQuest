@@ -44,6 +44,7 @@ const server = spawn(
       ...process.env,
       CHILD_NAME: 'E2E Kid',
       PARENT_PIN: '0000',
+      PARENT_NAMES: 'E2E Parent',
       DATABASE_URL: sqliteUrl(DB_PATH),
       TZ: 'Europe/London',
       FRONTEND_DIR: path.join(REPO_ROOT, 'frontend', 'dist'),

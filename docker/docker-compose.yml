@@ -27,6 +27,10 @@ services:
       CHILD_NAME: ${CHILD_NAME:?set CHILD_NAME in .env}
       PARENT_PIN: ${PARENT_PIN:?set PARENT_PIN in .env}
 
+      # Who the PIN may act as when posting a savings deposit directly,
+      # comma-separated. Also no default, for the same reason.
+      PARENT_NAMES: ${PARENT_NAMES:?set PARENT_NAMES in .env}
+
       # Absolute, matching the volume mount below. A relative path would
       # resolve against the working directory and be lost with the container.
       DATABASE_URL: ${DATABASE_URL:-sqlite:////data/coinquest.db}

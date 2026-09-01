@@ -117,7 +117,8 @@ class SavingsType(str, enum.Enum):
     """Why the savings balance moved."""
 
     OPENING_BALANCE = "opening_balance"  # what was already there on day one
-    DEPOSIT = "deposit"                  # part of a payday, kept back
+    DEPOSIT = "deposit"                  # money going in - a payday's kept
+                                          # share, or a standalone deposit
     WITHDRAWAL = "withdrawal"            # money taken out; the only fall
     MATCH = "match"                      # the monthly match, once settled
     #: Undoing a deposit that should not have counted — a reopened week's
@@ -125,3 +126,16 @@ class SavingsType(str, enum.Enum):
     #: this out, and calling it one would blur two facts a reader needs to
     #: tell apart a year later. The other fall, alongside WITHDRAWAL.
     REVERSAL = "reversal"
+
+
+class DepositRequestState(str, enum.Enum):
+    """Where a child-submitted deposit request has got to.
+
+    A fixed, structural vocabulary — unlike the *names* who may post a
+    deposit (see app.config.parent_names), which is config precisely so it
+    is not this kind of fixed list.
+    """
+
+    PENDING = "pending"      # submitted; not yet in the ledger or balance
+    CONFIRMED = "confirmed"  # a parent agreed it; the ledger now has it
+    REJECTED = "rejected"    # a parent declined it; the ledger never will

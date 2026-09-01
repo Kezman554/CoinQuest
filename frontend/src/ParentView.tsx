@@ -20,6 +20,8 @@ import type {
   ChoreDefinition,
   Consequence,
   DecisionIn,
+  DepositRequest,
+  Depositors,
   Owed,
   Pending,
   Preset,
@@ -32,7 +34,9 @@ import type {
 import {
   loadChores,
   loadCurrentWeek,
+  loadDepositors,
   loadOwed,
+  loadPendingDeposits,
   loadPresets,
   loadQueue,
   loadSavings,
@@ -69,6 +73,10 @@ type Everything = {
   //: match to show yet", the way an unopened week reads as "nothing owed".
   savingsMatchProposal: SavingsMatchProposal | null
   savingsMatchProposalError: string | null
+  //: Who a deposit's "posted by" may name — config, not schema. Null only
+  //: while still loading, same as everything else in this type.
+  depositors: Depositors | null
+  pendingDeposits: DepositRequest[]
   //: Weeks that are open but are not the calendar's current one — in
   //: practice, a week that has been reopened and is waiting to be settled
   //: again. More than one can exist: reopening is eligible on "the most
@@ -85,17 +93,29 @@ export function ParentView() {
 
   const refresh = useCallback(async () => {
     try {
-      const [queue, weeks, owed, savings, presets, chores, schemeSettings, settledMonths] =
-        await Promise.all([
-          loadQueue(),
-          loadWeeks(),
-          loadOwed(),
-          loadSavings(),
-          loadPresets(),
-          loadChores(),
-          loadSchemeSettings(),
-          loadSettledMonths(),
-        ])
+      const [
+        queue,
+        weeks,
+        owed,
+        savings,
+        presets,
+        chores,
+        schemeSettings,
+        settledMonths,
+        depositors,
+        pendingDeposits,
+      ] = await Promise.all([
+        loadQueue(),
+        loadWeeks(),
+        loadOwed(),
+        loadSavings(),
+        loadPresets(),
+        loadChores(),
+        loadSchemeSettings(),
+        loadSettledMonths(),
+        loadDepositors(),
+        loadPendingDeposits(),
+      ])
       // The current week may not be open, or may not exist yet. Neither is an
       // error, and neither should empty the rest of the screen.
       const week = await loadCurrentWeek().catch(() => null)
@@ -130,6 +150,8 @@ export function ParentView() {
         savingsMatchProposal,
         savingsMatchProposalError,
         reopenedWeeks,
+        depositors,
+        pendingDeposits,
       })
       setError(null)
     } catch (problem) {
@@ -196,7 +218,12 @@ export function ParentView() {
 
       <Rewards presets={data.presets} ask={ask} />
       <Payday owed={data.owed} ask={ask} />
-      <SavingsPanel savings={data.savings} ask={ask} />
+      <SavingsPanel
+        savings={data.savings}
+        depositors={data.depositors}
+        pendingDeposits={data.pendingDeposits}
+        ask={ask}
+      />
       <SavingsMatch
         proposal={data.savingsMatchProposal}
         proposalError={data.savingsMatchProposalError}
