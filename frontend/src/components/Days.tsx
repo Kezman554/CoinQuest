@@ -15,9 +15,9 @@ type Props = {
   days: DayCard[]
   onClaim: (instanceId: number) => void
   busyId: number | null
-  /** Passed only for the current, open week. Absent, the tiles carry no
-   *  missed control at all, which is what keeps a week paged back to
-   *  read-only — the same rule can_claim already follows. */
+  /** Passed only for an open week, current or not. Absent, the tiles carry
+   *  no missed control at all, which is what keeps a settled week read-only
+   *  — the same rule can_claim already follows. */
   onMissed?: (instanceId: number) => void
   onClearMiss?: (chore: InstanceCard) => void
 }

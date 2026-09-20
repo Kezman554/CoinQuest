@@ -9,7 +9,8 @@ Builds exactly the mix Session T's card asked the flow to be tested against:
 a pending claim in the current week, one already confirmed (so a mixed batch
 has something to prove nothing else moved), and a pending claim left over
 from the previous week — the shape that made claims pile up unconfirmed
-across a week boundary in the first place.
+across a week boundary in the first place. Plus, since the back-claim
+session, an untouched chore on a past day of that previous, still-open week.
 """
 
 from __future__ import annotations
@@ -109,7 +110,18 @@ with Session(engine, future=True) as session:
         state=InstanceState.CLAIMED,
         claimed_at=now,
     )
-    session.add_all([pending_current, confirmed_current, pending_previous])
+    # A chore done last Wednesday that nobody ticked, in a week nobody has
+    # settled — the shape week-back-claim.spec.ts exists for. Added after the
+    # three above so their ids stay 1, 2 and 3, which confirm-flow.spec.ts
+    # leans on for its queue order.
+    untouched_previous = ChoreInstance(
+        definition_id=beds.id,
+        week_id=previous.id,
+        due_date=previous_start.fromordinal(previous_start.toordinal() + 3),
+    )
+    session.add_all(
+        [pending_current, confirmed_current, pending_previous, untouched_previous]
+    )
     session.commit()
 
     print(
@@ -117,4 +129,5 @@ with Session(engine, future=True) as session:
         "pending_current=", pending_current.id,
         "confirmed_current=", confirmed_current.id,
         "pending_previous=", pending_previous.id,
+        "untouched_previous=", untouched_previous.id,
     )

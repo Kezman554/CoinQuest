@@ -30,6 +30,34 @@ is a tap, anything that gives it back is a parent. The worst an unauthorised
 tap can now do is understate a week, in public, on a screen the household
 reads a dozen times a day, with a parent-only undo sitting beside it.
 
+**A claim's gate is the week's settlement state, and nothing else.** An
+untouched instance on any day of an open week accepts a claim, however long
+ago that day was; an instance in a settled or voided week accepts none. Not
+the instance's date, not a rolling number of days, and nothing reasoned from
+"today": the parent view already treats any unsettled week as actionable
+however old it is, and this is the child's side of the same rule. Settlement
+still turns whatever is left untouched into a miss when the week is agreed —
+that has not changed — but the correction is open right up to that moment,
+so a Wednesday nobody ticked is put right by a tap on Sunday rather than by
+waiving a day the child was at home for.
+
+A back-claim is honest in the record. `claimed_at` is when the claim was
+made and `due_date` is the day it is about; the two are allowed to disagree,
+and they are never made to agree by backdating the claim. A row saying a
+Wednesday chore was claimed on Wednesday, when it was claimed on Sunday, is
+a small lie nobody could later detect. And a back-claim asserts the chore
+was done on its own day: it is not a way to do a bonus chore now and count
+it for last week. The make-good window closes with the week, and this does
+not reopen it.
+
+A claim on an instance a parent has marked missed is refused. The mark is a
+parent's ruling, and a tap on the child's screen must not quietly overwrite
+one; `clear_miss` — PIN-guarded, because it gives money back — is the one
+way a mark comes off, and once it has, the instance is claimable again. The
+alternative, letting a claim reset a miss to pending, would make the miss
+disappear from the parent's own screen with nothing to say it had ever been
+ruled.
+
 This module assumes nothing about what the frontend chose to display. A
 request typed straight at the API by somebody who never loaded the page meets
 exactly these same checks.
@@ -198,6 +226,10 @@ def claim(body: ClaimRequest, session: Session = Depends(get_session)) -> Instan
 
     Claiming is not an assertion that money is owed; it is a request to be
     believed. Nothing here can pay anything.
+
+    The only gate is `_refuse_closed_weeks`. Nothing here reads the instance's
+    due date or the clock, so a chore on a day long past is claimable for as
+    long as its week is open — see the module docstring.
     """
     instance = _load(session, body.instance_id)
     _refuse_closed_weeks(session, instance)
@@ -207,6 +239,16 @@ def claim(body: ClaimRequest, session: Session = Depends(get_session)) -> Instan
             status_code=status.HTTP_409_CONFLICT,
             detail="That chore is already claimed and waiting to be confirmed.",
         )
+    if instance.state is InstanceState.MISSED:
+        # A parent's ruling, or settlement's — either way a claim does not
+        # overwrite it. The way back is clear_miss, and it asks for the PIN.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "That chore was marked missed. A parent can clear the mark;"
+                " until then it cannot be claimed."
+            ),
+        )
     if instance.state is not InstanceState.UNTOUCHED:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -214,6 +256,9 @@ def claim(body: ClaimRequest, session: Session = Depends(get_session)) -> Instan
         )
 
     instance.state = InstanceState.CLAIMED
+    # Now, never the due date. A claim made on Sunday about Wednesday is
+    # recorded as made on Sunday; the instance already says which day it is
+    # about, and the two are allowed to differ.
     instance.claimed_at = utcnow()
     # rejected_at and rejection_count are deliberately left alone. Claiming
     # again does not unhappen a rejection.

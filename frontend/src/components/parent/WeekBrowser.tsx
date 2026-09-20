@@ -68,7 +68,9 @@ export function WeekBrowser({ currentWeek, weeks, ask, onDone }: Props) {
         <NotCurrentBanner
           startDate={viewedSummary.start_date}
           endDate={viewedSummary.end_date}
+          status={viewedSummary.status}
           onBackToNow={() => setViewedWeekId(null)}
+          openNote="This week has not been agreed yet. Claims on it can still be confirmed, and it can be settled from here."
         />
       )}
 

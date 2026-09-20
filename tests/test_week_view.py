@@ -594,6 +594,74 @@ def test_paging_back_reaches_a_past_week_that_is_still_open(api, scheme, session
     assert view["totals"]["chore_pay_pence"] == 50 + 90
 
 
+def test_a_past_week_still_open_offers_a_claim_on_every_day(api, scheme, session, week_dates):
+    """The gate on a claim is the week's status, not the day's date.
+
+    A week paged back to that nobody has settled reads exactly as the current
+    one does on this point: every untouched day carries `can_claim`, however
+    long ago it was. The screen renders that flag rather than deciding for
+    itself, and the API accepts the claim it offers.
+    """
+    from app.models import ChoreInstance
+
+    start, end = week_dates
+    older = Week(start_date=start - timedelta(days=14), end_date=end - timedelta(days=14))
+    session.add(older)
+    session.flush()
+    session.add_all(
+        ChoreInstance(
+            definition_id=scheme["bed"].id,
+            week_id=older.id,
+            due_date=older.start_date + timedelta(days=offset),
+        )
+        for offset in range(7)
+    )
+    session.commit()
+
+    view = api.get(f"/api/week/{older.id}").json()
+    assert view["is_current"] is False
+    assert view["status"] == "open"
+    for day in view["days"]:
+        assert day["is_past"] is True
+        assert [chore["can_claim"] for chore in day["chores"]] == [True]
+
+    wednesday = find_day(view, older.start_date + timedelta(days=3))
+    bed = wednesday["chores"][0]
+    assert api.post("/api/claims", json={"instance_id": bed["instance_id"]}).status_code == 200
+
+    after = find_day(api.get(f"/api/week/{older.id}").json(), older.start_date + timedelta(days=3))
+    assert after["chores"][0]["state"] == "claimed"
+    assert after["chores"][0]["can_claim"] is False
+
+
+def test_a_settled_week_offers_no_claim_on_any_day(api, scheme, session, week_dates):
+    """And the other half: settled means closed, on every tile."""
+    from app.models import ChoreInstance
+
+    start, end = week_dates
+    older = Week(start_date=start - timedelta(days=14), end_date=end - timedelta(days=14))
+    session.add(older)
+    session.flush()
+    bed = ChoreInstance(
+        definition_id=scheme["bed"].id, week_id=older.id, due_date=older.start_date
+    )
+    session.add(bed)
+    session.commit()
+    settled = api.post(
+        f"/api/weeks/{older.id}/settle",
+        json={"pin": PIN, "agreed_total_pence": get_settings().weekly_base_pence},
+    )
+    assert settled.status_code == 200, settled.text
+
+    view = api.get(f"/api/week/{older.id}").json()
+    assert view["status"] == "settled"
+    assert all(
+        chore["can_claim"] is False for day in view["days"] for chore in day["chores"]
+    )
+    refused = api.post("/api/claims", json={"instance_id": bed.id})
+    assert refused.status_code == 409
+
+
 # --- 8. The tap on the day tile, and the parent-only undo -------------------
 
 

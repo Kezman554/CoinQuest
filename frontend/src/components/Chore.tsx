@@ -29,8 +29,8 @@ type Props = {
   /** Off for one occasion of a chore paid once for the whole week: the
    *  amount belongs to the card around it, not to each slot inside it. */
   showAmount?: boolean
-  /** Both absent everywhere except the day tiles of the current, open week —
-   *  which is what keeps a week being paged back through read-only. */
+  /** Both absent everywhere except the day tiles of an open week — which
+   *  is what keeps a settled week being paged back through read-only. */
   onMissed?: (instanceId: number) => void
   onClearMiss?: (chore: InstanceCard) => void
 }

@@ -206,16 +206,22 @@ function ChildWeek() {
 
   if (!week) return <p className="loading">Loading your week…</p>
 
-  // A week paged back to is read-only regardless of whether it happens to
-  // still be open — nothing to claim, nothing to press. See can_claim's own
-  // rule, which is about the week's own status, not about what a screen
-  // browsing history should offer.
-  const shown = week.is_current ? week : asReadOnly(week)
+  // What can be tapped is the server's `can_claim`, rendered as it came. It
+  // is true on every untouched day of an open week — however long ago the
+  // day was, and whether or not the week is the current one — and false on
+  // every tile of a settled or voided week. This screen used to lock every
+  // week paged back to on top of that, which left a chore done on Wednesday
+  // and ticked by nobody with no way to be recorded once Sunday came: the
+  // week had moved on, the view read it as history, and the only thing that
+  // could reach it was waiving the day. The gate is the week's settlement
+  // state, and the server already applies it; see app/routers/claims.py.
+  const shown = week
 
-  // The missed control follows the same rule the claim button does: it exists
-  // on the week that is actually now, and nowhere else. A week paged back to
-  // is history being read, and history is not ruled on from this screen.
-  const rulable = week.is_current && week.status === 'open'
+  // The missed control, and the PIN-guarded clear, follow the same rule the
+  // claim button does: they exist on any week that has not settled, and
+  // nowhere else. A parent who notices on Sunday that last Wednesday was
+  // missed can still say so, right up until the week is agreed.
+  const rulable = week.status === 'open'
 
   return (
     <>
@@ -237,6 +243,7 @@ function ChildWeek() {
         <NotCurrentBanner
           startDate={week.start_date}
           endDate={week.end_date}
+          status={week.status}
           onBackToNow={onBackToNow}
         />
       )}
@@ -275,20 +282,5 @@ function ChildWeek() {
   )
 }
 
-/** Nothing claimable, whatever the raw instance states say. A week that is
- * technically still open but is not the one being paged back to as "now"
- * must not offer a button on the child's screen — see item 8. */
-function asReadOnly(view: WeekView): WeekView {
-  const locked = (card: InstanceCard): InstanceCard => ({ ...card, can_claim: false })
-  return {
-    ...view,
-    days: view.days.map((day) => ({ ...day, chores: day.chores.map(locked) })),
-    weekly: view.weekly.map((card) => ({
-      ...card,
-      instances: card.instances.map(locked),
-    })),
-    recovery: { ...view.recovery, options: view.recovery.options.map(locked) },
-  }
-}
 
 export default App

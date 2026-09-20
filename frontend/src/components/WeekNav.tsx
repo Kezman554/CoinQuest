@@ -8,7 +8,9 @@
  * standing across a kitchen.
  */
 
-import type { WeekSummary } from '../api'
+import type { ReactNode } from 'react'
+
+import type { WeekStatus, WeekSummary } from '../api'
 import { shortDate } from '../words'
 
 type NavProps = {
@@ -45,21 +47,56 @@ export function WeekNav({ weeks, viewedWeekId, onNavigate }: NavProps) {
   )
 }
 
+/**
+ * The banner over a week that is not this one, which says two different
+ * things depending on whether that week has been agreed.
+ *
+ * An open week paged back to is not history yet. Anything done on one of
+ * its days and ticked by nobody can still be ticked, and this has to be said
+ * out loud, because the tiles below it used to be locked and a person who
+ * remembers that will not try. It also has to say what a late tick means: it
+ * says the chore was done on that day. The make-good window closed with the
+ * week, and doing a bonus chore now does not reopen it — see
+ * app/routers/claims.py.
+ *
+ * A settled or voided week is closed forever, and reads as it always did.
+ *
+ * The parent screen shows the same banner over the same open week, with
+ * settlement controls under it rather than tiles, so it passes its own
+ * `openNote`; the default is the child's.
+ */
 export function NotCurrentBanner({
   startDate,
   endDate,
+  status,
   onBackToNow,
+  openNote,
 }: {
   startDate: string
   endDate: string
+  status: WeekStatus
   onBackToNow: () => void
+  openNote?: ReactNode
 }) {
   return (
     <section className="notice notice-away" role="status">
       <h2>
         Not the current week — {shortDate(startDate)} to {shortDate(endDate)}
       </h2>
-      <p>You are looking back through history. Nothing here can be changed.</p>
+      {status === 'open' ? (
+        <p>
+          {openNote ?? (
+            <>
+              This week is still waiting to be agreed. If you did a chore on
+              one of these days and forgot to tick it, you can still tick it
+              now. Ticking says you did it on that day — a chore done this
+              week counts for this week, not for last.
+            </>
+          )}
+        </p>
+      ) : (
+        <p>You are looking back through history. Nothing here can be changed.</p>
+      )}
       <button type="button" className="button button-do" onClick={onBackToNow}>
         Back to this week
       </button>

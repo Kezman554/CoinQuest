@@ -99,12 +99,14 @@ export type Totals = {
   payable_total_pence: number
 }
 
+export type WeekStatus = 'open' | 'settled' | 'voided'
+
 export type WeekView = {
   child_name: string
   week_id: number
   start_date: string
   end_date: string
-  status: string
+  status: WeekStatus
   today: string
   /** False for a past week read while paging back through history. */
   is_current: boolean
@@ -202,7 +204,7 @@ export type WeekSummary = {
   week_id: number
   start_date: string
   end_date: string
-  status: 'open' | 'settled' | 'voided'
+  status: WeekStatus
   total_pence: number | null
 }
 

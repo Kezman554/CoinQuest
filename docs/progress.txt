@@ -2480,3 +2480,54 @@ returns the four-key empty-not-error shape
 ({"total_earned_pence": 0, "savings_breakdown": {"from_payday_pence": 0,
 "from_gifts_pence": 0, "from_match_pence": 0}, "real": [],
 "counterfactual": []}) since this household has no savings history yet.
+
+Back-claims (2026-09-20) - a chore done on a past day of a week that has
+not settled can now be ticked, from the wall screen, however old the day.
+
+Reported from the live app on Sunday 20 Sep: the week of 13-19 Sep was
+open and unsettled, the chores had been done and none ticked, and no
+screen offered a way to record one - the previous week had been paid out
+by waiving the days, which puts "away" in the record for a week the child
+was at home. The card said not to take the cause from the description.
+
+What actually refused the claim: the frontend, and only the frontend.
+POST /api/claims already gated on nothing but Week.status - no due-date
+check, no clock, no rolling window - and week_view._card already set
+can_claim on every untouched instance of an open week regardless of its
+day. The refusal was asReadOnly() in App.tsx, which Session U added to
+lock every week paged back to, open or not, by overwriting can_claim to
+false on every card. Sunday is the first day of a new week here, so by
+the time the household noticed, the whole of 13-19 Sep was "history".
+There was no second gate server-side.
+
+Changes:
+- App.tsx: asReadOnly() is gone. The tiles render the server's can_claim
+  as it came. The missed control and the PIN-guarded clear now follow the
+  same rule (week.status === 'open') rather than is_current, so a parent
+  can still mark last Wednesday missed on Sunday - and clear it - right up
+  to settlement.
+- NotCurrentBanner takes the week's status: an open past week says a
+  forgotten tick can still be made and that ticking says it was done on
+  that day (the make-good window closed with the week - item 8's caution);
+  a settled or voided one keeps "Nothing here can be changed". The parent
+  WeekBrowser was rendering the settled wording over an open week it
+  could settle, so it now passes its own line.
+- app/routers/claims.py: the module docstring states the gate (settlement
+  state, not date), the honest timestamp (claimed_at is now, never the
+  due date), and the ruling on claiming a parent-marked miss - refused,
+  with a 409 that names clear_miss as the way back. A claim does not
+  quietly overwrite a parent's ruling. The endpoint itself had no
+  reasoning from "today" and gained none.
+- Settlement untouched: record_inferred_misses still turns an untouched
+  instance into a miss when the week is agreed.
+
+Tests: test_claims.py +3 (a claim on a weeks-old day of an open week is
+accepted and claimed_at is now, not the due date; the full loop - back-
+claim, PIN batch confirm, proposal chore pay 0 -> 200; a claim on a
+parent-marked miss is refused and works again once cleared).
+test_week_view.py +2 (every day of an open past week carries can_claim;
+a settled week carries none and the API refuses). Full suite 598 passed.
+Playwright: week-back-claim.spec.ts pages back on the wall screen, reads
+the banner's caution, taps last Wednesday, survives a reload, and finds
+the claim in the parent queue; the seed gains one untouched instance on
+the previous week's Wednesday. 5/5 passed. tsc clean.

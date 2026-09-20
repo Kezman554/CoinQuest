@@ -122,6 +122,114 @@ def test_a_closed_week_refuses_a_claim(api, session, week, instances):
     assert "settled" in response.json()["detail"]
 
 
+# --- 2b. A claim on a day long past, in a week still open --------------------
+
+
+def test_a_past_day_of_an_open_week_accepts_a_claim_however_old(api, session, instances):
+    """The gate is the week's status, not the instance's date.
+
+    The fixture week is in August and this runs in September or later —
+    every one of its days is past, some by weeks. None of that matters while
+    the week is open: the only thing that refuses a claim is settlement.
+    """
+    assert all(instance.due_date < utcnow().date() for instance in instances)
+
+    before = utcnow()
+    response = api.post("/api/claims", json={"instance_id": instances[2].id})
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+    assert body["state"] == "claimed"
+    # Honest in the record: claimed *now*, about a day that is not now. The
+    # timestamp is not moved back to the due date to make the two agree.
+    claimed_at = datetime.fromisoformat(body["claimed_at"])
+    if claimed_at.tzinfo is None:
+        claimed_at = claimed_at.replace(tzinfo=timezone.utc)
+    assert claimed_at >= before.replace(microsecond=0)
+    assert claimed_at.date() != instances[2].due_date
+    assert body["due_date"] == instances[2].due_date.isoformat()
+
+
+def test_a_back_claim_confirmed_by_the_parent_moves_the_settlement_proposal(
+    api, session, instances
+):
+    """The whole loop the card describes, at the API: claim a past day of an
+    open week, confirm it in the batch with the PIN, and the week's proposal
+    changes. One path to confirmed, and it is the one that already existed."""
+    from datetime import timedelta
+
+    from app.services import scheme_settings
+
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 200
+    # The fixture plans three of the seven days; a daily chore is asked for
+    # on all of them, and chore pay is all or nothing, so fill the week.
+    rest = [
+        ChoreInstance(
+            definition_id=instances[0].definition_id,
+            week_id=instances[0].week_id,
+            due_date=SUNDAY + timedelta(days=offset),
+        )
+        for offset in range(3, 7)
+    ]
+    session.add_all(rest)
+    session.commit()
+    whole_week = instances + rest
+
+    week_id = instances[0].week_id
+    untouched = api.get(f"/api/weeks/{week_id}/proposal").json()
+    assert untouched["chore_pay_pence"] == 0
+
+    for instance in whole_week:
+        claim(api, instance)
+    response = api.post(
+        "/api/claims/review",
+        json={
+            "pin": PIN,
+            "decisions": [
+                {"instance_id": instance.id, "decision": "confirm"}
+                for instance in whole_week
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    confirmed = api.get(f"/api/weeks/{week_id}/proposal").json()
+    assert confirmed["chore_pay_pence"] == 200
+
+
+def test_a_claim_does_not_overwrite_a_parent_marked_miss(api, session, instances):
+    """A tap on the child's screen is not how a parent's ruling comes off.
+
+    The mark stays, the claim is refused, and the refusal names the way back:
+    a parent clearing it, with the PIN. Cleared, the instance is claimable
+    again exactly as before.
+    """
+    target = instances[1]
+    assert (
+        api.post(
+            f"/api/instances/{target.id}/missed", json={"instance_id": target.id}
+        ).status_code
+        == 200
+    )
+
+    refused = api.post("/api/claims", json={"instance_id": target.id})
+    assert refused.status_code == 409
+    assert "clear" in refused.json()["detail"].lower()
+
+    session.expire_all()
+    still = session.get(ChoreInstance, target.id)
+    assert still.state is InstanceState.MISSED
+    assert still.miss_origin is MissOrigin.PARENT_MARKED
+    assert still.claimed_at is None
+
+    cleared = api.post(
+        f"/api/instances/{target.id}/missed/clear",
+        json={"pin": PIN, "instance_id": target.id},
+    )
+    assert cleared.status_code == 200
+    assert api.post("/api/claims", json={"instance_id": target.id}).status_code == 200
+
+
 # --- 3. A wrong PIN is refused, server-side ---------------------------------
 
 
