@@ -5,18 +5,32 @@ into the concrete list for one particular week, after the waivers have had
 their say. Nothing here writes anything or reads a clock: it takes a week, a
 set of definitions and a set of waivers, and returns what should exist.
 
-Four cadences are generated here:
+Five cadences are generated here:
 
     DAILY             one instance for each day the week contains
     WEEKDAYS          one instance for each of the definition's chosen days
                        the week contains — the same loop as DAILY, filtered
     WEEKLY_COUNT      n instances, tied to no day, numbered 1..n
     WEEKLY_CONDITION  nothing now; one judgement, made at settlement
+    ONE_OFF           one instance, tied to no day, in every week until it
+                       has been confirmed once — then never again
 
-The other two are not derived from a week at all. A ONE_OFF is created when a
-parent adds it, on the day they choose, and an EVENT when a parent logs that
-it happened. Neither can be predicted from a definition, so neither is
-generated here.
+A ONE_OFF is a thing done once, ever: a challenge, a milestone, a job that
+only needs doing the one time. It is not a fact about any particular week,
+so it is not scaled by waivers or tied to a day; it simply stays on offer,
+week after week, until a parent confirms it, and from then on it is
+achieved and no week asks for it again. Which weeks it appeared in and went
+untouched is not a shortfall — settlement infers a miss only for a basic
+chore, and a basic one-off is the one combination this shape does not suit,
+since the pot would be withheld every week it stands (see `plan_week`).
+
+"Achieved" is read from the record, not from the definition: it is any
+confirmed instance of that definition, in any week. `achieved_one_offs`
+finds them; `plan_week` takes the set, staying pure. A definition retired
+by a parent stops being planned the same way every other cadence does.
+
+The last cadence, EVENT, is not derived from a week at all: it is logged by
+a parent when it happens. Nothing creates one yet.
 
 Waivers subtract from all of that. A waived day removes that day's daily (or
 weekdays) instance, whether or not that day was one the chore was due on. A
@@ -247,15 +261,21 @@ def plan_week(
     *,
     week_id: int | None = None,
     bands: Sequence[CountBand] = WEEKLY_COUNT_BANDS,
+    achieved: Iterable[int] = (),
 ) -> WeekPlan:
     """What this week asks for, given these definitions and these waivers.
 
     Pure: it reads no clock and writes nothing. `week` is a Period from
     app.services.calendar, so the days it contains were already resolved in
     Europe/London by whoever built it.
+
+    `achieved` is the ids of the one-off definitions already confirmed
+    somewhere — see `achieved_one_offs`. A one-off in it is excluded; one
+    not in it is planned once, tied to no day.
     """
     waived_days = waived_days_in(week, waivers)
     excused = waived_definition_ids(week_id, waivers)
+    done_once = frozenset(achieved)
 
     instances: list[PlannedInstance] = []
     deferred: list[DeferredJudgement] = []
@@ -350,7 +370,34 @@ def plan_week(
                 )
             )
 
-        # ONE_OFF and EVENT are created by a parent, not derived from a week.
+        elif definition.cadence is Cadence.ONE_OFF:
+            # Once, ever. Not scaled by days waived — a day away takes
+            # nothing off "do this the one time" — and not tied to a day.
+            # A basic one-off would withhold the whole pot every week it
+            # stood untouched; that is the basic rule working as designed,
+            # and this shape is meant for a reward or a bonus.
+            if definition.id in done_once:
+                exclusions.append(
+                    Exclusion(
+                        definition_id=definition.id,
+                        definition_name=definition.name,
+                        reason="already achieved",
+                    )
+                )
+                continue
+            instances.append(
+                PlannedInstance(
+                    definition_id=definition.id,
+                    definition_name=definition.name,
+                    cadence=definition.cadence,
+                    category=definition.category,
+                    due_date=None,
+                    sequence=1,
+                )
+            )
+
+        # An EVENT is logged by a parent when it happens, not derived from a
+        # week. Nothing creates one yet.
 
     return WeekPlan(
         week=week,
@@ -359,6 +406,28 @@ def plan_week(
         waived_days=waived_days,
         exclusions=tuple(exclusions),
     )
+
+
+def achieved_one_offs(session) -> frozenset[int]:
+    """The one-off definitions that have been confirmed, in any week, ever.
+
+    Read from the instances rather than from a flag on the definition: a
+    confirmed instance is the record of it happening, and the record is
+    what says a thing is done. A voided week keeps its reward lines, so a
+    one-off confirmed in one stays achieved.
+    """
+    from app.models.chores import ChoreDefinition, ChoreInstance
+
+    rows = (
+        session.query(ChoreInstance.definition_id)
+        .join(ChoreDefinition, ChoreDefinition.id == ChoreInstance.definition_id)
+        .filter(
+            ChoreDefinition.cadence == Cadence.ONE_OFF,
+            ChoreInstance.state == InstanceState.CONFIRMED,
+        )
+        .distinct()
+    )
+    return frozenset(definition_id for (definition_id,) in rows)
 
 
 def sync_week_instances(session, week, plan: WeekPlan) -> tuple[int, int]:

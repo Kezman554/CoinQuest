@@ -42,7 +42,7 @@ from app.models.waivers import Waiver
 from app.models.weeks import Week
 from app.services import payments, settlement
 from app.services.calendar import Period, current_week, elapsed, today
-from app.services.instances import WeekPlan, plan_week
+from app.services.instances import WeekPlan, achieved_one_offs, plan_week
 from app.services.recovery import RECOVERY_CAP
 
 #: How much of the recovery window has to be left before the wording changes.
@@ -249,7 +249,13 @@ def build(
     instances = (
         session.query(ChoreInstance).filter(ChoreInstance.week_id == week.id).all()
     )
-    plan = plan_week(period, definitions.values(), waivers, week_id=week.id)
+    plan = plan_week(
+        period,
+        definitions.values(),
+        waivers,
+        week_id=week.id,
+        achieved=achieved_one_offs(session),
+    )
 
     open_week = week.status is WeekStatus.OPEN
     day_reasons = {

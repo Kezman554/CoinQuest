@@ -51,7 +51,7 @@ from app.models.weeks import SettlementLine, Week, WeekReopening
 from app.services import savings, scheme_settings
 from app.services.authorisation import Authorisation
 from app.services.calendar import Period, today
-from app.services.instances import plan_week
+from app.services.instances import achieved_one_offs, plan_week
 from app.services.recovery import (
     RECOVERY_CAP,
     Assignment,
@@ -265,7 +265,13 @@ def propose(
     waivers = session.query(Waiver).all()
     instances = session.query(ChoreInstance).filter(ChoreInstance.week_id == week.id).all()
 
-    plan = plan_week(week_period(week, tz), definitions, waivers, week_id=week.id)
+    plan = plan_week(
+        week_period(week, tz),
+        definitions,
+        waivers,
+        week_id=week.id,
+        achieved=achieved_one_offs(session),
+    )
     assessment = assess_week(
         plan,
         definitions,

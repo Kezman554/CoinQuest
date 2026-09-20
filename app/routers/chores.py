@@ -44,7 +44,7 @@ from app.models.waivers import Waiver
 from app.models.weeks import Week
 from app.routers.dependencies import AuthorisedRequest, authorise, get_session
 from app.services.calendar import current_week
-from app.services.instances import plan_week, sync_week_instances
+from app.services.instances import achieved_one_offs, plan_week, sync_week_instances
 from app.services.settlement import week_period
 
 router = APIRouter(prefix="/api/chores", tags=["chores"])
@@ -216,6 +216,7 @@ def _resync_current_week(session: Session) -> None:
         session.query(ChoreDefinition).all(),
         session.query(Waiver).all(),
         week_id=week.id,
+        achieved=achieved_one_offs(session),
     )
     sync_week_instances(session, week, plan)
 

@@ -168,7 +168,7 @@ export function cadenceLabel(
     case 'weekly_condition':
       return 'All week, judged on Sunday'
     case 'one_off':
-      return 'One-off'
+      return 'Once, ever'
     case 'event':
       return 'Logged by a parent when it happens'
     default:

@@ -2542,3 +2542,48 @@ and /api/week/5 - the open week of 13-19 Sep the report was about - now
 carries can_claim on all fourteen of its untouched past-day instances,
 while the settled week of 6-12 Sep carries none. Nothing was claimed on
 the household's behalf; that tap is theirs.
+
+One-off chores (2026-09-20) - a "One-off" chore now reaches the child's
+screen. Reported from the live app: two reward chores ("Tie shoelaces in
+8 seconds" £2, "in 5 seconds" £4) saved with the one_off cadence showed
+in the parent panel and nowhere else.
+
+Cause: one_off was a stub. Session B's plan said a ONE_OFF instance is
+"created by a parent when they happen, on the day they choose", the
+planner skipped the cadence accordingly, and the route and form control
+to create one were never built - yet the parent form offered the cadence.
+The definition was saved and no instance ever existed for it. Everything
+downstream was already ready: the week view renders an instance with no
+due date under "Any time this week", settlement pays a confirmed reward
+its own amount, and misses are only ever inferred for basic chores.
+
+Shape chosen, as Nick thinks of it: a one-off is a thing done once, ever
+- a challenge or milestone. plan_week now plans one instance for it
+(due_date None, sequence 1) in every open week until a confirmed instance
+exists anywhere, then excludes it as "already achieved". Not scaled by
+days waived, not tied to a day. `achieved_one_offs(session)` reads the
+set from the record (confirmed instances of one_off definitions, any
+week, voided included since reward lines stand) and all five plan_week
+callers pass it. sync_week_instances needed nothing: it already leaves a
+claimed or confirmed row alone and withdraws an untouched one the plan no
+longer asks for - which is exactly what happens to this week's untouched
+copy the moment last week's claim is confirmed. No migration, no new
+route: claim -> PIN-confirm stays the one path to confirmed. EVENT is
+still unbuilt and still offered in the form; noted, not touched.
+
+Caveat stated in the module: a *basic* one-off would withhold the whole
+pot every week it stood untouched - the basic rule working as designed.
+This shape is for a reward or a bonus.
+
+Frontend: the parent form's cadence reads "Once, ever - stays on his
+screen until it is done" and the list "Once, ever"; the child's weekly
+card and chore rows carry a Reward tag beside the amount, as bonus does.
+
+Tests: test_instances.py rewrites the one-off planner test into three
+(planned once, tied to no day; excluded once achieved; ignores waived
+days) and keeps EVENT's. test_chores.py +2, over HTTP: the whole life of
+a one-off reward (created, on the week with a button, claimed, confirmed,
+reward_pence 0 -> 200, no second instance on re-open, absent from the
+next week's plan and sync), and an untouched copy withdrawn once last
+week's claim is confirmed. Full suite 603 passed, Playwright 5/5, tsc
+clean.

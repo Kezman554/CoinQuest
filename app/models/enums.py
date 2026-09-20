@@ -16,7 +16,7 @@ class Cadence(str, enum.Enum):
     WEEKDAYS = "weekdays"                  # one instance on chosen days of the week
     WEEKLY_COUNT = "weekly_count"          # n instances somewhere in the week
     WEEKLY_CONDITION = "weekly_condition"  # one week-long condition, judged once
-    ONE_OFF = "one_off"                    # a single instance on a given day
+    ONE_OFF = "one_off"                    # once, ever: on offer until confirmed
     EVENT = "event"                        # logged by a parent when it happens
 
 

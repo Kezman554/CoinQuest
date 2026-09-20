@@ -788,3 +788,126 @@ def test_a_week_settled_before_this_card_shipped_is_untouched_by_it(api, session
 
     after = api.get(f"/api/weeks/{week.id}").json()
     assert after == before
+
+
+# --- A one-off: once, ever ------------------------------------------------------
+
+
+def one_off_card(api, name: str) -> dict | None:
+    view = api.get("/api/week").json()
+    return next((card for card in view["weekly"] if card["name"] == name), None)
+
+
+def test_a_one_off_reward_stays_on_offer_until_confirmed_then_pays_once(
+    api, session, week_dates
+):
+    """The whole life of a challenge: created by a parent, on the child's
+    screen under "any time this week", claimed, confirmed with the PIN, paid
+    its own amount — and then never asked for again, in this week or the next.
+
+    This is the shape the parent form had been offering as "One-off" while
+    nothing ever placed an instance, so a chore saved with it reached the
+    parent panel and no week at all.
+    """
+    api.post("/api/week/open")
+    laces = create(
+        api,
+        name="Tie shoelaces in 8 seconds",
+        category="reward",
+        cadence="one_off",
+        times_per_week=None,
+        amount_pence=200,
+    )
+
+    # Adding the definition re-plans the open week: the instance is there
+    # now, tied to no day, wanted once, with a button on it.
+    card = one_off_card(api, "Tie shoelaces in 8 seconds")
+    assert card is not None
+    assert card["required"] == 1
+    assert card["category"] == "reward"
+    assert [(i["due_date"], i["can_claim"]) for i in card["instances"]] == [(None, True)]
+    instance_id = card["instances"][0]["instance_id"]
+
+    week_id = api.get("/api/week").json()["week_id"]
+    assert api.get(f"/api/weeks/{week_id}/proposal").json()["reward_pence"] == 0
+
+    # Standing untouched costs nothing: no miss is inferred for a reward.
+    assert api.get(f"/api/weeks/{week_id}/proposal").json()["misses"] == 0
+
+    assert api.post("/api/claims", json={"instance_id": instance_id}).status_code == 200
+    review = api.post(
+        "/api/claims/review",
+        json={"pin": PIN, "decisions": [{"instance_id": instance_id, "decision": "confirm"}]},
+    )
+    assert review.status_code == 200, review.text
+    assert api.get(f"/api/weeks/{week_id}/proposal").json()["reward_pence"] == 200
+
+    # Re-opening the week (every page load does) leaves the confirmed
+    # instance exactly where it is and adds no second one.
+    api.post("/api/week/open")
+    card = one_off_card(api, "Tie shoelaces in 8 seconds")
+    assert [i["state"] for i in card["instances"]] == ["confirmed"]
+
+    # The next week does not ask for it: achieved is read from the record.
+    start, end = week_dates
+    following = Week(start_date=start + timedelta(days=7), end_date=end + timedelta(days=7))
+    session.add(following)
+    session.commit()
+    from app.services.calendar import week_containing
+    from app.services.instances import achieved_one_offs, plan_week, sync_week_instances
+    from app.models import Waiver
+
+    assert achieved_one_offs(session) == {laces["id"]}
+    plan = plan_week(
+        week_containing(following.start_date, get_settings().tzinfo),
+        session.query(ChoreDefinition).all(),
+        session.query(Waiver).all(),
+        week_id=following.id,
+        achieved=achieved_one_offs(session),
+    )
+    assert laces["id"] not in {i.definition_id for i in plan.instances}
+    assert [e.reason for e in plan.exclusions if e.definition_id == laces["id"]] == [
+        "already achieved"
+    ]
+    created, _ = sync_week_instances(session, following, plan)
+    session.commit()
+    assert (
+        session.query(ChoreInstance)
+        .filter(ChoreInstance.week_id == following.id, ChoreInstance.definition_id == laces["id"])
+        .count()
+        == 0
+    )
+
+
+def test_an_untouched_one_off_is_withdrawn_once_it_is_achieved_elsewhere(api, session, week_dates):
+    """A claim left over from last week, confirmed this week: this week's
+    copy of the challenge, still untouched, goes — there is nothing left to
+    achieve. Sync never touches a claimed or confirmed instance, so a claim
+    made this week would stay for a parent to rule on."""
+    start, end = week_dates
+    previous = Week(start_date=start - timedelta(days=7), end_date=end - timedelta(days=7))
+    session.add(previous)
+    session.commit()
+
+    api.post("/api/week/open")
+    laces = create(
+        api, name="Laces", category="reward", cadence="one_off", times_per_week=None, amount_pence=200
+    )
+    this_week = one_off_card(api, "Laces")
+    assert this_week is not None and this_week["instances"][0]["state"] == "untouched"
+
+    # Last week's copy, claimed back then and only ruled on now.
+    old = ChoreInstance(
+        definition_id=laces["id"], week_id=previous.id, state=InstanceState.CLAIMED,
+        claimed_at=previous.created_at,
+    )
+    session.add(old)
+    session.commit()
+    review = api.post(
+        "/api/claims/review",
+        json={"pin": PIN, "decisions": [{"instance_id": old.id, "decision": "confirm"}]},
+    )
+    assert review.status_code == 200, review.text
+
+    api.post("/api/week/open")
+    assert one_off_card(api, "Laces") is None

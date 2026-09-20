@@ -146,10 +146,33 @@ def test_a_weekly_condition_produces_no_instance_before_settlement():
     assert [judgement.definition_id for judgement in plan.deferred] == [CONDITION.id]
 
 
-def test_one_off_and_event_chores_are_not_derived_from_a_week():
-    # Both are created by a parent when they happen; neither is predictable
-    # from a definition, so the planner leaves them alone entirely.
-    plan = plan_week(WEEK, [ONE_OFF, EVENT])
+def test_a_one_off_is_planned_once_tied_to_no_day_until_achieved():
+    # Once, ever: a single occasion, on offer in every week until it has
+    # been confirmed somewhere. Not a fact about any day.
+    plan = plan_week(WEEK, [ONE_OFF])
+    assert [(i.definition_id, i.due_date, i.sequence) for i in plan.instances] == [
+        (ONE_OFF.id, None, 1)
+    ]
+    assert plan.required == {ONE_OFF.id: 1}
+
+
+def test_an_achieved_one_off_is_not_asked_for_again():
+    plan = plan_week(WEEK, [ONE_OFF], achieved={ONE_OFF.id})
+    assert plan.instances == ()
+    assert [e.reason for e in plan.exclusions] == ["already achieved"]
+
+
+def test_a_one_off_ignores_days_waived():
+    # "Do this the one time" loses nothing to a day away. Five days waived
+    # would scale a weekly count to nothing; the one-off is still asked for.
+    plan = plan_week(WEEK, [ONE_OFF], day_waivers(*WEEK.days[:5]))
+    assert len(plan.instances) == 1
+
+
+def test_an_event_chore_is_not_derived_from_a_week():
+    # Logged by a parent when it happens; not predictable from a definition,
+    # so the planner leaves it alone entirely.
+    plan = plan_week(WEEK, [EVENT])
     assert plan.instances == ()
     assert plan.deferred == ()
 

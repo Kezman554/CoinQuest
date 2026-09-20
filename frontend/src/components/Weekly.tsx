@@ -42,6 +42,7 @@ export function Weekly({ weekly, onClaim, busyId, deadlineWeekday }: Props) {
             {card.category !== 'basic' && (
               <p className="weekly-side">
                 {card.category === 'bonus' && <span className="tag tag-bonus">Bonus</span>}
+                {card.category === 'reward' && <span className="tag tag-reward">Reward</span>}
                 <span className="chore-amount">{money(card.amount_pence)}</span>
               </p>
             )}

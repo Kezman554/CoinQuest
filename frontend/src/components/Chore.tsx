@@ -57,6 +57,7 @@ export function Chore({
       {showAmount && chore.category !== 'basic' && (
         <span className="chore-side">
           {chore.category === 'bonus' && <span className="tag tag-bonus">Bonus</span>}
+          {chore.category === 'reward' && <span className="tag tag-reward">Reward</span>}
           <span className="chore-amount">{money(chore.amount_pence)}</span>
         </span>
       )}
