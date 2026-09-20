@@ -2531,3 +2531,14 @@ Playwright: week-back-claim.spec.ts pages back on the wall screen, reads
 the banner's caution, taps last Wednesday, survives a reload, and finds
 the claim in the parent queue; the seed gains one untouched instance on
 the previous week's Wednesday. 5/5 passed. tsc clean.
+
+Pushed and deployed to the household stack the same day. Backed up first
+(coinquest-2026-09-20-1230.tar.gz). No migration - frontend plus a
+docstring and a refusal message - so head stayed at 8a5d83828968. Pulled
+on the Pi, rebuilt with `docker compose up -d --build coinquest` from
+AlfredHomeHub/docker, healthy inside 20 seconds. Verified against the
+real household database: integrity_check ok, foreign_key_check empty,
+and /api/week/5 - the open week of 13-19 Sep the report was about - now
+carries can_claim on all fourteen of its untouched past-day instances,
+while the settled week of 6-12 Sep carries none. Nothing was claimed on
+the household's behalf; that tap is theirs.
