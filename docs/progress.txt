@@ -2611,3 +2611,7 @@ Noticed while here, not fixed: `alembic check` on a freshly migrated
 database reports a remove/add of the UniqueConstraint on
 savings_month_matches.period_start - a reflection quirk, pre-existing on
 the committed tree, unrelated to any of today's work. Worth a look.
+
+Pushed and deployed the same day. Backed up first
+(coinquest-2026-09-20-1703.tar.gz); no migration; healthy inside 15
+seconds; integrity_check ok, foreign_key_check empty.
