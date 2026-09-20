@@ -5,7 +5,7 @@ into the concrete list for one particular week, after the waivers have had
 their say. Nothing here writes anything or reads a clock: it takes a week, a
 set of definitions and a set of waivers, and returns what should exist.
 
-Five cadences are generated here:
+Every cadence is generated here:
 
     DAILY             one instance for each day the week contains
     WEEKDAYS          one instance for each of the definition's chosen days
@@ -29,8 +29,9 @@ confirmed instance of that definition, in any week. `achieved_one_offs`
 finds them; `plan_week` takes the set, staying pure. A definition retired
 by a parent stops being planned the same way every other cadence does.
 
-The last cadence, EVENT, is not derived from a week at all: it is logged by
-a parent when it happens. Nothing creates one yet.
+There used to be a sixth, EVENT — "logged by a parent when it happens" —
+which was never wired to anything and did the same job the rewards route
+does properly. It was removed rather than built.
 
 Waivers subtract from all of that. A waived day removes that day's daily (or
 weekdays) instance, whether or not that day was one the chore was due on. A
@@ -395,9 +396,6 @@ def plan_week(
                     sequence=1,
                 )
             )
-
-        # An EVENT is logged by a parent when it happens, not derived from a
-        # week. Nothing creates one yet.
 
     return WeekPlan(
         week=week,

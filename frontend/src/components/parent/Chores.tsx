@@ -52,7 +52,6 @@ const CADENCES: { value: Cadence; label: string }[] = [
   { value: 'weekly_count', label: 'A number of times a week' },
   { value: 'weekly_condition', label: 'All week, judged on Sunday' },
   { value: 'one_off', label: 'Once, ever — stays on his screen until it is done' },
-  { value: 'event', label: 'Logged by a parent when it happens' },
 ]
 
 const CATEGORIES: { value: string; label: string }[] = [

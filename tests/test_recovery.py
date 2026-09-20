@@ -67,7 +67,7 @@ BINS = FakeDefinition(
     4, "Bins", Cadence.WEEKLY_COUNT, Category.BONUS, 200, times_per_week=1
 )
 TIDY = FakeDefinition(5, "Tidy all week", Cadence.WEEKLY_CONDITION, Category.BONUS, 500)
-AWARD = FakeDefinition(6, "School award", Cadence.EVENT, Category.REWARD, 250)
+AWARD = FakeDefinition(6, "School award", Cadence.ONE_OFF, Category.REWARD, 250)
 BINS_OUT = FakeDefinition(
     7, "Bins out", Cadence.WEEKDAYS, Category.BONUS, 60, weekdays="tuesday,friday"
 )
@@ -355,7 +355,6 @@ def test_eligibility_names_no_chore_anywhere():
     # The rule is a property of the cadence, so a new chore is covered the day
     # it is added without anyone editing the recovery logic.
     assert Cadence.WEEKLY_CONDITION not in ON_DEMAND_CADENCES
-    assert Cadence.EVENT not in ON_DEMAND_CADENCES
     assert ON_DEMAND_CADENCES == {
         Cadence.DAILY,
         Cadence.WEEKDAYS,

@@ -195,7 +195,6 @@ export type Cadence =
   | 'weekly_count'
   | 'weekly_condition'
   | 'one_off'
-  | 'event'
 
 /** date.weekday() order (Monday-first) — matches the server's WEEKDAY_TOKENS. */
 export type Weekday =

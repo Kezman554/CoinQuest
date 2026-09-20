@@ -91,7 +91,7 @@ def test_an_administered_chore_can_be_marked_so(api):
     body = create(
         api,
         name="Clock test",
-        cadence="event",
+        cadence="one_off",
         times_per_week=None,
         is_administered=True,
     )
@@ -258,10 +258,27 @@ def test_reward_still_needs_its_own_amount(api):
             "pin": PIN,
             "name": "School award",
             "category": "reward",
-            "cadence": "event",
+            "cadence": "one_off",
         },
     )
     assert response.status_code == 422
+
+
+def test_the_event_cadence_is_gone(api):
+    """It was offered in the form and wired to nothing; a reward that simply
+    happened is recorded through /api/rewards, which pays it properly."""
+    response = api.post(
+        "/api/chores",
+        json={
+            "pin": PIN,
+            "name": "School award",
+            "category": "reward",
+            "cadence": "event",
+            "amount_pence": 300,
+        },
+    )
+    assert response.status_code == 422
+    assert "cadence must be one of" in response.text
 
 
 # --- Listing ---------------------------------------------------------------

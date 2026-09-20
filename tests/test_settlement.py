@@ -67,7 +67,7 @@ def scheme(session):
     )
     award = ChoreDefinition(
         name="School award",
-        cadence=Cadence.EVENT,
+        cadence=Cadence.ONE_OFF,
         category=Category.REWARD,
         amount_pence=250,
     )

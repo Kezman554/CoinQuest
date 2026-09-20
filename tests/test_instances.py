@@ -72,9 +72,6 @@ CONDITION = FakeDefinition(
     id=4, name="Room tidy all week", cadence=Cadence.WEEKLY_CONDITION
 )
 ONE_OFF = FakeDefinition(id=5, name="Clear the shed", cadence=Cadence.ONE_OFF)
-EVENT = FakeDefinition(
-    id=6, name="School award", cadence=Cadence.EVENT, category=Category.REWARD
-)
 
 
 # --- 1. Daily ---------------------------------------------------------------
@@ -167,14 +164,6 @@ def test_a_one_off_ignores_days_waived():
     # would scale a weekly count to nothing; the one-off is still asked for.
     plan = plan_week(WEEK, [ONE_OFF], day_waivers(*WEEK.days[:5]))
     assert len(plan.instances) == 1
-
-
-def test_an_event_chore_is_not_derived_from_a_week():
-    # Logged by a parent when it happens; not predictable from a definition,
-    # so the planner leaves it alone entirely.
-    plan = plan_week(WEEK, [EVENT])
-    assert plan.instances == ()
-    assert plan.deferred == ()
 
 
 def test_an_unavailable_chore_produces_nothing():

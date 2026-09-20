@@ -17,7 +17,6 @@ class Cadence(str, enum.Enum):
     WEEKLY_COUNT = "weekly_count"          # n instances somewhere in the week
     WEEKLY_CONDITION = "weekly_condition"  # one week-long condition, judged once
     ONE_OFF = "one_off"                    # once, ever: on offer until confirmed
-    EVENT = "event"                        # logged by a parent when it happens
 
 
 #: Cadences that produce one instance for the whole week rather than per day.
@@ -42,9 +41,7 @@ WEEK_DERIVED_CADENCES = frozenset(
 #: rules, so adding a chore never means remembering to update them.
 #:
 #: A WEEKLY_CONDITION is excluded because it cannot be started on Thursday —
-#: a condition held all week is either already true or already lost. An EVENT
-#: is excluded because the child does not decide when it happens; somebody
-#: else does, and a rule the child cannot act on is not a recovery route.
+#: a condition held all week is either already true or already lost.
 #:
 #: WEEKDAYS belongs here too — on one of its own chosen days it is exactly as
 #: on-demand as DAILY is every day. Membership in this set does not promise a
