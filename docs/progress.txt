@@ -2587,3 +2587,10 @@ reward_pence 0 -> 200, no second instance on re-open, absent from the
 next week's plan and sync), and an untouched copy withdrawn once last
 week's claim is confirmed. Full suite 603 passed, Playwright 5/5, tsc
 clean.
+
+Pushed and deployed to the household stack the same day. Backed up first
+(coinquest-2026-09-20-1255.tar.gz). No migration - head stays at
+8a5d83828968. Pulled, rebuilt, healthy inside 15 seconds. On the live
+current week (20-26 Sep) both shoelace challenges now stand under "Any
+time this week", untouched and claimable, reward_pence 0 until one is
+confirmed. integrity_check ok, foreign_key_check empty.
