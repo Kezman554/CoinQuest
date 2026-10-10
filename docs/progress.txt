@@ -2666,3 +2666,28 @@ Tabs and name scrub pushed and deployed the same day. Backed up first
 (coinquest-2026-10-10-1824.tar.gz); no migration; healthy on rebuild.
 /health, /parent, /api/summary and /api/weeks 200; the served bundle
 carries the tab list. integrity_check ok, foreign_key_check empty.
+
+alembic check green again (2026-10-10). The remove/add of a
+UniqueConstraint on savings_month_matches.period_start, noted 1 Sep (AB)
+and 20 Sep, was not a reflection quirk: it was a real name mismatch on a
+correct constraint. 7b10cc8d801f created it as
+uq_savings_month_matches_period_start (op.f, from the naming convention),
+and SQLite reflects exactly that. The model named it
+one_settlement_per_month. The CHECKs beside it use short names safely
+because the "ck" convention wraps %(constraint_name)s; the "uq"
+convention has no such token, so the short name was taken literally and
+never matched. Same column, same rule - only the name differed, so the
+schema was right and the model was not.
+
+Fixed in the model, no migration: the UniqueConstraint is now unnamed
+and the convention produces the name the database already has. Nothing
+referenced the old name. The table's two append-only triggers were not
+touched, since nothing was rebuilt.
+
+Verified on a database built from empty through app.db.run_migrations()
+with alembic's check command run in the same process: green. With a
+throwaway nullable column added to SavingsMonthMatch: red, "New upgrade
+operations detected: add_column ... throwaway_probe". Reverted: green.
+The throwaway was never committed. Local dev coinquest.db held only an
+empty alembic_version table; brought to head (8a5d83828968) the same
+way, and check is green on it. Full suite 604 passed.

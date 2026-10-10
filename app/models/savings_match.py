@@ -75,7 +75,12 @@ class SavingsMonthMatch(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("period_start", name="one_settlement_per_month"),
+        # One settlement per month. Unnamed on purpose: the "uq" naming
+        # convention has no %(constraint_name)s token, so a short name here
+        # is not prefixed the way the CHECKs below are — it is taken
+        # literally, and stops matching the uq_savings_month_matches_
+        # period_start that 7b10cc8d801f created.
+        UniqueConstraint("period_start"),
         CheckConstraint(
             "strftime('%d', period_start) = '01'", name="period_start_is_the_first_of_the_month"
         ),
