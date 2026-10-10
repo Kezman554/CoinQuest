@@ -2626,4 +2626,11 @@ can page back, mark chores done and settle it. Nothing is made before the
 first week on record. Basic chores left untouched in a backfilled week
 are inferred missed at settlement as usual - mark them done first.
 test_week_view.py +1; the paging-back test now expects its gap filled.
-Full suite 604 passed. Not yet pushed or deployed.
+Full suite 604 passed.
+
+Pushed and deployed the same day. Backed up first
+(coinquest-2026-10-10-1802.tar.gz); no migration; healthy on rebuild.
+One POST /api/week/open brought week 8 (27 Sep - 3 Oct) into being, open,
+with both daily chores on all seven days untouched and claimable; the
+current week (4-10 Oct) is week 7. integrity_check ok, foreign_key_check
+empty. Nothing was claimed or settled on the household's behalf.
