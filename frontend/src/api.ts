@@ -123,7 +123,7 @@ export type Depositors = { child_name: string; parent_names: string[] }
 
 export type DepositRequestState = 'pending' | 'confirmed' | 'rejected'
 
-/** A deposit Oliver has proposed — pending until a parent confirms it with
+/** A deposit the child has proposed — pending until a parent confirms it with
  * the PIN, the same wait a claimed chore sits in. */
 export type DepositRequest = {
   id: number
@@ -238,7 +238,7 @@ export async function loadDepositors(): Promise<Depositors> {
   return json<Depositors>(await fetch('/api/savings/deposits/depositors'))
 }
 
-/** Oliver's own deposits still waiting on a parent. */
+/** The child's own deposits still waiting on a parent. */
 export async function loadMyPendingDeposits(childName: string): Promise<DepositRequest[]> {
   const all = await json<DepositRequest[]>(await fetch('/api/savings/deposits/pending'))
   return all.filter((request) => request.posted_by === childName)

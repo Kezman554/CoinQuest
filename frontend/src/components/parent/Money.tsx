@@ -451,7 +451,7 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
   )
 }
 
-/** What Oliver has proposed, waiting on a parent — the same wait a claimed
+/** What the child has proposed, waiting on a parent — the same wait a claimed
  * chore sits in, and the same asymmetry: confirming carries the PIN because
  * it hands money over, and so, here, does declining, if only because both
  * are the one credential this queue has. */

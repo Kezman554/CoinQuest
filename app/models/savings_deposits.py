@@ -1,4 +1,4 @@
-"""A savings deposit Oliver submits himself, waiting on a parent.
+"""A savings deposit the child submits himself, waiting on a parent.
 
 Not the savings ledger, and deliberately not append-only the way that is:
 this row is a proposal, and a proposal is exactly the thing this scheme
@@ -28,7 +28,7 @@ from app.models.enums import DepositRequestState
 
 
 class PendingSavingsDeposit(Base):
-    """One deposit Oliver has proposed, not yet ruled on or ruled on already."""
+    """One deposit the child has proposed, not yet ruled on or ruled on already."""
 
     __tablename__ = "savings_deposit_requests"
 

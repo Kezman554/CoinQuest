@@ -908,7 +908,7 @@ select {
   color: var(--ink-soft);
 }
 
-/* Oliver's own deposits still waiting on a parent — see SavingsView.tsx. */
+/* The child's own deposits still waiting on a parent — see SavingsView.tsx. */
 .deposit-pending {
   list-style: none;
   margin: 1rem 0 0;

@@ -2025,7 +2025,7 @@ and settle actions exist only via the API today.
 gap that surfacing it exposed
 
 Nick confirmed the spec actually envisages three savings screens, not one:
-an Oliver-facing Savings page, a Lifetime page (total earned and the
+a child-facing Savings page, a Lifetime page (total earned and the
 never-withdrawn counterfactual - separate, out of scope, coming later,
 deliberately not folded into either of these two), and a parent panel to
 review and settle the match. Built the first and third; the Lifetime page
@@ -2069,7 +2069,7 @@ Frontend, two new pieces:
   names the next unsettled month and a parent watching this panel simply
   sees it roll forward to the following one the moment Settle succeeds.
 
-  Oliver's Savings page (SavingsView.tsx, a third screen alongside child
+  The child's Savings page (SavingsView.tsx, a third screen alongside child
   and parent, reached from a new "Savings" button in the footer - needs no
   PIN, so it sits beside Parent rather than behind it) - balance, current
   rate, clean months in a row, what next month pays if nothing changes,
@@ -2135,7 +2135,7 @@ entries at all yet.
 
 The last of the three savings screens (see the memory note this ran under:
 [[savings-surfaces-scoped-not-built]]) - total earned to date, and the
-never-withdrawn comparison, read-only and Oliver-facing. No new table:
+never-withdrawn comparison, read-only and child-facing. No new table:
 both figures are replayed fresh from the earnings and savings ledgers on
 every read.
 
@@ -2274,12 +2274,12 @@ money, a gift, or the opening balance at go-live, arriving outside the
 cash/bank split at settlement.
 
 Two doors, mirroring app/routers/claims.py's own split rather than one
-endpoint branching on who the body claims to be. Oliver's (POST
+endpoint branching on who the body claims to be. The child's (POST
 /api/savings/deposits) needs no credential and can only ever create a
 pending request in his own name — refused for anyone else's, whatever the
 frontend sent. A parent's (POST /api/savings/deposits/parent) carries the
 PIN and writes straight to the ledger; there is no pending step, because
-the PIN already proves the party. Confirming or rejecting one of Oliver's
+the PIN already proves the party. Confirming or rejecting one of the child's
 (POST .../{id}/confirm|reject) is a parent act too, and mirrors
 claims.py's confirm/reject exactly: confirm calls the same
 savings.record_deposit every other deposit already goes through, reject
@@ -2295,7 +2295,7 @@ caching, so the env change is the whole deploy.
 savings_ledger gains posted_by (null for everything but a standalone
 deposit — a payday deposit belongs to its week, not a person).
 savings_deposit_requests is new and, unlike either ledger, not
-append-only: Oliver's own proposal, sitting pending until a parent rules,
+append-only: the child's own proposal, sitting pending until a parent rules,
 the same claimed/confirmed shape chore_instances already is.
 
 The migration nearly shipped a real bug: batch_alter_table on
@@ -2342,7 +2342,7 @@ note, no PIN, no posted_by picker since it's always him - with his own
 pending list underneath so submitting doesn't feel like it vanished.
 Money.tsx's SavingsPanel gains "Record a deposit" (parent-direct, PIN,
 a posted_by <select> that only renders once parent_names has more than
-one name in it) and "From Oliver, waiting" (confirm/decline, PIN either
+one name in it) and "From <child>, waiting" (confirm/decline, PIN either
 way). Both reuse the existing ask()/PinDialog machinery, so a global
 refresh follows either exactly like every other parent act already does
 - no new plumbing for that. The ledger table also now shows who posted a
@@ -2351,7 +2351,7 @@ table is for.
 
 Verified by hand past the unit and API level: a live seed, the real
 built app, Playwright driving the actual flow rather than calling the
-endpoints directly - Oliver submits a deposit, the balance does not move,
+endpoints directly - the child submits a deposit, the balance does not move,
 the parent screen shows it waiting, confirms it with the PIN, the balance
 updates on both screens with no manual reload; a parent posts one
 directly and it lands immediately with no pending row. Screenshotted at
@@ -2374,7 +2374,7 @@ own migration bug made worth checking specifically rather than trusting -
 savings_ledger's two append-only triggers are still there. /health,
 /api/summary, /parent and the new /api/savings/deposits/depositors all
 answer correctly, the last one confirming PARENT_NAMES reached the
-container: {"child_name": "Oliver", "parent_names": ["Nick"]}.
+container: {"child_name": "<CHILD_NAME>", "parent_names": ["Nick"]}.
 
 Standalone deposits' immediate follow-on: the parent Savings panel's old
 "Opening balance" act - its own amount field, Record button and copy -
@@ -2654,8 +2654,10 @@ passed, tsc clean.
 
 Noticed, not fixed: at 360px the page scrolls sideways - the child's week
 is 406px wide, and on the parent side the "Void the week" buttons in
-Closed weeks reach 409px. Pre-existing. Separately, the child's real
-name appears in comments in about ten tracked files (savings deposits,
-lifetime, savings match, the 8a5d83828968 migration, the frontend and
-this log), against the CHILD_NAME convention in a public repo - worth a
-sweep, and it is in git history too.
+Closed weeks reach 409px. Pre-existing.
+
+Child's name scrubbed (2026-10-10). It had crept into comments and this
+log across 17 tracked files, against the CHILD_NAME convention in a
+public repo - all prose, none in code, test data or migrations' DDL. Now
+"the child" throughout, and `git grep` finds it nowhere. Still in git
+history; Nick chose not to rewrite that.

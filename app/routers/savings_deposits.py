@@ -97,7 +97,7 @@ class SavingsEntryView(BaseModel):
 
 
 class SubmitDepositRequest(BaseModel):
-    """Oliver proposing a deposit. No credential, by design — see claim()."""
+    """The child proposing a deposit. No credential, by design — see claim()."""
 
     amount_pence: int = Field(gt=0)
     note: str = Field(min_length=1)
@@ -151,7 +151,7 @@ def pending(session: Session = Depends(get_session)) -> list[DepositRequestView]
     return [DepositRequestView.of(request) for request in deposits.pending(session)]
 
 
-# --- Oliver's endpoint ---------------------------------------------------------
+# --- The child's endpoint -----------------------------------------------------
 
 
 @router.post("", response_model=DepositRequestView, status_code=status.HTTP_201_CREATED)

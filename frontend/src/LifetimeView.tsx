@@ -1,5 +1,5 @@
 /**
- * Oliver's lifetime page: what has been earned in total, where the savings
+ * The child's lifetime page: what has been earned in total, where the savings
  * actually came from, and the case for not withdrawing.
  *
  * Deliberately narrow — three things, nothing else. Not the Savings page's

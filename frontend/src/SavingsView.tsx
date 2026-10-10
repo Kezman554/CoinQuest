@@ -1,5 +1,5 @@
 /**
- * Oliver's savings page.
+ * The child's savings page.
  *
  * Read-only, the same as the rest of his week — nothing here is a control,
  * because saving is not a task with a tick box. It answers four questions in

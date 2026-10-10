@@ -246,7 +246,7 @@ def propose(session: Session, tz) -> MonthlyMatchProposal:
 
     Computable mid-month on purpose — a screen reading "what would this pay
     today" is a legitimate question before the month is over, and the two
-    screens that read this (Oliver's savings page, and the parent panel
+    screens that read this (the child's savings page, and the parent panel
     that settles it) both need exactly that. `month_has_ended` says whether
     the figures are final; only settle() refuses to close on one that is
     not. Refuses only a ledger with no entries at all, since there is no

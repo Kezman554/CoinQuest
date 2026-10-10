@@ -1,6 +1,6 @@
 """Lifetime totals, and the never-withdrawn comparison.
 
-Read-only, and Oliver-facing: nothing here needs the PIN — it changes
+Read-only, and child-facing: nothing here needs the PIN — it changes
 nothing, the same as any other GET on his screens. "How money grows if you
 leave it alone" is the framing this endpoint's own field name tries to
 carry through to whatever reads it; see app.services.lifetime for why the

@@ -1,4 +1,4 @@
-"""A standalone savings deposit: Oliver's pending proposal and a parent's
+"""A standalone savings deposit: the child's pending proposal and a parent's
 direct one, and proof neither disturbs the monthly match's ladder or streak.
 """
 
@@ -53,7 +53,7 @@ def test_the_depositor_list_names_the_child_and_the_parents(api):
     assert body["parent_names"] == [PARENT]
 
 
-# --- Oliver submits: pending, and inert on the balance ----------------------
+# --- The child submits: pending, and inert on the balance -------------------
 
 
 def test_a_child_submitted_deposit_is_pending_and_does_not_move_the_balance(api, session):

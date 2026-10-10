@@ -149,7 +149,7 @@ export type Depositors = { child_name: string; parent_names: string[] }
 
 export type DepositRequestState = 'pending' | 'confirmed' | 'rejected'
 
-/** A deposit Oliver has proposed. Pending until a parent rules on it — see
+/** A deposit the child has proposed. Pending until a parent rules on it — see
  * app.services.savings_deposits. */
 export type DepositRequest = {
   id: number
@@ -443,7 +443,7 @@ export const recordParentDeposit = (
     posted_by: postedBy,
   })
 
-/** Agree a deposit Oliver proposed: it lands in the real ledger, for real. */
+/** Agree a deposit the child proposed: it lands in the real ledger, for real. */
 export const confirmDeposit = (pin: string, requestId: number) =>
   send<DepositRequest>(`/api/savings/deposits/${requestId}/confirm`, { pin })
 

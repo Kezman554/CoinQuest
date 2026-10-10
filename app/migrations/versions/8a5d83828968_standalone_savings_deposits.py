@@ -16,7 +16,7 @@ dropped first and recreated after, the same shape 6131c9c1284a already
 used for this exact table.
 
 savings_deposit_requests is new, and unlike the two ledgers it is not
-append-only: it is Oliver's own proposal, sitting pending until a parent
+append-only: it is the child's own proposal, sitting pending until a parent
 confirms it (writing the real SavingsEntry and linking back via
 savings_entry_id) or rejects it (never touching the ledger at all) — the
 same claimed/confirmed shape chore_instances already is, not the shape

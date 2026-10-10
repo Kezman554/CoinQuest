@@ -1,6 +1,6 @@
 """A savings deposit posted outside payday, and the two shapes that takes.
 
-Oliver posts a deposit the same way he claims a chore: no credential, and it
+The child posts a deposit the same way he claims a chore: no credential, and it
 changes nothing until a parent rules on it. `submit` creates the pending row;
 `confirm` writes the real ledger entry a parent agreed to and links back to
 it; `reject` closes the request without the ledger ever hearing about it.
@@ -77,7 +77,7 @@ def submit(
     posted_by: str,
     occurred_on: date,
 ) -> PendingSavingsDeposit:
-    """Oliver proposes a deposit. Unauthenticated, and moves no money yet.
+    """The child proposes a deposit. Unauthenticated, and moves no money yet.
 
     Refuses anything posted as other than the child: waiting for a parent is
     what this identity means here, and a parent's own deposit does not wait

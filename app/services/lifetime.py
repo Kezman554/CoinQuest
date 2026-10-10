@@ -81,7 +81,7 @@ class SavingsBreakdown:
     #: have.
     from_payday_pence: int
     #: DEPOSIT entries with no week_id: a standalone deposit, confirmed from
-    #: Oliver or posted directly by a parent (see
+    #: the child or posted directly by a parent (see
     #: app.services.savings_deposits) — birthday money, a gift, anything
     #: that did not come from a payday split.
     from_gifts_pence: int

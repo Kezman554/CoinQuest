@@ -76,7 +76,7 @@ def test_no_savings_yet_refuses_a_proposal(session, tz):
 
 
 def test_the_current_month_can_be_previewed_but_not_settled(session, tz):
-    """propose() computes a live figure mid-month — Oliver's page and the
+    """propose() computes a live figure mid-month — the child's page and the
     parent panel both read it that way — but settle() refuses to close on
     one that has not finished yet."""
     from app.services.calendar import today
