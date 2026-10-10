@@ -2654,6 +2654,8 @@ passed, tsc clean.
 
 Noticed, not fixed: at 360px the page scrolls sideways - the child's week
 is 406px wide, and on the parent side the "Void the week" buttons in
-Closed weeks reach 409px. Pre-existing. Also a comment in
-frontend/src/parentApi.ts (DepositRequest) and the savings memory notes
-name the child, against the CHILD_NAME convention - worth a sweep.
+Closed weeks reach 409px. Pre-existing. Separately, the child's real
+name appears in comments in about ten tracked files (savings deposits,
+lifetime, savings match, the 8a5d83828968 migration, the frontend and
+this log), against the CHILD_NAME convention in a public repo - worth a
+sweep, and it is in git history too.
