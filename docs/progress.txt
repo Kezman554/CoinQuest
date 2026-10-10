@@ -2661,3 +2661,8 @@ log across 17 tracked files, against the CHILD_NAME convention in a
 public repo - all prose, none in code, test data or migrations' DDL. Now
 "the child" throughout, and `git grep` finds it nowhere. Still in git
 history; Nick chose not to rewrite that.
+
+Tabs and name scrub pushed and deployed the same day. Backed up first
+(coinquest-2026-10-10-1824.tar.gz); no migration; healthy on rebuild.
+/health, /parent, /api/summary and /api/weeks 200; the served bundle
+carries the tab list. integrity_check ok, foreign_key_check empty.
