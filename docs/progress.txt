@@ -2691,3 +2691,10 @@ operations detected: add_column ... throwaway_probe". Reverted: green.
 The throwaway was never committed. Local dev coinquest.db held only an
 empty alembic_version table; brought to head (8a5d83828968) the same
 way, and check is green on it. Full suite 604 passed.
+
+Pushed and deployed the same day. Backed up first
+(coinquest-2026-10-10-1836.tar.gz); no migration, head stays
+8a5d83828968; healthy on rebuild, /health, /parent, /api/summary and
+/api/weeks 200. integrity_check ok, foreign_key_check empty. alembic
+check run inside the container against the live household database:
+green - the live schema matches the models too.
