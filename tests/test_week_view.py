@@ -583,7 +583,9 @@ def test_paging_back_reaches_a_past_week_that_is_still_open(api, scheme, session
 
     current = open_week(api)
     listed = {week["week_id"]: week for week in api.get("/api/weeks").json()}
-    assert set(listed) == {older.id, current["week_id"]}
+    # Three: the week between was never opened, so opening this one fills it.
+    assert len(listed) == 3
+    assert {older.id, current["week_id"]} <= set(listed)
     assert listed[older.id]["status"] == "open"
 
     view = api.get(f"/api/week/{older.id}").json()
@@ -592,6 +594,45 @@ def test_paging_back_reaches_a_past_week_that_is_still_open(api, scheme, session
     # Still on track for the base and the whole pot — nothing has been ruled
     # against it either, however old it is.
     assert view["totals"]["chore_pay_pence"] == 50 + 90
+
+
+def test_a_week_nobody_opened_is_filled_in_and_can_be_worked(
+    api, scheme, session, week_dates
+):
+    """A week the screen was never loaded in still happened.
+
+    With no row it would vanish from history: no chores to mark done, nothing
+    to settle. Opening the current week brings it into being, open and
+    planned, and an unopened week before the first on record stays unmade.
+    """
+    start, end = week_dates
+    older = Week(start_date=start - timedelta(days=21), end_date=end - timedelta(days=21))
+    session.add(older)
+    session.commit()
+
+    current = open_week(api)
+    weeks = api.get("/api/weeks").json()
+    assert [week["start_date"] for week in weeks] == [
+        (start - timedelta(days=days)).isoformat() for days in (21, 14, 7, 0)
+    ]
+    assert all(week["status"] == "open" for week in weeks)
+
+    skipped = next(
+        week for week in weeks
+        if week["start_date"] == (start - timedelta(days=7)).isoformat()
+    )
+    view = api.get(f"/api/week/{skipped['week_id']}").json()
+    assert view["is_current"] is False
+    assert view["status"] == "open"
+    for day in view["days"]:
+        assert [chore["can_claim"] for chore in day["chores"]] == [True]
+    bed = view["days"][3]["chores"][0]
+    assert api.post("/api/claims", json={"instance_id": bed["instance_id"]}).status_code == 200
+
+    # Opening again makes nothing twice.
+    open_week(api)
+    assert len(api.get("/api/weeks").json()) == 4
+    assert current["week_id"] == weeks[-1]["week_id"]
 
 
 def test_a_past_week_still_open_offers_a_claim_on_every_day(api, scheme, session, week_dates):

@@ -2615,3 +2615,15 @@ the committed tree, unrelated to any of today's work. Worth a look.
 Pushed and deployed the same day. Backed up first
 (coinquest-2026-09-20-1703.tar.gz); no migration; healthy inside 15
 seconds; integrity_check ok, foreign_key_check empty.
+
+Missing weeks backfilled (2026-10-10). The week of 27 Sep - 3 Oct never
+appeared: a week row was only ever made by POST /api/week/open during
+that week, so a week nobody loaded the screen in simply did not exist -
+no chores to mark, nothing to settle. Opening the current week now first
+creates every week missing between the first on record and this one,
+open and planned from the current definitions and waivers, so a parent
+can page back, mark chores done and settle it. Nothing is made before the
+first week on record. Basic chores left untouched in a backfilled week
+are inferred missed at settlement as usual - mark them done first.
+test_week_view.py +1; the paging-back test now expects its gap filled.
+Full suite 604 passed. Not yet pushed or deployed.

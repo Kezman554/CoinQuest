@@ -13,6 +13,11 @@ is idempotent, it decides no money, and `sync_week_instances` never touches an
 instance that already exists — so calling it every time the screen loads is
 safe and is what the frontend does.
 
+It also fills gaps. A week nobody opened the screen in never got a row, so
+it would vanish from history with no way to mark its chores or settle it.
+Opening the current week brings every missing week since the first one on
+record into being, planned as it would have been, and open.
+
 It carries no PIN for the same reason claiming does not: it asserts nothing
 about what was done. The worst a stranger with the URL can do is bring into
 being the week that was going to exist anyway.
@@ -20,7 +25,7 @@ being the week that was going to exist anyway.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -33,7 +38,7 @@ from app.models.waivers import Waiver
 from app.models.weeks import Week
 from app.routers.dependencies import get_session
 from app.services import week_view
-from app.services.calendar import current_week
+from app.services.calendar import DAYS_IN_WEEK, current_week, week_containing
 from app.services.instances import achieved_one_offs, plan_week, sync_week_instances
 from app.services.settlement import week_period
 
@@ -241,6 +246,47 @@ def _week_starting(session: Session, start: date) -> Week | None:
     return session.query(Week).filter(Week.start_date == start).one_or_none()
 
 
+def _backfill_missing_weeks(session: Session, before: date) -> list[Week]:
+    """Create every week missing between the first on record and `before`.
+
+    Weeks before the first one on record are not history, they are before
+    the app was in use, so nothing is made for them. Each one created is
+    open, so a parent can mark what was done and settle it as usual.
+    """
+    first = session.query(Week).order_by(Week.start_date).first()
+    if first is None:
+        return []
+
+    existing = {
+        start for (start,) in session.query(Week.start_date).filter(
+            Week.start_date < before
+        )
+    }
+    tz = get_settings().tzinfo
+    created: list[Week] = []
+    start = first.start_date
+    while start < before:
+        if start not in existing:
+            period = week_containing(start, tz)
+            week = Week(start_date=period.start, end_date=period.end)
+            session.add(week)
+            created.append(week)
+        start += timedelta(days=DAYS_IN_WEEK)
+    session.flush()
+    return created
+
+
+def _sync(session: Session, week: Week) -> None:
+    plan = plan_week(
+        week_period(week, get_settings().tzinfo),
+        session.query(ChoreDefinition).all(),
+        session.query(Waiver).all(),
+        week_id=week.id,
+        achieved=achieved_one_offs(session),
+    )
+    sync_week_instances(session, week, plan)
+
+
 def _view(session: Session, week: Week) -> WeekViewOut:
     """Build the view. Works for a closed week too — see week_view.build —
     reading its stored figures rather than a proposal, so paging back to a
@@ -261,6 +307,9 @@ def open_current_week(session: Session = Depends(get_session)) -> WeekViewOut:
     settings = get_settings()
     period = current_week(settings.tzinfo)
 
+    for missing in _backfill_missing_weeks(session, period.start):
+        _sync(session, missing)
+
     week = _week_starting(session, period.start)
     if week is None:
         week = Week(start_date=period.start, end_date=period.end)
@@ -268,14 +317,7 @@ def open_current_week(session: Session = Depends(get_session)) -> WeekViewOut:
         session.flush()
 
     if week.status is WeekStatus.OPEN:
-        plan = plan_week(
-            week_period(week, settings.tzinfo),
-            session.query(ChoreDefinition).all(),
-            session.query(Waiver).all(),
-            week_id=week.id,
-            achieved=achieved_one_offs(session),
-        )
-        sync_week_instances(session, week, plan)
+        _sync(session, week)
 
     session.commit()
     session.refresh(week)
