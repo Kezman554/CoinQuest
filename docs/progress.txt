@@ -2634,3 +2634,26 @@ One POST /api/week/open brought week 8 (27 Sep - 3 Oct) into being, open,
 with both daily chores on all seven days untouched and claimable; the
 current week (4-10 Oct) is week 7. integrity_check ok, foreign_key_check
 empty. Nothing was claimed or settled on the household's behalf.
+
+Parent screen tabs (2026-10-10). The parent page had become one long
+scroll of every section. It is now three tabs across the top, chosen by
+Nick: "This week" (claims waiting, the week browser with any other open
+weeks, reopened weeks, Owed, Closed weeks - and what it opens on),
+"Chores" (Chores, Record a reward) and "Savings" (Savings, Savings match).
+Presentation only: no route, no money logic and no PIN handling changed.
+The tab is component state, and refresh() replaces data without
+remounting, so finishing an act keeps the parent on their tab. "This
+week" carries the claims-waiting count and "Savings" the pending-deposit
+count, so neither queue hides behind an unlooked-at tab. Proper tab roles
+and arrow-key movement. Narrow screens tighten the tabs so all three fit
+at 360px.
+
+Playwright +1 (parent-tabs.spec.ts): opens on This week, each tab shows
+its own sections and not the others', arrows move along the list. 6/6
+passed, tsc clean.
+
+Noticed, not fixed: at 360px the page scrolls sideways - the child's week
+is 406px wide, and on the parent side the "Void the week" buttons in
+Closed weeks reach 409px. Pre-existing. Also a comment in
+frontend/src/parentApi.ts (DepositRequest) and the savings memory notes
+name the child, against the CHILD_NAME convention - worth a sweep.

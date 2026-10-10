@@ -72,9 +72,10 @@ function App() {
 }
 
 /**
- * The parent screen carries far more than a screenful — chores, the queue,
- * the week, savings and the monthly match all stack on one page — so the way
- * back is offered at the top as well as the bottom. The footer control is
+ * The parent screen carries more than a screenful even split into tabs —
+ * the weekly work alone holds the queue, the open weeks, what is owed and
+ * the closed weeks — so the way back is offered at the top as well as the
+ * bottom. The footer control is
  * still there for whoever has scrolled to it; this one is for whoever
  * hasn't.
  */
