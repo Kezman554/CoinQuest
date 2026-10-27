@@ -60,6 +60,7 @@ function Day({
     <div className={classes.join(' ')}>
       <h3>
         {day.weekday}
+        <span className="day-num"> {Number(day.day.slice(8))}</span>
         {day.is_today && <span className="tag tag-today">Today</span>}
       </h3>
       <p className="day-date">{shortDate(day.day)}</p>

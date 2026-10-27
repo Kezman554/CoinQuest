@@ -2738,6 +2738,28 @@ a phone sideways (pre-existing).
 
 Measured in Playwright: no page scroll at 1280x800 on the e2e seed, nor
 with two chores a day (one "Lunchbox / plates / cups by sink") and two
-owed weeks - about 18px to spare in that second case, so a third daily
-chore or a make-good line will scroll. 1920x1080 fits with room over;
+owed weeks - about 18px to spare in that second case (superseded below).
+1920x1080 fits with room over;
 390 wide stacks with no horizontal scroll. e2e 6 passed. Not pushed.
+
+Wall headroom (2026-10-27). Savings / Lifetime / Parent moved off the
+week's footer into its title row (App hands them to ChildWeek; the other
+screens keep their "Back to the week" footer). At 1280 the title row is
+name over dates, week arrows, then the other screens - one line, ~190px
+spare for a longer name. In the strip the breakdown reads "Every week
+£1" on one line and the at-risk note sits under it rather than below the
+card; seven across, the day of the month joins the heading ("Sunday 25")
+in place of the date line. Chore rows stay at the 3.5rem floor - note
+1rem is 20px here (index.css), so that floor is 70px.
+
+Measured: 1280x800 with three daily chores, chore money at risk and two
+owed weeks fits with no scroll, content ending at 783px (~12px before a
+scroll). Seed: ends at 541. The side columns now start at 120rem (1920);
+from 110rem the narrower tiles let "Saturday 31" overrun, so 1760-1919
+gets the strip. No day heading, title row or button row overflows at any
+width from 1280 to 2560.
+
+Phone: the old footer row did overflow at 390 - right-aligned and too
+wide, it ran off the left edge, which a right-edge check misses. Every
+quiet-button row now wraps, and the title-row copy fits one line at 390.
+e2e 6 passed. Not pushed.

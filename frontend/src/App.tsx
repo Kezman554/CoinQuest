@@ -21,6 +21,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import './App.css'
 import { claim, clearMiss, loadWeek, loadWeekById, loadWeeks } from './api'
 import type { InstanceCard, WeekSummary, WeekView } from './api'
@@ -44,32 +45,36 @@ type Screen = 'child' | 'savings' | 'lifetime' | 'parent'
 function App() {
   const [screen, setScreen] = useState<Screen>('child')
 
+  // On the week they sit in its title row rather than a footer: the wall
+  // panel is 800px tall, and a row of its own was height the days needed.
+  const elsewhere = (
+    <nav className="switcher" aria-label="Other screens">
+      <button type="button" className="button button-quiet" onClick={() => setScreen('savings')}>
+        Savings
+      </button>
+      <button type="button" className="button button-quiet" onClick={() => setScreen('lifetime')}>
+        Lifetime
+      </button>
+      <button type="button" className="button button-quiet" onClick={() => setScreen('parent')}>
+        Parent
+      </button>
+    </nav>
+  )
+
   return (
     <main className={screen === 'child' ? 'page page-wall' : 'page'}>
-      {screen === 'child' && <ChildWeek />}
+      {screen === 'child' && <ChildWeek elsewhere={elsewhere} />}
       {screen === 'savings' && <SavingsView />}
       {screen === 'lifetime' && <LifetimeView />}
       {screen === 'parent' && <Parent onBack={() => setScreen('child')} />}
 
-      <footer className="switcher">
-        {screen === 'child' ? (
-          <>
-            <button type="button" className="button button-quiet" onClick={() => setScreen('savings')}>
-              Savings
-            </button>
-            <button type="button" className="button button-quiet" onClick={() => setScreen('lifetime')}>
-              Lifetime
-            </button>
-            <button type="button" className="button button-quiet" onClick={() => setScreen('parent')}>
-              Parent
-            </button>
-          </>
-        ) : (
+      {screen !== 'child' && (
+        <footer className="switcher">
           <button type="button" className="button button-quiet" onClick={() => setScreen('child')}>
             Back to the week
           </button>
-        )}
-      </footer>
+        </footer>
+      )}
     </main>
   )
 }
@@ -120,7 +125,7 @@ function Parent({ onBack }: { onBack: () => void }) {
  * all-or-nothing rule, the cap and the optimiser, and it would eventually
  * disagree with what actually settles.
  */
-function ChildWeek() {
+function ChildWeek({ elsewhere }: { elsewhere: ReactNode }) {
   const [week, setWeek] = useState<WeekView | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
   const [owed, setOwed] = useState<OwedWeek[]>([])
@@ -196,9 +201,12 @@ function ChildWeek() {
 
   if (error && !week) {
     return (
-      <p className="problem" role="alert">
-        Cannot reach CoinQuest: {error}
-      </p>
+      <>
+        <p className="problem" role="alert">
+          Cannot reach CoinQuest: {error}
+        </p>
+        {elsewhere}
+      </>
     )
   }
 
@@ -228,7 +236,10 @@ function ChildWeek() {
             {shortDate(week.start_date)} &ndash; {shortDate(week.end_date)}
           </p>
         </header>
-        <WeekNav weeks={weeks} viewedWeekId={week.week_id} onNavigate={onNavigate} />
+        <div className="wall-head-controls">
+          <WeekNav weeks={weeks} viewedWeekId={week.week_id} onNavigate={onNavigate} />
+          {elsewhere}
+        </div>
       </div>
 
       {error && (

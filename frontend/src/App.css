@@ -34,7 +34,7 @@
  *  - From 72rem, which takes in the 1280-wide panel: "On track for" and
  *    "Owed to you" fold into one strip above the days, so the days get the
  *    whole width and the week fits in 800px without a page scroll.
- *  - From 110rem (a 1920 screen): the two cards stand as columns either
+ *  - From 120rem (a 1920 screen): the two cards stand as columns either
  *    side of the days and stick while the middle scrolls.
  *
  * From 76rem the days, and the any-time cards under them, go seven across
@@ -46,6 +46,23 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.wall-head-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.wall-head .switcher {
+  margin-top: 0;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+/* Narrow enough that all three sit on one line of a 390-wide phone. */
+.wall-head .switcher .button {
+  padding-inline: 0.75rem;
 }
 
 .wall {
@@ -140,31 +157,49 @@
   .page-wall {
     gap: 0.5rem;
     padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
-  }
-
-  .page-wall .switcher {
-    margin-top: 0;
+    padding-bottom: 0.25rem;
   }
 
   .wall-head {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 0.5rem 1.5rem;
   }
 
+  /* The dates under the name rather than beside it: beside, the name, the
+     arrows and the other screens did not fit one 1280 row. */
   .wall-head .masthead {
-    display: flex;
-    align-items: baseline;
-    gap: 1rem;
+    white-space: nowrap;
   }
 
   .wall-head .masthead h1 {
     font-size: 2rem;
+    line-height: 1.1;
   }
 
   .wall-head .dates {
     margin-top: 0;
+    font-size: 0.95rem;
+  }
+
+  /* Week arrows, then the way to the other screens, quieter and set a
+     little apart so the two groups do not read as one row of choices. */
+  .wall-head-controls {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .wall-head .switcher {
+    flex-wrap: nowrap;
+  }
+
+  .wall-head .switcher .button {
+    min-height: 2.75rem;
+    padding-block: 0.25rem;
+    padding-inline: 0.9rem;
   }
 
   /* Sized to their words, not half the row each — "This is the latest" is
@@ -173,7 +208,8 @@
     flex: none;
     min-height: 2.75rem;
     padding-block: 0.25rem;
-    padding-inline: 1.25rem;
+    padding-inline: 1rem;
+    font-size: 1rem;
   }
 
   .wall {
@@ -222,6 +258,7 @@
   .wall .total-label {
     grid-column: 1;
     font-size: 1rem;
+    line-height: 1.2;
   }
 
   .wall .total-amount {
@@ -237,19 +274,39 @@
     gap: 0.6rem;
   }
 
+  .wall .total:has(.total-note) .breakdown {
+    grid-row: 1;
+    align-self: end;
+  }
+
+  /* Each part on one line — "Every week  £1" — so the strip is one figure
+     tall, not two. */
   .wall .breakdown > div {
-    padding: 0.35rem 0.9rem;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.3rem 0.9rem;
   }
 
   .wall .breakdown dd {
     font-size: 1.3rem;
+    line-height: 1.2;
     margin-top: 0;
+    white-space: nowrap;
   }
 
-  .wall .total-note,
+  .wall .total-note {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    margin-top: 0.4rem;
+    font-size: 1rem;
+  }
+
   .wall .total-makegood {
     grid-column: 1 / -1;
-    margin-top: 0.6rem;
+    margin-top: 0.5rem;
     font-size: 1.05rem;
   }
 
@@ -271,12 +328,13 @@
   }
 
   .wall .owed-card-amount {
-    font-size: 2.25rem;
+    font-size: 2rem;
     margin: 0.1rem 0 0.15rem;
   }
 
   .wall .owed-card-count {
     display: block;
+    line-height: 1.2;
   }
 
   .wall .owed-card-weeks {
@@ -361,15 +419,28 @@
 
   .wall .day h3,
   .wall .weekly-card h3 {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
+    line-height: 1.25;
+  }
+
+  .wall .day h3 {
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+    white-space: nowrap;
+  }
+
+  .wall .day-num {
+    display: inline;
+    font-weight: 500;
+    color: var(--ink-soft);
   }
 
   .wall .day-date {
-    font-size: 0.85rem;
-    margin-bottom: 0.15rem;
+    display: none;
   }
 
   .wall .chore {
+    line-height: 1.2;
     padding: 0.35rem 0.55rem;
     margin-top: 0.35rem;
     gap: 0.1rem 0.5rem;
@@ -393,12 +464,13 @@
   .wall .weekly-progress {
     margin-top: 0.1rem;
     font-size: 1rem;
+    line-height: 1.2;
   }
 }
 
 /* The two cards as columns either side of the days. A screen this size has
    the height the 1280 panel lacks, so the tiles go back to full-size type. */
-@media (min-width: 110rem) {
+@media (min-width: 120rem) {
   .page-wall {
     gap: 1rem;
   }
@@ -421,17 +493,7 @@
 
   .wall .day,
   .wall .weekly-card {
-    padding: 0.7rem 0.55rem 0.55rem;
-  }
-
-  .wall .day h3,
-  .wall .weekly-card h3 {
-    font-size: 1.3rem;
-  }
-
-  .wall .day-date {
-    font-size: 0.95rem;
-    margin-bottom: 0.4rem;
+    padding: 0.7rem 0.4rem 0.5rem;
   }
 
   .wall .chore {
@@ -477,8 +539,14 @@
     flex-direction: column;
   }
 
+  .wall .total-note {
+    margin-top: 1rem;
+  }
+
   .wall .breakdown > div {
     flex: none;
+    display: block;
+    padding: 0.75rem 1rem;
   }
 
   .wall .owed-card {
@@ -765,6 +833,10 @@
   flex-wrap: wrap;
 }
 
+.day-num {
+  display: none;
+}
+
 .day-date {
   font-size: 0.95rem;
   color: var(--ink-soft);
@@ -1021,6 +1093,7 @@
 .switcher {
   margin-top: 2rem;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.75rem;
 }
