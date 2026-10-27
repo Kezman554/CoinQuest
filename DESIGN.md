@@ -110,7 +110,7 @@ The 1280×800 wall layout from `91d155f` stays: the title row with its buttons, 
 
 ## Icon
 
-The favicon is a gold coin with a raised star that has two eyes, our own drawing. Keep **two SVG sources** in one folder: `coin.svg` (the full coin with rim, inner ring, star and eyes, for 48px and up) and `coin-small.svg` (no rim; at 16px it also drops the eyes). Generate every PNG and the touch icon from them by script, and give the touch icon a `ground` background. One mid-tone works on light and dark browser tabs, so there's no per-mode icon. **Outlines are thin**: about 2 units on a 64-unit grid for the coin and 1.5 for the star.
+The favicon is a gold coin with a raised star that has two eyes, our own drawing. Keep **three SVG sources** in one folder: `coin.svg` (the full coin with rim, inner ring, star and eyes, for 48px and up), `coin-32.svg` (no rim, with the eyes, for 32px and the SVG favicon) and `coin-small.svg` (no rim and no eyes, for 16px, where eyes would be a single grey pixel). Generate every PNG and the touch icon from them by script, and give the touch icon a `ground` background. One mid-tone works on light and dark browser tabs, so there's no per-mode icon. **Outlines are thin**: about 2 units on a 64-unit grid for the coin and 1.5 for the star.
 
 ## Enforcement
 

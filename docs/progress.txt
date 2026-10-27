@@ -2955,3 +2955,13 @@ public/icons.svg, src/assets/react.svg and vite.svg (unused). Still
 unused, left: src/assets/hero.png, frontend/README.md (Vite template).
 Served from the built app as images (an unknown path would fall back to
 index.html with a 200, so the content type was checked). e2e 19 passed.
+
+Icon follow-up (2026-10-27). icons/coin-32.svg: coin-small.svg's shapes
+plus the two eyes (cx 29/35, cy 30, rx 2, ry 4). favicon.svg and the 32px
+PNG now come from it; the 16px PNG stays on coin-small.svg. Which source
+favicon.svg is copied from is one constant, FAVICON_SOURCE in
+scripts/icon-sources.mjs, read by both make-icons and check:literals (a
+favicon copied from coin-small now fails the check). DESIGN.md's Icon
+section names three sources. src/assets/hero.png removed (unreferenced);
+frontend/README.md's Vite template text replaced by pointers to the root
+README and DESIGN.md. e2e 19 passed; check:literals clean.

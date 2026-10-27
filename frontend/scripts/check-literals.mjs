@@ -20,9 +20,9 @@
 // One exception, the icon (DESIGN.md, Icon): a favicon cannot read a CSS
 // token, so its colours are written into the SVG. The sources in icons/ are
 // the only files outside the token block allowed literal colours, and
-// public/favicon.svg passes only while it is an exact copy of
-// icons/coin-small.svg — `npm run icons` makes it so. Edit the source,
-// never the copy.
+// public/favicon.svg passes only while it is an exact copy of its source
+// (FAVICON_SOURCE, in icon-sources.mjs, the same constant `npm run icons`
+// copies from). Edit the source, never the copy.
 //
 // Plain Node and no dependencies, so `npm run check:literals` runs the same
 // on Windows as on the Pi. Exit 1 with one line per finding.
@@ -30,6 +30,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { FAVICON_SOURCE as FAVICON_SOURCE_PATH } from './icon-sources.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
@@ -131,14 +133,14 @@ function checkScript(file) {
 
 const ICONS = join(root, 'icons')
 const FAVICON = join(root, 'public', 'favicon.svg')
-const FAVICON_SOURCE = join(ICONS, 'coin-small.svg')
+const FAVICON_SOURCE = join(root, FAVICON_SOURCE_PATH)
 
 function checkSvg(file) {
   const text = readFileSync(file, 'utf8')
   if (file.startsWith(ICONS)) return
   if (file === FAVICON) {
     if (text !== readFileSync(FAVICON_SOURCE, 'utf8')) {
-      report(file, 1, 'icon copy', 'differs from icons/coin-small.svg — edit the source and run `npm run icons`')
+      report(file, 1, 'icon copy', `differs from ${FAVICON_SOURCE_PATH} — edit the source and run \`npm run icons\``)
     }
     return
   }
