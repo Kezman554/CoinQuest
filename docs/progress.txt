@@ -2971,3 +2971,34 @@ first (coinquest-2026-10-27-1819.tar.gz); frontend only. Healthy;
 endpoints 200; /favicon.svg, /favicon-16.png, /favicon-32.png and
 /apple-touch-icon.png served as images. integrity_check ok,
 foreign_key_check empty.
+
+Due savings-match months (2026-10-27). Nothing settles itself still; an
+ended month waiting on a parent is now visible until one settles it.
+- savings_match.due_months: every month that has ended, has no settled
+  row and would pay more than 0p, oldest first. propose() now runs over a
+  plain _Snapshot of the ledger and the settled months (same arithmetic;
+  the existing 42 match/lifetime tests unchanged and passing). Because
+  each month's rate climbs from the month before and its balance includes
+  that month's match, the walk settles each ended month in memory only
+  (_Snapshot.settled_on mirrors what settle writes) and proposes the next;
+  a 0p month is passed over but still walked past. No table, no
+  migration, nothing written. Uncredentialed GET /api/savings/match/due.
+- Wall: Owed.tsx shows each due month as its own line after the cash,
+  never in the cash total — "Interest for September: £1.20 going into
+  your bank" (words.ts interestLine), the amount gold as a fill with an
+  outline (gold text on white would not read; gold|outline on panel is a
+  43rd contrast measurement, in DESIGN.md). "All paid up" only with no
+  cash weeks and no due months.
+- Parent: the Savings match panel lists due months as ready to settle
+  (only the earliest can settle now: months settle in order), says to
+  settle after the money is paid into his bank account, and always asks,
+  optionally, for the bank balance after the transfer — checked with the
+  existing reconcile action once the month has settled; a failed check is
+  reported without undoing the settlement. Settle keeps its PIN and its
+  proposal-changed refusal. Reconcile records nothing, so there is no
+  "last checked" date (decided: show the result only).
+- Tests: due-month selection (in progress, ended, settled, 0p, two ended
+  months in order — and the second's figure equals propose() once the
+  first settles), the uncredentialed read; e2e savings-due.spec.ts
+  settles through the parent screen and the wall line goes; the fit spec
+  pins due to [] and gains a case with one due month. pytest 610, e2e 21.

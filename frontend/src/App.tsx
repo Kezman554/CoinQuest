@@ -23,8 +23,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import './App.css'
-import { claim, clearMiss, loadWeek, loadWeekById, loadWeeks } from './api'
-import type { InstanceCard, WeekSummary, WeekView } from './api'
+import { claim, clearMiss, loadDueMonths, loadWeek, loadWeekById, loadWeeks } from './api'
+import type { DueMonth, InstanceCard, WeekSummary, WeekView } from './api'
 import { Days } from './components/Days'
 import { Owed } from './components/Owed'
 import type { PinAct } from './components/parent/PinDialog'
@@ -139,6 +139,7 @@ function ChildWeek({ elsewhere, modeToggle }: { elsewhere: ReactNode; modeToggle
   const [week, setWeek] = useState<WeekView | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
   const [owed, setOwed] = useState<OwedWeek[]>([])
+  const [due, setDue] = useState<DueMonth[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   //: The one act on this screen that asks for the PIN. The dialog is the
@@ -154,13 +155,15 @@ function ChildWeek({ elsewhere, modeToggle }: { elsewhere: ReactNode; modeToggle
       // The current week always loads too, whichever is being shown: it is
       // what "back to this week" returns to, and its id is what tells a
       // shown week apart from being the current one.
-      const [current, list, outstanding] = await Promise.all([
+      const [current, list, outstanding, dueMonths] = await Promise.all([
         loadWeek(),
         loadWeeks(),
         loadOwed(),
+        loadDueMonths(),
       ])
       setWeeks(list)
       setOwed(outstanding)
+      setDue(dueMonths)
       if (viewedWeekId === null || viewedWeekId === current.week_id) {
         setWeek(current)
       } else {
@@ -316,7 +319,7 @@ function ChildWeek({ elsewhere, modeToggle }: { elsewhere: ReactNode; modeToggle
           />
         </div>
         <aside className="wall-side wall-side-end">
-          <Owed owed={owed} />
+          <Owed owed={owed} due={due} />
         </aside>
       </div>
 

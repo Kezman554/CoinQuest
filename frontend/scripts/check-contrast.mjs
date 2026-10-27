@@ -82,6 +82,7 @@ const BOUNDARIES = [
   ['raised', 'danger-edge', 'danger-bg', '"Not missed after all" inside a missed chore'],
   ['done-edge', 'done-edge', 'panel', 'the savings progress bar on its panel'],
   ['on-gold-chip', 'on-gold-chip-edge', 'gold', 'a chip, the make-good box, on the money card'],
+  ['gold', 'outline', 'panel', 'the savings match amount on the owed card'],
   ['on-gold-done-bg', 'on-gold-done-edge', 'gold', 'the Chores chip once won, on the money card'],
   ['on-gold-danger-bg', 'on-gold-danger-edge', 'gold', 'the Chores chip at risk, the notice, on the money card'],
 ]

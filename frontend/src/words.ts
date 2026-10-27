@@ -208,6 +208,23 @@ export function monthName(iso: string): string {
   return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 }
 
+/**
+ * A due month on the wall: "Interest for September: £1.20 — going into your
+ * bank".
+ *
+ * Kept apart from the cash on purpose. The owed weeks are handed over as
+ * cash; this goes into his bank account, and the second phrase is what
+ * stops the line reading as more money to be handed over.
+ */
+export function interestLine(periodStart: string, matchPence: number): {
+  label: string
+  amount: string
+  where: string
+} {
+  const month = new Date(`${periodStart}T12:00:00`).toLocaleDateString('en-GB', { month: 'long' })
+  return { label: `Interest for ${month}:`, amount: money(matchPence), where: 'going into your bank' }
+}
+
 export function weekdayOf(iso: string): string {
   const date = new Date(`${iso}T12:00:00`)
   return date.toLocaleDateString('en-GB', { weekday: 'long' })

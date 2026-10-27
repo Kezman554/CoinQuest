@@ -64,7 +64,7 @@ The values are provisional (see the top of this document). Day is light and nigh
 
 ## Contrast floors
 
-Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. `npm run check:contrast` measures exactly the 42 pairings below, in both modes, and every one passes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64), `disabled-edge` on `ground` (3.61 by day, 3.37 at night) `today` on `panel-today` at night (4.05) and the won Chores chip's edge on `gold` (3.24, both modes). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
+Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. `npm run check:contrast` measures exactly the 43 pairings below, in both modes, and every one passes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64), `disabled-edge` on `ground` (3.61 by day, 3.37 at night) `today` on `panel-today` at night (4.05) and the won Chores chip's edge on `gold` (3.24, both modes). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
 
 A component is measured against the surface it sits on, and its fill or its outline may carry the boundary (WCAG 1.4.11): the gold card is told apart from the sky by its outline, not its gold. An outline is never measured against its own fill, because that isn't what makes a shape visible.
 
@@ -83,7 +83,7 @@ A component is measured against the surface it sits on, and its fill or its outl
 
 **Boundaries (3.15:1), a component on its surface, by the better of fill and edge:**
 - on `ground`: a panel (`panel`/`panel-edge`), today's tile (`panel-today`/`today-edge`), the money card (`gold`/`outline`), a neutral button (`raised`/`control-edge`), a disabled control (`disabled-bg`/`disabled-edge`)
-- on `panel`: a neutral button (`raised`/`control-edge`), "I've done it" (`action`/`outline`), a done chore (`done-bg`/`done-edge`), a waiting chore (`waiting-bg`/`waiting-edge`), a missed chore (`danger-bg`/`danger-edge`), the savings bar (`done-edge`)
+- on `panel`: the savings match amount on the owed card (`gold`/`outline`), a neutral button (`raised`/`control-edge`), "I've done it" (`action`/`outline`), a done chore (`done-bg`/`done-edge`), a waiting chore (`waiting-bg`/`waiting-edge`), a missed chore (`danger-bg`/`danger-edge`), the savings bar (`done-edge`)
 - on `panel-today`: "I've done it" (`action`/`outline`)
 - on `danger-bg`: "Not missed after all" (`raised`/`danger-edge`), inside a missed chore
 - on `gold`: a chip or the make-good box (`on-gold-chip`/`on-gold-chip-edge`), the won Chores chip (`on-gold-done-bg`/`on-gold-done-edge`), the at-risk chip and the notice (`on-gold-danger-bg`/`on-gold-danger-edge`)

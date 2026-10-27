@@ -336,6 +336,7 @@ export const loadCurrentWeek = () => get<WeekView>('/api/week')
 export const loadChores = () => get<ChoreDefinition[]>('/api/chores')
 export const loadSchemeSettings = () => get<SchemeSettings>('/api/settings')
 export const loadSettledMonths = () => get<SettledMonth[]>('/api/savings/match')
+export { loadDueMonths } from './api'
 export const loadDepositors = () => get<Depositors>('/api/savings/deposits/depositors')
 export const loadPendingDeposits = () => get<DepositRequest[]>('/api/savings/deposits/pending')
 /** May reject with a 409 — nothing to project yet, when the savings ledger

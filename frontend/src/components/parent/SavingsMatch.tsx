@@ -12,12 +12,22 @@
  * until there is something to settle: a parent watching the figure climb
  * over the month is exactly what the ladder is for. Settle is only offered
  * once the month is actually over.
+ *
+ * Nothing settles itself, so a month that has ended and would pay something
+ * is listed as ready to settle — the same list the wall shows as "Interest
+ * for …, going into your bank" until a parent does. Months settle strictly
+ * in order, so only the earliest can be settled now. The match is real money
+ * paid into his bank account by a parent, outside this app; settling records
+ * that it was, so it comes after the transfer. The bank balance after it is
+ * asked for every time, optionally, and checked against the books with the
+ * same reconcile action the Savings panel uses — which records nothing.
  */
 
 import { useState } from 'react'
-import { money } from '../../api'
-import type { SavingsMatchProposal, SettledMonth } from '../../parentApi'
-import { loadSavingsMatchProposal, settleMonth } from '../../parentApi'
+import type { DueMonth } from '../../api'
+import { money, parsePence } from '../../api'
+import type { Reconciliation, SavingsMatchProposal, SettledMonth } from '../../parentApi'
+import { loadSavingsMatchProposal, reconcile, settleMonth } from '../../parentApi'
 import type { PinAct } from './PinDialog'
 import { Figure } from './ThisWeek'
 import { longDate, monthName } from '../../words'
@@ -28,13 +38,19 @@ export function SavingsMatch({
   proposal,
   proposalError,
   settledMonths,
+  dueMonths,
   ask,
 }: Ask & {
   proposal: SavingsMatchProposal | null
   proposalError: string | null
   settledMonths: SettledMonth[]
+  dueMonths: DueMonth[]
 }) {
   const lastSettled = settledMonths.length > 0 ? settledMonths[settledMonths.length - 1] : null
+  // Held here rather than in the button: settling can end this month's turn
+  // and unmount the button, and the result is worth reading afterwards.
+  const [checked, setChecked] = useState<Reconciliation | null>(null)
+  const [checkProblem, setCheckProblem] = useState<string | null>(null)
 
   return (
     <section className="panel">
@@ -46,6 +62,27 @@ export function SavingsMatch({
           {lastSettled.rate_percent}% on a low of {money(lastSettled.balance_low_pence)}, settled{' '}
           {longDate(lastSettled.settled_at.slice(0, 10))} by {lastSettled.settled_by}.
         </p>
+      )}
+
+      {dueMonths.length > 0 && (
+        <div className="act">
+          <h3>Ready to settle</h3>
+          <ul className="owed match-due">
+            {dueMonths.map((month, index) => (
+              <li key={month.period_start}>
+                <span className="owed-week">{monthName(month.period_start)}</span>{' '}
+                <span className="owed-amount">{money(month.match_pence)}</span>{' '}
+                <span className="owed-note">
+                  {/* Months settle in order: only the one the panel below
+                      proposes can be settled now. */}
+                  {index === 0 && proposal?.period_start === month.period_start
+                    ? 'settle this one now, below'
+                    : 'settles once the months before it are settled'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {proposal ? (
@@ -71,7 +108,13 @@ export function SavingsMatch({
           </div>
 
           {proposal.month_has_ended ? (
-            <SettleButton ask={ask} />
+            <SettleButton
+              ask={ask}
+              onChecked={(result, problem) => {
+                setChecked(result)
+                setCheckProblem(problem)
+              }}
+            />
           ) : (
             <p className="act-note">
               {monthName(proposal.period_start)} is not over yet — these figures will keep
@@ -84,6 +127,21 @@ export function SavingsMatch({
           {proposalError ?? 'Nothing has been saved yet for the match to work from.'}
         </p>
       )}
+
+      {checked && (
+        <p className={checked.agrees ? 'reconciled-ok' : 'reconciled-off'}>
+          {checked.agrees
+            ? `The bank and the books agree: ${money(checked.recorded_balance_pence)}.`
+            : `The books say ${money(checked.recorded_balance_pence)}, the bank holds ${money(
+                checked.actual_balance_pence,
+              )}. ${checked.put_right_by}`}
+        </p>
+      )}
+      {checkProblem && (
+        <p className="dialog-error" role="alert">
+          Settled, but the bank balance could not be checked: {checkProblem}
+        </p>
+      )}
     </section>
   )
 }
@@ -93,14 +151,27 @@ export function SavingsMatch({
  * reason: what gets agreed to has to be the figure about to be stored, not
  * whatever this panel happened to be showing when it was pressed. Takes no
  * proposal of its own for that reason — there is nothing worth trusting
- * here that a fresh read does not already get again a moment later. */
-function SettleButton({ ask }: Ask) {
+ * here that a fresh read does not already get again a moment later.
+ *
+ * Beside it, always, the bank balance after the transfer: optional, and
+ * checked only once the month has settled, so the books it is compared with
+ * already hold the match. */
+function SettleButton({
+  ask,
+  onChecked,
+}: Ask & { onChecked: (result: Reconciliation | null, problem: string | null) => void }) {
   const [checking, setChecking] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  const [bank, setBank] = useState('')
 
   const settle = async () => {
-    setChecking(true)
     setProblem(null)
+    const bankPence = bank.trim() ? parsePence(bank) : null
+    if (bank.trim() && bankPence === null) {
+      setProblem('The bank balance is not an amount. Leave it empty to settle without it.')
+      return
+    }
+    setChecking(true)
     try {
       const fresh = await loadSavingsMatchProposal()
       if (!fresh.month_has_ended) {
@@ -121,10 +192,27 @@ function SettleButton({ ask }: Ask) {
             : `${fresh.clean_months_in_a_row} clean ${
                 fresh.clean_months_in_a_row === 1 ? 'month' : 'months'
               } in a row produced this rate.`,
+          'Only once the money has been paid into his bank account.',
+          bankPence === null
+            ? 'No bank balance given, so nothing will be checked against the books.'
+            : `Afterwards, the bank's ${money(bankPence)} is checked against the books.`,
         ],
         confirmLabel: `Settle at ${money(fresh.match_pence)}`,
         permanent: true,
-        run: (pin) => settleMonth(pin, fresh.match_pence).then(() => undefined),
+        run: async (pin) => {
+          await settleMonth(pin, fresh.match_pence)
+          if (bankPence === null) {
+            onChecked(null, null)
+            return
+          }
+          // The month is settled whatever happens here: a failed check is
+          // said, not turned into a failed settlement.
+          try {
+            onChecked(await reconcile(bankPence), null)
+          } catch (error) {
+            onChecked(null, (error as Error).message)
+          }
+        },
       })
     } catch (error) {
       setProblem((error as Error).message)
@@ -135,6 +223,20 @@ function SettleButton({ ask }: Ask) {
 
   return (
     <div className="settle-button">
+      <p className="act-note">
+        Settle it after the money has been paid into his bank account — settling
+        records that it was.
+      </p>
+      <label className="match-bank">
+        <span>Bank balance after the transfer (optional)</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="What the bank account now holds"
+          value={bank}
+          onChange={(event) => setBank(event.target.value)}
+        />
+      </label>
       <button type="button" className="button button-do" onClick={() => void settle()} disabled={checking}>
         {checking ? 'Working out the true figure…' : 'Settle the match'}
       </button>

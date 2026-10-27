@@ -40,11 +40,17 @@ for this card, recorded here since nowhere else does:
 Nothing here reopens a settled month — that is deliberately out of scope, a
 separate card. A second attempt at a month already settled is refused
 cleanly, both by this module and by the table's own unique constraint.
+
+Nothing settles itself either, but an ended month waiting on a parent should
+not go unnoticed: `due_months` lists every ended, unsettled month that would
+pay something, for the wall to show until a parent settles it. It is the same
+arithmetic as `propose`, run forward over a snapshot of the ledger in memory —
+see `_Snapshot` — and it writes nothing.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -132,7 +138,53 @@ def _month_after(day: date) -> date:
     return date(day.year, day.month + 1, 1)
 
 
-def _next_period(session: Session, tz) -> Period:
+@dataclass(frozen=True)
+class _Snapshot:
+    """The savings ledger and the settled months, as `propose` reads them.
+
+    Plain values rather than queries, so the same arithmetic can run on what
+    the database holds (`propose`) or on that plus months settled only in
+    memory (`due_months`, which walks forward past an ended month by adding
+    what settling it would add — see `settled_on`). Nothing here is written.
+    """
+
+    #: Every ledger entry in the order the ledger holds them (by id): its
+    #: type, the balance after it, and the day it is dated.
+    entries: tuple[tuple[SavingsType, int, date], ...]
+    #: Every settled month, oldest first: its start, rate and whether a
+    #: withdrawal happened in it.
+    settled: tuple[tuple[date, int, bool], ...]
+
+    @classmethod
+    def of(cls, session: Session) -> _Snapshot:
+        return cls(
+            entries=tuple(
+                (entry.entry_type, entry.balance_after_pence, entry.occurred_on)
+                for entry in savings.history(session)
+            ),
+            settled=tuple(
+                (month.period_start, month.rate_percent, month.had_withdrawal)
+                for month in settled_months(session)
+            ),
+        )
+
+    def settled_on(self, proposal: MonthlyMatchProposal) -> _Snapshot:
+        """This snapshot as it would be once `proposal` settles: what
+        `settle` writes, written here in memory only — the match entry, dated
+        the month's last day and appended after everything else (as
+        savings.record_match appends it, on top of the latest balance), and
+        the month's row."""
+        latest_balance = self.entries[-1][1] if self.entries else 0
+        return replace(
+            self,
+            entries=self.entries
+            + ((SavingsType.MATCH, latest_balance + proposal.match_pence, proposal.period_end),),
+            settled=self.settled
+            + ((proposal.period_start, proposal.rate_percent, proposal.had_withdrawal),),
+        )
+
+
+def _next_period(snapshot: _Snapshot, tz) -> Period:
     """The one month this scheme has not yet settled and settles next.
 
     Sequential, always: the month right after the latest settled one, or —
@@ -140,18 +192,16 @@ def _next_period(session: Session, tz) -> Period:
     falls in. There is no way to ask this for an arbitrary month, because the
     ladder only means anything read in order.
     """
-    latest = latest_settled(session)
-    if latest is not None:
-        return month_containing(_month_after(latest.period_start), tz)
+    if snapshot.settled:
+        return month_containing(_month_after(snapshot.settled[-1][0]), tz)
 
-    entries = savings.history(session)
-    if not entries:
+    if not snapshot.entries:
         raise NoSavingsYet("The savings ledger has no entries yet; nothing to match.")
-    return month_containing(entries[0].occurred_on, tz)
+    return month_containing(snapshot.entries[0][2], tz)
 
 
 def _balance_before_and_within(
-    session: Session, period: Period
+    snapshot: _Snapshot, period: Period
 ) -> tuple[int | None, list[tuple[SavingsType, int]]]:
     """The balance just before the month, and every entry inside it in order.
 
@@ -162,11 +212,11 @@ def _balance_before_and_within(
     """
     before: int | None = None
     within: list[tuple[SavingsType, int]] = []
-    for entry in savings.history(session):
-        if entry.occurred_on < period.start:
-            before = entry.balance_after_pence
-        elif period.contains_day(entry.occurred_on):
-            within.append((entry.entry_type, entry.balance_after_pence))
+    for entry_type, balance_after, occurred_on in snapshot.entries:
+        if occurred_on < period.start:
+            before = balance_after
+        elif period.contains_day(occurred_on):
+            within.append((entry_type, balance_after))
     return before, within
 
 
@@ -195,20 +245,16 @@ def _low_and_had_withdrawal(
     return min(balance for _, balance in after), True
 
 
-def _rate_percent(session: Session, *, had_withdrawal: bool) -> int:
-    start_rate = scheme_settings.savings_match_start_rate_percent(session)
-    if had_withdrawal:
+def _rate_percent(
+    snapshot: _Snapshot, *, had_withdrawal: bool, start_rate: int, ceiling_rate: int
+) -> int:
+    if had_withdrawal or not snapshot.settled:
         return start_rate
-
-    previous = latest_settled(session)
-    if previous is None:
-        return start_rate
-
-    ceiling_rate = scheme_settings.savings_match_ceiling_rate_percent(session)
-    return min(previous.rate_percent + RATE_STEP_PERCENT, ceiling_rate)
+    previous_rate = snapshot.settled[-1][1]
+    return min(previous_rate + RATE_STEP_PERCENT, ceiling_rate)
 
 
-def _clean_streak(session: Session, *, had_withdrawal: bool) -> int:
+def _clean_streak(snapshot: _Snapshot, *, had_withdrawal: bool) -> int:
     """This month, if it is clean so far, plus however many settled months
     before it were clean too — walking back until the first withdrawal or
     the ledger's own start. Zero for a month a withdrawal has already
@@ -217,8 +263,8 @@ def _clean_streak(session: Session, *, had_withdrawal: bool) -> int:
         return 0
 
     streak = 1
-    for month in reversed(settled_months(session)):
-        if month.had_withdrawal:
+    for _, _, month_had_withdrawal in reversed(snapshot.settled):
+        if month_had_withdrawal:
             break
         streak += 1
     return streak
@@ -252,14 +298,40 @@ def propose(session: Session, tz) -> MonthlyMatchProposal:
     not. Refuses only a ledger with no entries at all, since there is no
     month to match against an account that does not exist yet.
     """
-    period = _next_period(session, tz)
+    return _propose_from(_Snapshot.of(session), _Scheme.of(session), tz)
 
-    before, within = _balance_before_and_within(session, period)
+
+@dataclass(frozen=True)
+class _Scheme:
+    """The three scheme settings the match reads, read once."""
+
+    start_rate: int
+    ceiling_rate: int
+    cap_pence: int
+
+    @classmethod
+    def of(cls, session: Session) -> _Scheme:
+        return cls(
+            start_rate=scheme_settings.savings_match_start_rate_percent(session),
+            ceiling_rate=scheme_settings.savings_match_ceiling_rate_percent(session),
+            cap_pence=scheme_settings.savings_match_cap_pence(session),
+        )
+
+
+def _propose_from(snapshot: _Snapshot, scheme: _Scheme, tz) -> MonthlyMatchProposal:
+    period = _next_period(snapshot, tz)
+
+    before, within = _balance_before_and_within(snapshot, period)
     low_pence, had_withdrawal = _low_and_had_withdrawal(before, within)
-    rate_percent = _rate_percent(session, had_withdrawal=had_withdrawal)
-    cap_pence = scheme_settings.savings_match_cap_pence(session)
+    rate_percent = _rate_percent(
+        snapshot,
+        had_withdrawal=had_withdrawal,
+        start_rate=scheme.start_rate,
+        ceiling_rate=scheme.ceiling_rate,
+    )
+    cap_pence = scheme.cap_pence
     match = match_pence(low_pence=low_pence, rate_percent=rate_percent, cap_pence=cap_pence)
-    clean_months_in_a_row = _clean_streak(session, had_withdrawal=had_withdrawal)
+    clean_months_in_a_row = _clean_streak(snapshot, had_withdrawal=had_withdrawal)
 
     return MonthlyMatchProposal(
         period_start=period.start,
@@ -272,6 +344,36 @@ def propose(session: Session, tz) -> MonthlyMatchProposal:
         month_has_ended=today(tz) > period.end,
         clean_months_in_a_row=clean_months_in_a_row,
     )
+
+
+def due_months(session: Session, tz) -> list[MonthlyMatchProposal]:
+    """Every month that has ended, is not settled, and would pay something.
+
+    For the wall to show until a parent settles it — this settles nothing.
+    The first is exactly what `propose` returns now. Any after it are what
+    `propose` will return once the one before has settled on its own figure:
+    each month's rate climbs from the month before and its balance includes
+    the month before's match, so they are worked out in order, by settling
+    each ended month in memory only (`_Snapshot.settled_on`) and proposing
+    the next. A month that would pay nothing is passed over — it is still
+    settled in order, in the parent's panel, but there is nothing waiting to
+    go into the bank for it. Stops at the first month that has not ended.
+
+    Empty when the ledger has no entries at all.
+    """
+    snapshot = _Snapshot.of(session)
+    if not snapshot.entries:
+        return []
+    scheme = _Scheme.of(session)
+
+    due: list[MonthlyMatchProposal] = []
+    while True:
+        proposal = _propose_from(snapshot, scheme, tz)
+        if not proposal.month_has_ended:
+            return due
+        if proposal.match_pence > 0:
+            due.append(proposal)
+        snapshot = snapshot.settled_on(proposal)
 
 
 def settle(

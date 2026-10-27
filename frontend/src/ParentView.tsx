@@ -23,7 +23,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import type { WeekView } from './api'
+import type { DueMonth, WeekView } from './api'
 import type {
   ChoreDefinition,
   Consequence,
@@ -51,6 +51,7 @@ import {
   loadSavingsMatchProposal,
   loadSchemeSettings,
   loadSettledMonths,
+  loadDueMonths,
   loadWeeks,
   loadWeekView,
   submitReview,
@@ -76,6 +77,8 @@ type Everything = {
   chores: ChoreDefinition[]
   schemeSettings: SchemeSettings
   settledMonths: SettledMonth[]
+  //: Ended months the match has not been settled for, oldest first.
+  dueMonths: DueMonth[]
   //: Null when there is nothing yet to project — the savings ledger has no
   //: entries at all. Not the same as an error: the panel reads it as "no
   //: match to show yet", the way an unopened week reads as "nothing owed".
@@ -119,6 +122,7 @@ export function ParentView() {
         chores,
         schemeSettings,
         settledMonths,
+        dueMonths,
         depositors,
         pendingDeposits,
       ] = await Promise.all([
@@ -130,6 +134,7 @@ export function ParentView() {
         loadChores(),
         loadSchemeSettings(),
         loadSettledMonths(),
+        loadDueMonths(),
         loadDepositors(),
         loadPendingDeposits(),
       ])
@@ -164,6 +169,7 @@ export function ParentView() {
         chores,
         schemeSettings,
         settledMonths,
+        dueMonths,
         savingsMatchProposal,
         savingsMatchProposalError,
         reopenedWeeks,
@@ -270,6 +276,7 @@ export function ParentView() {
               proposal={data.savingsMatchProposal}
               proposalError={data.savingsMatchProposalError}
               settledMonths={data.settledMonths}
+              dueMonths={data.dueMonths}
               ask={ask}
             />
           </>

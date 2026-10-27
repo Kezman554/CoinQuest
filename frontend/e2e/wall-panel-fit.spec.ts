@@ -26,7 +26,9 @@ import type { Page } from '@playwright/test'
 
 const EXTRA = ['Lunchbox / plates / cups by sink', 'Shoes and coat away', 'Teeth and wash']
 
-async function heavyWeek(page: Page, choresPerDay: number) {
+async function heavyWeek(page: Page, choresPerDay: number, dueMonths: unknown[] = []) {
+  // The savings match waiting on a parent: none, unless the case says so.
+  await page.route('**/api/savings/match/due', (route) => route.fulfill({ json: dueMonths }))
   await page.route('**/api/week/open', async (route) => {
     const response = await route.fetch()
     const week = await response.json()
@@ -92,6 +94,19 @@ test.describe('the week on the 1280x800 kitchen panel', () => {
       'Do Wash the car to put it right — that takes this week back to £3. You have 3 more days',
     )
     await expect(page.locator('.total-makegood')).toHaveCount(0)
+  })
+
+  test('with a month of interest waiting too, it still fits', async ({ page }) => {
+    await heavyWeek(page, 3, [{ period_start: '2026-09-01', period_end: '2026-09-30', match_pence: 120 }])
+    await page.goto('/')
+    const fit = await measure(page)
+    expect(fit.pageScrolls).toBe(false)
+    expect(fit.daysOverflow).toBe(0)
+    // Its own line, beside the cash and not added to it.
+    await expect(page.locator('.owed-interest li')).toHaveText(
+      'Interest for September: £1.20 going into your bank',
+    )
+    await expect(page.locator('.owed-card-amount')).toHaveText('£5.50')
   })
 
   test('a heavier one scrolls the days, never the page', async ({ page }) => {

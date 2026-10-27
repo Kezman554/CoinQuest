@@ -1,28 +1,37 @@
 /**
- * What has been settled and not yet handed over.
+ * What has been settled and not yet handed over — and, kept apart from it,
+ * the savings match waiting to go into the bank.
  *
  * The other half of the money on the wall: the big card says what this week is
  * heading for, this says what earlier weeks already came to and nobody has
  * paid yet. Read-only, from the same uncredentialed list the parent's Payday
  * panel ticks off — paying is a parent act and happens there, with the PIN.
  *
- * It stays on screen when the list is empty. "All paid up" is a fact worth
- * reading, and a column that comes and goes would shift the week beside it.
+ * A month the savings match has ended for but nobody has settled is its own
+ * line, never added to the cash total: the weeks are handed over as cash,
+ * the match goes into the bank account, and the wall must not suggest it is
+ * cash. It stays until a parent settles the month (app.services.savings_match
+ * .due_months — nothing settles itself).
+ *
+ * It stays on screen when there is nothing at all. "All paid up" is a fact
+ * worth reading, and a column that comes and goes would shift the week
+ * beside it.
  */
 
+import type { DueMonth } from '../api'
 import type { Owed as OwedWeek } from '../parentApi'
 import { money } from '../api'
-import { shortDate } from '../words'
+import { interestLine, shortDate } from '../words'
 
-export function Owed({ owed }: { owed: OwedWeek[] }) {
+export function Owed({ owed, due = [] }: { owed: OwedWeek[]; due?: DueMonth[] }) {
   const total = owed.reduce((sum, week) => sum + week.owed_pence, 0)
+  const anything = owed.length > 0 || due.length > 0
 
   return (
-    <section className={`owed-card ${owed.length > 0 ? 'owed-card-due' : ''}`}>
+    <section className={`owed-card ${anything ? 'owed-card-due' : ''}`}>
       <p className="total-label">Owed to you</p>
-      {owed.length === 0 ? (
-        <p className="owed-card-clear">All paid up</p>
-      ) : (
+      {!anything && <p className="owed-card-clear">All paid up</p>}
+      {owed.length > 0 && (
         <>
           <p className="owed-card-amount">{money(total)}</p>
           {/* The strip on the 1280 panel has room for the sum and a count,
@@ -41,6 +50,21 @@ export function Owed({ owed }: { owed: OwedWeek[] }) {
             ))}
           </ul>
         </>
+      )}
+      {due.length > 0 && (
+        <ul className="owed-interest">
+          {due.map((month) => {
+            const line = interestLine(month.period_start, month.match_pence)
+            return (
+              <li key={month.period_start}>
+                <span className="owed-interest-label">
+                  {line.label} <strong className="owed-interest-amount">{line.amount}</strong>
+                </span>{' '}
+                <span className="owed-interest-where">{line.where}</span>
+              </li>
+            )
+          })}
+        </ul>
       )}
     </section>
   )

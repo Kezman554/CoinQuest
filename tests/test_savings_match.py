@@ -397,3 +397,96 @@ def test_a_settled_months_figures_survive_a_change_to_the_ceiling(api, session):
     assert unchanged["rate_percent"] == 5
     assert unchanged["cap_pence"] == 10000
     assert unchanged["match_pence"] == 500
+
+
+# --- Due months: ended, unsettled, paying something — shown until settled -----
+
+
+def _first_of_month(day, months_back):
+    """The first of the month `months_back` before `day`'s."""
+    year, month = day.year, day.month - months_back
+    while month < 1:
+        month += 12
+        year -= 1
+    return date(year, month, 1)
+
+
+def test_the_month_in_progress_is_not_due(session, tz):
+    from app.services.calendar import today
+
+    opening_balance(session, on=_first_of_month(today(tz), 0))
+    session.commit()
+    assert savings_match.due_months(session, tz) == []
+
+
+def test_an_ended_unsettled_month_is_due(session, tz):
+    from app.services.calendar import today
+
+    start = _first_of_month(today(tz), 1)
+    opening_balance(session, amount_pence=2000, on=start)
+    session.commit()
+
+    due = savings_match.due_months(session, tz)
+    assert [month.period_start for month in due] == [start]
+    # The same figure the parent's panel proposes, and nothing was written.
+    assert due[0] == savings_match.propose(session, tz)
+    assert due[0].match_pence > 0
+    assert session.query(SavingsMonthMatch).count() == 0
+
+
+def test_a_settled_month_is_not_due(session, tz):
+    from app.services.calendar import today
+
+    opening_balance(session, amount_pence=2000, on=_first_of_month(today(tz), 1))
+    session.commit()
+    settle(session, tz)
+    assert savings_match.due_months(session, tz) == []
+
+
+def test_a_month_that_would_pay_nothing_is_not_due(session, tz):
+    from app.services.calendar import today
+
+    start = _first_of_month(today(tz), 1)
+    opening_balance(session, amount_pence=2000, on=start)
+    # Everything taken out: the dipped-to low is nil, so the match is nil.
+    withdraw(session, amount_pence=2000, on=start.replace(day=2))
+    session.commit()
+
+    assert savings_match.propose(session, tz).match_pence == 0
+    assert savings_match.due_months(session, tz) == []
+
+
+def test_two_ended_unsettled_months_are_both_due_in_order(session, tz):
+    from app.services.calendar import today
+
+    first = _first_of_month(today(tz), 2)
+    second = _first_of_month(today(tz), 1)
+    opening_balance(session, amount_pence=2000, on=first)
+    session.commit()
+
+    due = savings_match.due_months(session, tz)
+    assert [month.period_start for month in due] == [first, second]
+    assert all(month.month_has_ended and month.match_pence > 0 for month in due)
+    # The second climbs a rung from the first, as settling the first will make it.
+    assert due[1].rate_percent == due[0].rate_percent + savings_match.RATE_STEP_PERCENT
+
+    # And once the first is settled on its own figure, the second is due on
+    # exactly the figure the list showed for it.
+    settle(session, tz)
+    assert savings_match.propose(session, tz) == due[1]
+    assert savings_match.due_months(session, tz) == [due[1]]
+
+
+def test_the_due_list_is_read_without_a_pin(api, session):
+    from app.config import get_settings
+    from app.services.calendar import today
+
+    start = _first_of_month(today(get_settings().tzinfo), 1)
+    opening_balance(session, amount_pence=2000, on=start)
+    session.commit()
+
+    response = api.get("/api/savings/match/due")
+    assert response.status_code == 200
+    [month] = response.json()
+    assert month["period_start"] == start.isoformat()
+    assert month["match_pence"] > 0

@@ -82,6 +82,22 @@ class SettledMonthView(BaseModel):
         )
 
 
+class DueMonthView(BaseModel):
+    """An ended month waiting for a parent to settle it, and what it pays."""
+
+    period_start: str
+    period_end: str
+    match_pence: int
+
+    @classmethod
+    def of(cls, proposal: MonthlyMatchProposal) -> DueMonthView:
+        return cls(
+            period_start=proposal.period_start.isoformat(),
+            period_end=proposal.period_end.isoformat(),
+            match_pence=proposal.match_pence,
+        )
+
+
 class SettleMonthRequest(AuthorisedRequest):
     agreed_match_pence: int = Field(ge=0)
 
@@ -109,6 +125,18 @@ def get_proposal(session: Session = Depends(get_session)) -> MonthlyMatchProposa
     409 only when the savings ledger has no entries at all to match against.
     """
     return MonthlyMatchProposalView.of(_proposal(session))
+
+
+@router.get("/due", response_model=list[DueMonthView])
+def list_due_months(session: Session = Depends(get_session)) -> list[DueMonthView]:
+    """Every ended, unsettled month that would pay something, oldest first.
+
+    For the wall, the same way it reads the weeks still owed: no PIN, and it
+    settles nothing — a due month stays on this list until a parent settles
+    it. Empty when there is nothing saved to match yet.
+    """
+    tz = get_settings().tzinfo
+    return [DueMonthView.of(month) for month in savings_match.due_months(session, tz)]
 
 
 @router.post("/settle", response_model=SettledMonthView)

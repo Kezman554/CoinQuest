@@ -230,6 +230,19 @@ export async function loadSavingsBalance(): Promise<SavingsBalance> {
 /** May reject — a 409 when the savings ledger has no entries at all yet.
  * That is a real state ("nothing to match"), not a failure, so the savings
  * screen catches it rather than treating it as an error to display. */
+/** An ended month the savings match has not been settled for, and what it
+ *  will pay into the bank. Read without a PIN; settles nothing. */
+export type DueMonth = {
+  period_start: string
+  period_end: string
+  match_pence: number
+}
+
+/** Every due month, oldest first — see app.services.savings_match.due_months. */
+export async function loadDueMonths(): Promise<DueMonth[]> {
+  return json<DueMonth[]>(await fetch('/api/savings/match/due'))
+}
+
 export async function loadSavingsMatchProposal(): Promise<SavingsMatchProposal> {
   return json<SavingsMatchProposal>(await fetch('/api/savings/match/proposal'))
 }
