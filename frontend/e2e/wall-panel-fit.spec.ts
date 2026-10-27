@@ -5,6 +5,8 @@
  * to test against — one chore a day — so the week is reshaped on its way to
  * the page into the heavy week the household actually has: three chores a day,
  * one with a long name, the chore money at risk, a make-good route showing,
+ * the missed-chore notice beside it inside the money card, the missed chore
+ * itself on Monday's tile with its "Not missed after all" button under it,
  * and two weeks owed. Every chore is reset to untouched, then one is set to
  * "Waiting to be checked" — the common state that wraps — so the result does
  * not depend on what earlier specs did to the scratch database. Nothing here
@@ -39,6 +41,13 @@ async function heavyWeek(page: Page, choresPerDay: number) {
       }
     }
     Object.assign(week.days[0].chores[1], { state: 'claimed', can_claim: false })
+    const missed = week.days[1].chores[1]
+    Object.assign(missed, { state: 'missed', can_claim: false, miss_origin: 'parent_marked' })
+    week.recovery.needs = [{ definition_id: missed.definition_id, miss_name: 'Make bed', covered_by: null }]
+    week.recovery.outstanding = 1
+    week.recovery.options = [{ ...week.weekly[0].instances[0], name: 'Wash the car' }]
+    week.recovery.urgent = false
+    week.recovery.days_remaining = 3
     week.totals.chore_pay_awarded = false
     week.totals.chore_pay_at_stake_pence = 200
     week.totals.payable_total_pence = 100
@@ -75,6 +84,10 @@ test.describe('the week on the 1280x800 kitchen panel', () => {
     const fit = await measure(page)
     expect(fit.pageScrolls).toBe(false)
     expect(fit.daysOverflow).toBe(0)
+    // The notice is in the money card, beside the make-good line, not a row
+    // of its own above the week.
+    await expect(page.locator('.total [role="status"]')).toContainText('You missed Make bed')
+    await expect(page.locator('.total-route .total-makegood')).toBeVisible()
   })
 
   test('a heavier one scrolls the days, never the page', async ({ page }) => {

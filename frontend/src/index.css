@@ -78,6 +78,16 @@
   --radius-button: 12px;
   --radius-tag: 10px;
   --radius-pill: 999px;
+
+  /* Solid outlines and hard offset shadows — never a blur. A shadow says
+     "tappable", so a past week sets both shadows to none (App.css). */
+  --edge-card: 3px;
+  --edge-tag: 2px;
+  --edge-today: 4px;
+  --shadow-card: 0 5px 0 var(--shadow);
+  --shadow-button: 0 4px 0 var(--shadow);
+
+  --brick-height: 24px;
 }
 
 :root[data-theme='night'] {
@@ -141,7 +151,9 @@ body {
   /* Nunito is bundled at 600, 700 and 800 only; 600 is the body weight. */
   font-weight: 600;
   color: var(--ink);
-  background-color: var(--ground);
+  /* Transparent, so the brick strip drawn behind the page shows; the html
+     element carries the ground. */
+  background: none;
 }
 
 h1,

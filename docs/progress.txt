@@ -2843,3 +2843,38 @@ exactly those 34 and the boundary method, replacing the "48 pairings"
 line. Disabled controls (.button, the sending chore, the miss control)
 use disabled / disabled-bg / disabled-edge instead of an opacity fade;
 the parent's retired-chore row lost its fade too, for settled.
+
+Child's week restyled to Coin block (2026-10-27). App.tsx and the week's
+components, tokens only; words.ts untouched.
+- Shapes: 3px outlines (2px on tags and chips), radii and hard shadows
+  from tokens (--edge-*, --shadow-card 0 5px 0, --shadow-button 0 4px 0).
+  A shadow means tappable: claimable chores and buttons have one, done /
+  waiting / missed rows do not, and a press pushes the button into it.
+- Money card: gold with an outline, an inline-SVG coin (Coin.tsx: rim,
+  face, inner ring, £) beside the display-font figure — beside, not in,
+  so .total-amount still reads "£3". White outlined chips; Chores is
+  danger at risk, done once won. Owed card a white panel.
+- Chores: action buttons; a rejection keeps "Have another go" with its
+  "Not accepted…" line as a danger-outlined tag inside; done is done-bg,
+  done-edge and a small tick coin; waiting is dashed waiting-edge; missed
+  is danger, with "Not missed after all" as a white outlined button.
+- Today: panel-today, and a 4px today-edge drawn as the 3px border plus
+  1px outline, so its chores stay level with every other tile's.
+- Ground and bricks: html carries the ground; Bricks.tsx is a fixed 24px
+  SVG strip at z-index -1 — no layout height, covers nothing.
+- The missed-chore notice moved from its own row into the money card,
+  beside the make-good line (role="status" kept). Urgent: danger edge and
+  an SVG alarm clock; put right: done. The emoji icons went.
+- Scroll hint: App.tsx marks the days region data-more while there is
+  more below; a mask fades its bottom edge into the ground.
+- Past weeks: settled card, muted coin, and both shadow tokens set to
+  none page-wide via :has(.total-past). "Not the current week" has a
+  dashed edge and, at wall widths, is one band rather than a block.
+- DESIGN.md's type sizes applied (15px chore names, 16px/800 labels,
+  14px dates, 40px title, 52px figure, 40px owed, 22px day names).
+Measured at 1280x800 with three chores a day: the heavy week (notice,
+make-good, missed tile with its undo button, two owed weeks), a clean
+week, a rejected claim, the last day and a settled week paged back to
+all fit with neither page nor days scrolling; 1920 and 390 have nothing
+off either edge. The fit spec now includes the notice and the missed
+tile. e2e 9 passed; check:literals and check:contrast pass.

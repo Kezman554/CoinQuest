@@ -2,9 +2,10 @@
  *
  * Three rules, all of them about being read from four feet away:
  *
- *  - Nothing smaller than 16px, and the things that matter are much bigger.
- *    The projected total is the largest thing on the page because it is the
- *    question the child came to the screen with.
+ *  - Type at DESIGN.md's sizes (tokens in index.css): 15px chore names and
+ *    14px dates are the smallest things on the page, and the money figure
+ *    is the largest, because it is the question the child came to the
+ *    screen with.
  *  - Every chore is a full-width row at least 60px (3.75rem) tall. A child in
  *    a hurry does not aim. It was 70px until the wall panel needed the
  *    height for a make-good line; 60px is still a generous fingertip.
@@ -90,19 +91,20 @@
   min-width: 0;
 }
 
-/* What earlier weeks are still owed. The prize card's shape, quieter until
-   there is something in it — then the coin colour, because it is money
-   waiting to be handed over. */
+/* What earlier weeks are still owed: a white panel beside the gold one. Gold
+   is the week's own money; this is money already agreed. */
 .owed-card {
   background: var(--panel);
-  border: 1px solid var(--panel-edge);
-  border-radius: 1.875rem;
-  padding: 1.875rem 1.5625rem;
+  border: var(--edge-card) solid var(--panel-edge);
+  border-radius: var(--radius-card);
+  padding: 1.5rem 1.25rem;
+  box-shadow: var(--shadow-card);
 }
 
 .owed-card .total-label {
   color: var(--ink-soft);
   white-space: nowrap;
+  font-size: 1rem;
 }
 
 .owed-card-due {
@@ -115,17 +117,17 @@
 }
 
 .owed-card-amount {
-  font-size: 3.75rem;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--size-owed);
   line-height: 1;
-  letter-spacing: -0.03em;
-  margin: 0.5rem 0 1.25rem;
+  margin: 0.375rem 0 1rem;
   color: var(--ink);
 }
 
 .owed-card-clear {
-  font-size: 1.875rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 800;
   margin-top: 0.625rem;
   color: var(--done);
 }
@@ -186,16 +188,6 @@
     white-space: nowrap;
   }
 
-  .wall-head .masthead h1 {
-    font-size: 2.3125rem;
-    line-height: 1.1;
-  }
-
-  .wall-head .dates {
-    margin-top: 0;
-    font-size: 1.1875rem;
-  }
-
   /* Week arrows, then the way to the other screens, quieter and set a
      little apart so the two groups do not read as one row of choices. */
   .wall-head-controls {
@@ -208,8 +200,34 @@
     flex-wrap: nowrap;
   }
 
+  /* "Not the current week" as one band — the heading and its sentence on
+     the left, the way back on the right — not a third of the screen. */
+  .page-wall > .notice-away {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 1.25rem;
+    padding: 0.5rem 1.25rem;
+  }
+
+  .page-wall > .notice-away h2 {
+    font-size: 1.375rem;
+    margin-bottom: 0.125rem;
+  }
+
+  .page-wall > .notice-away p {
+    font-size: 1rem;
+  }
+
+  .page-wall > .notice-away .button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin-top: 0;
+    min-height: 3rem;
+  }
+
   .wall-head .switcher .button {
-    min-height: 3.4375rem;
+    min-height: 3rem;
     padding-block: 0.3125rem;
     padding-inline: 1.125rem;
   }
@@ -218,10 +236,9 @@
      disabled and has no claim on the width. */
   .wall-head .week-nav-button {
     flex: none;
-    min-height: 3.4375rem;
+    min-height: 3rem;
     padding-block: 0.3125rem;
     padding-inline: 1.25rem;
-    font-size: 1.25rem;
   }
 
   .wall {
@@ -255,57 +272,64 @@
     margin-bottom: 0.625rem;
   }
 
-  /* The prize card on its side: label over the figure on the left, the
-     breakdown across the rest, any note underneath the lot. */
+  /* The prize card on its side: the label and the coin-and-figure on the
+     left; the chips, the at-risk note, and then the notice beside the
+     make-good line across the rest. */
   .wall .total {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    column-gap: 2.1875rem;
+    align-items: start;
+    gap: 0.3125rem 1.5rem;
     height: 100%;
-    padding: 0.625rem 1.5625rem;
-    border-radius: 1.5625rem;
+    padding: 0.375rem 1.25rem 0.5rem;
   }
 
   .wall .total-label {
     grid-column: 1;
-    font-size: 1.25rem;
+    grid-row: 1;
+    align-self: center;
+    font-size: 1rem;
     line-height: 1.2;
   }
 
-  .wall .total-amount {
+  .wall .total-figure {
     grid-column: 1;
+    grid-row: 2;
+    margin: 0;
+  }
+
+  .wall .total:has(.total-note):has(.total-route) .total-figure {
     grid-row: 2 / span 2;
-    align-self: start;
-    font-size: 3.125rem;
-    margin: 0.125rem 0 0;
+  }
+
+  .wall .total-figure .coin {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .wall .total-amount {
+    font-size: var(--size-money);
   }
 
   .wall .breakdown {
     grid-column: 2;
-    grid-row: 1 / span 2;
-    flex-wrap: nowrap;
-    gap: 0.75rem;
-  }
-
-  .wall .total:has(.total-note) .breakdown,
-  .wall .total:has(.total-makegood) .breakdown {
     grid-row: 1;
-    align-self: end;
+    flex-wrap: nowrap;
+    gap: 0.625rem;
   }
 
-  /* Each part on one line — "Every week  £1" — so the strip is one figure
+  /* Each chip on one line — "Every week  £1" — so the strip is one figure
      tall, not two. */
   .wall .breakdown > div {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.375rem 1.125rem;
+    gap: 0.625rem;
+    padding: 0.1875rem 0.875rem;
   }
 
   .wall .breakdown dd {
-    font-size: 1.625rem;
+    font-size: 1.375rem;
     line-height: 1.2;
     margin-top: 0;
     white-space: nowrap;
@@ -314,40 +338,54 @@
   .wall .total-note {
     grid-column: 2;
     grid-row: 2;
-    align-self: start;
-    margin-top: 0.5rem;
-    font-size: 1.25rem;
+    margin-top: 0;
+    font-size: 1rem;
+    line-height: 1.2;
   }
 
-  /* The route back, under the note and beside the figure it restores —
-     not a full-width row of its own, which cost the days 50px. */
-  .wall .total-makegood {
+  .wall .total-route {
     grid-column: 2;
-    grid-row: 2;
-    margin-top: 0.5rem;
-    padding: 0.375rem 1.125rem;
-    font-size: 1.25rem;
+    grid-row: 3;
+    flex-direction: row;
+    margin-top: 0;
+    gap: 0.5rem;
   }
 
-  .wall .total:has(.total-note) .total-makegood {
-    grid-row: 3;
+  .wall .total:not(:has(.total-note)) .total-route {
+    grid-row: 2;
+  }
+
+  .wall .total-route > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .wall .total .notice,
+  .wall .total-makegood {
+    padding: 0.3125rem 0.75rem;
+  }
+
+  .wall .total .notice h2 {
+    font-size: 1rem;
+    line-height: 1.2;
+    margin-bottom: 0;
+  }
+
+  .wall .total .notice p,
+  .wall .total-makegood {
+    font-size: 0.9375rem;
+    line-height: 1.2;
   }
 
   .wall .owed-card {
     height: 100%;
-    padding: 0.625rem 1.875rem;
-    border-radius: 1.5625rem;
+    padding: 0.5rem 1.5rem;
     display: flex;
     flex-direction: column;
     justify-content: center;
   }
 
-  .wall .owed-card .total-label {
-    font-size: 1.25rem;
-  }
-
   .wall .owed-card-amount {
-    font-size: 2.5rem;
     margin: 0.125rem 0 0.1875rem;
   }
 
@@ -390,6 +428,14 @@
     padding-inline: 0.5rem;
     padding-bottom: 0.375rem;
   }
+
+  /* The scroll hint: while there is more below (App.tsx sets data-more),
+     the region's bottom edge fades into the ground. A mask, so it is alpha
+     only — no colour is laid over anything. */
+  .page-wall .wall-main[data-more] {
+    -webkit-mask-image: linear-gradient(to bottom, var(--ground) calc(100% - 3rem), transparent);
+    mask-image: linear-gradient(to bottom, var(--ground) calc(100% - 3rem), transparent);
+  }
 }
 
 /* Seven across, with the any-time cards on the same columns.
@@ -406,32 +452,19 @@
     gap: 0.625rem;
   }
 
-  .wall .panel-days,
-  .wall .panel-weekly {
+  .page-wall .wall .panel-days,
+  .page-wall .wall .panel-weekly {
     background: none;
     border: none;
+    box-shadow: none;
     padding: 0;
   }
 
   /* Room for the TODAY badge that sits on the tile's top edge. */
-  .wall .panel-days {
+  .page-wall .wall .panel-days {
     padding-top: 0.75rem;
   }
 
-  .wall .days .day,
-  .wall .weekly .weekly-card {
-    background: var(--panel);
-  }
-
-  .wall .days .day-today {
-    border-width: 1px;
-    border-top-width: 6px;
-    box-shadow: 0 0 0 2px var(--today-edge);
-  }
-
-  .wall .days .day-past:not(.day-waived) {
-    background: var(--panel);
-  }
 
   .wall .panel-days > h2 {
     position: absolute;
@@ -463,7 +496,6 @@
 
   .wall .day h3,
   .wall .weekly-card h3 {
-    font-size: 1.375rem;
     line-height: 1.25;
   }
 
@@ -475,7 +507,6 @@
 
   .wall .day-num {
     display: inline;
-    font-weight: 500;
     color: var(--ink-soft);
   }
 
@@ -485,8 +516,8 @@
 
   .wall .chore {
     line-height: 1.2;
-    padding: 0.375rem 0.6875rem;
-    margin-top: 0.4375rem;
+    padding: 0.3125rem 0.625rem;
+    margin-top: 0.375rem;
     gap: 0.125rem 0.625rem;
   }
 
@@ -495,13 +526,12 @@
   }
 
   .wall .chore-name {
-    font-size: 1.25rem;
-    line-height: 1.2;
+    line-height: 1.15;
   }
 
-  .wall .chore-state,
-  .wall .chore-claimable .chore-state {
-    font-size: 1.25rem;
+  .wall .chore-control {
+    margin-top: 0.375rem;
+    padding-inline: 0.5rem;
   }
 
   .wall .weekly-side .tag {
@@ -511,7 +541,7 @@
   .wall .weekly-side,
   .wall .weekly-progress {
     margin-top: 0.125rem;
-    font-size: 1.25rem;
+    font-size: 1rem;
     line-height: 1.2;
   }
 }
@@ -554,15 +584,6 @@
     margin-top: 0.625rem;
   }
 
-  .wall .chore-name {
-    font-size: 1.375rem;
-  }
-
-  .wall .chore-state,
-  .wall .chore-claimable .chore-state {
-    font-size: 1.3125rem;
-  }
-
   .wall .panel-weekly > h2 {
     font-size: 1.875rem;
   }
@@ -570,17 +591,29 @@
   .wall .total {
     display: block;
     height: auto;
-    padding: 1.875rem 1.5625rem;
-    border-radius: 1.875rem;
+    padding: 1.5rem 1.25rem;
   }
 
   .wall .total-label {
-    font-size: 1.375rem;
+    font-size: 1.125rem;
+  }
+
+  .wall .total-figure {
+    margin: 0.3125rem 0 1.25rem;
+  }
+
+  .wall .total-figure .coin {
+    width: 3.5rem;
+    height: 3.5rem;
   }
 
   .wall .total-amount {
-    font-size: 5rem;
-    margin: 0.3125rem 0 1.25rem;
+    font-size: 4.5rem;
+  }
+
+  .wall .total-route {
+    flex-direction: column;
+    margin-top: 1rem;
   }
 
   .wall .breakdown {
@@ -599,13 +632,11 @@
 
   .wall .owed-card {
     height: auto;
-    padding: 1.875rem 1.5625rem;
-    border-radius: 1.875rem;
+    padding: 1.5rem 1.25rem;
   }
 
   .wall .owed-card-amount {
-    font-size: 3.75rem;
-    margin: 0.5rem 0 1.25rem;
+    margin: 0.375rem 0 1rem;
   }
 
   .wall .owed-card-count {
@@ -620,9 +651,16 @@
 /* --- Masthead ------------------------------------------------------------ */
 
 .masthead h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
   font-size: clamp(2.5rem, 5vw, 3.75rem);
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
   color: var(--ink);
+}
+
+.wall-head .masthead h1 {
+  font-size: var(--size-title);
+  line-height: 1.1;
 }
 
 .dates {
@@ -631,171 +669,323 @@
   margin-top: 0.3125rem;
 }
 
+.wall-head .dates {
+  margin-top: 0;
+  font-size: var(--size-date);
+  font-weight: 700;
+}
+
 .loading,
 .problem {
   background: var(--panel);
-  border-radius: 1.25rem;
+  border: var(--edge-card) solid var(--panel-edge);
+  border-radius: var(--radius-card);
   padding: 1.875rem;
   font-size: 1.5625rem;
 }
 
 .problem {
   background: var(--danger-bg);
+  border-color: var(--danger-edge);
   color: var(--danger);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* --- The projected total ------------------------------------------------- */
 
 /* The projected total is the one figure the child came to the screen for, so
    it gets the loudest treatment on the page: the gold card, money's own
-   colour, rather than another white panel. */
+   colour, with the coin beside the figure. */
 .total {
   background: var(--gold);
   color: var(--on-gold);
-  border-radius: 1.875rem;
-  padding: 2.1875rem 1.875rem;
-  border: none;
-  box-shadow: 0 5px 0 var(--shadow);
+  border: var(--edge-card) solid var(--outline);
+  border-radius: var(--radius-card);
+  padding: 1.75rem 1.5rem;
+  box-shadow: var(--shadow-card);
 }
 
 .total-label {
-  font-size: 1.375rem;
+  font-size: 1.125rem;
   color: var(--on-gold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-weight: 700;
+  font-weight: 800;
 }
 
-.total-amount {
-  font-size: clamp(4.375rem, 12vw, 6.875rem);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.03em;
+.total-figure {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   margin: 0.3125rem 0 1.25rem;
 }
 
+.total-figure .coin {
+  width: 3.75rem;
+  height: 3.75rem;
+  flex: none;
+}
+
+/* Money figures are display type. Savings and Lifetime use this too, with no
+   coin beside it. */
+.total-amount {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(4.375rem, 12vw, 6.875rem);
+  line-height: 1;
+  margin: 0.3125rem 0 1.25rem;
+}
+
+.total-figure .total-amount {
+  margin: 0;
+}
+
+/* White chips on the gold, each with its own outline. */
 .breakdown {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.9375rem;
+  gap: 0.75rem;
   margin: 0;
 }
 
 .breakdown > div {
   flex: 1 1 10rem;
-  /* Opaque, on an opaque card: DESIGN.md allows no translucent fill
-     behind text. */
   background: var(--panel);
   color: var(--ink);
-  border-radius: 0.9375rem;
-  padding: 0.9375rem 1.25rem;
+  border: var(--edge-tag) solid var(--outline);
+  border-radius: var(--radius-button);
+  padding: 0.75rem 1rem;
 }
 
 .breakdown dt {
-  font-size: 1.25rem;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--ink-soft);
 }
 
 .breakdown dd {
-  margin: 0.1875rem 0 0;
-  font-size: 1.875rem;
-  font-weight: 700;
+  margin: 0.125rem 0 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.75rem;
 }
 
-/* Chore money at risk is danger's tier, not gold's. */
+/* The chore pot in its own tier: danger while it is at risk, done once won. */
 .breakdown .at-risk {
   background: var(--danger-bg);
+  border-color: var(--danger-edge);
 }
 
-.breakdown .at-risk dd,
-.breakdown .at-risk dt {
+.breakdown .won {
+  background: var(--done-bg);
+  border-color: var(--done-edge);
+}
+
+.breakdown .at-risk dt,
+.breakdown .at-risk dd {
   color: var(--danger);
 }
 
-.total-note {
-  margin-top: 1.25rem;
-  font-size: 1.375rem;
-  color: var(--on-gold);
-  font-weight: 600;
+.breakdown .won dt,
+.breakdown .won dd {
+  color: var(--done);
 }
 
-/* The route back, beside the figure it restores. One line, set inside the
-   same card rather than beside it: it is about this number, and a box of its
-   own would read as a separate announcement to be dealt with later. */
+.total-note {
+  margin-top: 1rem;
+  font-size: 1.125rem;
+  color: var(--on-gold);
+  font-weight: 700;
+}
+
+/* What went wrong with this figure and how to get it back, side by side in
+   the card it is about (the notice is Recovery.tsx's). */
+.total-route {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 1rem;
+}
+
 .total-makegood {
-  margin-top: 0.9375rem;
-  padding: 0.9375rem 1.25rem;
-  border-radius: 0.9375rem;
+  padding: 0.75rem 1rem;
+  border: var(--edge-tag) solid var(--outline);
+  border-radius: var(--radius-button);
   background: var(--panel);
-  font-size: 1.4375rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--ink);
 }
 
-/* --- The recovery notice ------------------------------------------------- */
+/* A settled or voided week loses the shine: settled rather than gold, a
+   muted coin, and no shadow anywhere on the page, so nothing on a closed
+   week looks tappable. */
+.total-past {
+  background: var(--settled);
+  color: var(--ink);
+}
+
+.total-past .total-label,
+.total-past .total-note {
+  color: var(--ink);
+}
+
+.page-wall:has(.total-past) {
+  --shadow-card: none;
+  --shadow-button: none;
+}
+
+/* --- The coin ------------------------------------------------------------ */
+
+.coin-rim {
+  fill: var(--gold);
+  stroke: var(--outline);
+  stroke-width: 3;
+}
+
+.coin-face {
+  fill: var(--coin-light);
+  stroke: var(--coin-dark);
+  stroke-width: 3;
+}
+
+.coin-mark {
+  fill: var(--on-gold);
+  font-family: var(--font-display);
+  font-size: 30px;
+}
+
+.coin-tick {
+  fill: none;
+  stroke: var(--on-gold);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.coin-small {
+  width: 1.25em;
+  height: 1.25em;
+  flex: none;
+}
+
+.total-past .coin-rim,
+.total-past .coin-face {
+  fill: var(--settled);
+  stroke: var(--ink-soft);
+}
+
+.total-past .coin-mark {
+  fill: var(--ink-soft);
+}
+
+/* --- The bricks ------------------------------------------------------------ */
+
+/* Behind everything, fixed to the bottom edge: no height taken, nothing
+   covered (Bricks.tsx). */
+.bricks {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 100%;
+  height: var(--brick-height);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.brick-face {
+  fill: var(--brick);
+}
+
+.brick-joint {
+  fill: none;
+  stroke: var(--mortar);
+  stroke-width: 2;
+}
+
+/* --- Notices --------------------------------------------------------------- */
 
 .notice {
-  border-radius: 1.5625rem;
-  padding: 1.875rem;
-  border: 3px solid transparent;
+  border: var(--edge-card) solid transparent;
+  border-radius: var(--radius-card);
+  padding: 1.5rem;
 }
 
 .notice h2 {
-  font-size: clamp(1.875rem, 4vw, 2.8125rem);
-  margin-bottom: 0.625rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  margin-bottom: 0.5rem;
 }
 
 .notice p {
-  font-size: 1.5625rem;
+  font-size: 1.25rem;
 }
 
+/* The missed-chore notice, inside the money card: a box beside the
+   make-good line, not a banner. */
+.total .notice {
+  padding: 0.75rem 1rem;
+  border-width: var(--edge-tag);
+  border-radius: var(--radius-button);
+}
+
+.total .notice h2 {
+  font-size: 1.125rem;
+  font-weight: 800;
+  margin-bottom: 0.125rem;
+}
+
+.total .notice p {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Three tiers (DESIGN.md): a miss is danger's; the last day takes danger's
+   edge as well, and its alarm clock; put right is done's. */
 .notice-todo {
-  background: var(--waiting-bg);
-  border-color: var(--waiting);
-  color: var(--waiting);
+  background: var(--danger-bg);
+  border-color: var(--outline);
+  color: var(--danger);
 }
 
-.notice-urgent {
+.notice-urgent,
+.total .notice-urgent {
   background: var(--danger-bg);
-  border-color: var(--danger);
+  border: var(--edge-card) solid var(--danger-edge);
   color: var(--danger);
 }
 
 .notice-sorted {
   background: var(--done-bg);
-  border-color: var(--done);
+  border-color: var(--done-edge);
   color: var(--done);
 }
 
-/* The same colour a waived day already reads in: set apart from the ordinary
-   flow of the week, not an alarm and not an achievement. */
+.alarm-clock {
+  width: 1.4em;
+  height: 1.4em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Not the current week: set apart, not an alarm — settled, with a dashed
+   edge, the same quiet a closed week has. */
 .notice-away {
   background: var(--settled);
-  border-color: var(--panel-edge);
+  border: var(--edge-card) dashed var(--panel-edge);
   color: var(--ink);
 }
 
 .notice-away .button {
   margin-top: 0.9375rem;
-}
-
-/* A small icon on the headline — decoration on top of a message the words
-   already carry in full, never a substitute for them. */
-.notice-todo h2::before {
-  content: '⏳ ';
-}
-
-.notice-urgent h2::before {
-  content: '⚠️ ';
-}
-
-.notice-sorted h2::before {
-  content: '✅ ';
-}
-
-.notice-away h2::before {
-  content: '🕘 ';
 }
 
 /* --- Paging back through weeks -------------------------------------------- */
@@ -812,11 +1002,53 @@
   font-size: 1.375rem;
 }
 
+/* The week's own buttons: raised, outlined, with a hard shadow that a press
+   pushes the button down into. */
+.page-wall .button {
+  background: var(--raised);
+  color: var(--ink);
+  border: var(--edge-card) solid var(--control-edge);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-button);
+  font-size: var(--size-button);
+  font-weight: 800;
+}
+
+.page-wall .button-do {
+  background: var(--action);
+  color: var(--on-action);
+  border-color: var(--outline);
+}
+
+.page-wall .button:disabled {
+  background: var(--disabled-bg);
+  border-color: var(--disabled-edge);
+  color: var(--disabled);
+  box-shadow: none;
+}
+
+.page-wall .button:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
 /* --- Panels -------------------------------------------------------------- */
 
 .panel h2 {
   font-size: 2rem;
   margin-bottom: 0.9375rem;
+}
+
+.page-wall .panel {
+  border: var(--edge-card) solid var(--panel-edge);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.page-wall .panel h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .days {
@@ -828,24 +1060,26 @@
 .day,
 .weekly-card {
   background: var(--panel);
-  border: 1px solid var(--panel-edge);
-  border-top: 6px solid var(--panel-edge);
-  border-radius: 1.25rem;
+  border: var(--edge-card) solid var(--panel-edge);
+  border-radius: var(--radius-card);
   padding: 1.25rem;
+  box-shadow: var(--shadow-card);
 }
 
+/* Today's 4px edge is its 3px border plus 1px of outline, so its chores sit
+   exactly level with every other tile's. */
 .day-today {
-  border: 3px solid var(--today-edge);
-  border-top-width: 6px;
-}
-
-.day-past:not(.day-waived) {
-  background: var(--panel);
+  background: var(--panel-today);
+  border-color: var(--today-edge);
+  outline: calc(var(--edge-today) - var(--edge-card)) solid var(--today-edge);
 }
 
 .day h3,
 .weekly-card h3 {
-  font-size: 1.75rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--size-day-name);
+  letter-spacing: 0.01em;
   display: flex;
   align-items: center;
   gap: 0.625rem;
@@ -857,9 +1091,10 @@
 }
 
 .day-date {
-  font-size: 1.1875rem;
+  font-size: var(--size-date);
+  font-weight: 700;
   color: var(--ink-soft);
-  margin-bottom: 0.9375rem;
+  margin-bottom: 0.75rem;
 }
 
 .nothing {
@@ -872,43 +1107,46 @@
 .waived {
   background: var(--settled);
   color: var(--ink);
-  border-radius: 0.9375rem;
-  padding: 0.9375rem 1.25rem;
+  border: var(--edge-tag) solid var(--panel-edge);
+  border-radius: var(--radius-button);
+  padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.1875rem;
 }
 
 .waived strong {
-  font-size: 1.5625rem;
+  font-size: 1.25rem;
 }
 
 .waived span {
-  font-size: 1.25rem;
+  font-size: 1rem;
 }
 
 /* --- One chore ----------------------------------------------------------- */
 
+/* A chore row. Only the claimable one is a button, so only it has a shadow:
+   done, waiting and missed are things to read, not to press. */
 .chore {
   width: 100%;
   min-height: 3.75rem;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 0.3125rem 0.9375rem;
+  gap: 0.25rem 0.75rem;
   text-align: left;
   font: inherit;
-  color: inherit;
+  color: var(--ink);
   background: var(--panel);
-  border: 2px solid var(--panel-edge);
-  border-radius: 0.9375rem;
-  padding: 0.9375rem 1.25rem;
+  border: var(--edge-card) solid var(--panel-edge);
+  border-radius: var(--radius-button);
+  padding: 0.75rem 1rem;
   margin-top: 0.625rem;
 }
 
 .chore-name {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: var(--size-chore-name);
+  font-weight: 700;
 }
 
 .chore-side {
@@ -918,21 +1156,35 @@
 }
 
 .chore-amount {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   color: var(--ink);
 }
 
 .chore-state {
   grid-column: 1 / -1;
-  font-size: 1.3125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: var(--size-button);
+  font-weight: 800;
   color: var(--ink-soft);
 }
 
+/* "Not accepted last time": a small tag inside the button, in danger's
+   outline — the refusal is said, and the button still says "Have another
+   go". */
 .chore-note {
   grid-column: 1 / -1;
-  font-size: 1.25rem;
-  color: var(--waiting);
+  justify-self: start;
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: var(--edge-tag) solid var(--danger-edge);
+  border-radius: var(--radius-tag);
+  padding: 0.0625rem 0.5rem;
 }
 
 /* The one thing on this page that does anything. */
@@ -941,16 +1193,16 @@
   background: var(--action);
   border-color: var(--outline);
   color: var(--on-action);
+  box-shadow: var(--shadow-button);
 }
 
 .chore-claimable .chore-state {
-  font-weight: 700;
-  font-size: 1.4375rem;
   color: var(--on-action);
 }
 
-.chore-claimable:active {
-  transform: scale(0.99);
+.chore-claimable:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
 }
 
 /* Sending: the disabled roles, never a fade — nothing see-through sits
@@ -959,6 +1211,7 @@
   background: var(--disabled-bg);
   border-color: var(--disabled-edge);
   color: var(--disabled);
+  box-shadow: none;
 }
 
 .chore-claimable:disabled .chore-state {
@@ -967,23 +1220,32 @@
 
 .chore-confirmed {
   background: var(--done-bg);
-  border-color: var(--done);
+  border-color: var(--done-edge);
 }
 
 .chore-confirmed .chore-state,
 .chore-confirmed .chore-amount {
   color: var(--done);
-  font-weight: 700;
 }
 
+/* Waiting to be checked: a dashed edge, so it is not colour alone. */
 .chore-claimed {
   background: var(--waiting-bg);
-  border-color: var(--waiting);
+  border-style: dashed;
+  border-color: var(--waiting-edge);
 }
 
 .chore-claimed .chore-state {
   color: var(--waiting);
-  font-weight: 600;
+}
+
+.chore-missed {
+  background: var(--danger-bg);
+  border-color: var(--danger-edge);
+}
+
+.chore-missed .chore-state {
+  color: var(--danger);
 }
 
 /* A chore with a control under it. The row keeps the spacing the bare chore
@@ -996,64 +1258,49 @@
   margin-top: 0;
 }
 
-/* Deliberately not a full-width row, and deliberately quiet.
-   Every chore on this screen is a 3rem row because a child in a hurry
-   does not aim — which is exactly why this one is not. It is aimed at
-   by a parent walking past, once, and the child reaching for "I've done it"
-   must not land on it by accident. Still 50px, which is a comfortable
-   thumb, and still a word rather than an icon. */
+/* "Not missed after all": a white outlined button set apart under the
+   missed row, deliberately not a full-width one. It is aimed at by a parent
+   walking past, once, and the child reaching for "I've done it" must not
+   land on it by accident. Still 50px, a comfortable thumb, and still a word
+   rather than an icon. It asks for the PIN (Chore.tsx). */
 .chore-control {
   display: block;
-  margin: 0.3125rem 0 0 auto;
+  margin: 0.5rem 0 0 auto;
   min-height: 3.125rem;
-  padding: 0.4375rem 1.125rem;
+  padding: 0.375rem 1rem;
   font: inherit;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--ink-soft);
-  background: transparent;
-  border: 2px solid var(--panel-edge);
-  border-radius: 0.75rem;
+  font-size: var(--size-button);
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--raised);
+  border: var(--edge-card) solid var(--control-edge);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-button);
   cursor: pointer;
 }
 
-.chore-control:active {
-  transform: scale(0.98);
+.chore-control:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
 }
 
 .chore-control:disabled {
   background: var(--disabled-bg);
   border-color: var(--disabled-edge);
   color: var(--disabled);
-}
-
-/* The way back reads as the way back: the same colour the "on track" figure
-   and every other route-forward control uses, not the red of the miss. */
-.chore-control-undo {
-  color: var(--on-action);
-  border-color: var(--outline);
-  background: var(--action);
-}
-
-.chore-missed {
-  background: var(--danger-bg);
-  border-color: var(--danger);
-}
-
-.chore-missed .chore-state {
-  color: var(--danger);
-  font-weight: 700;
+  box-shadow: none;
 }
 
 /* --- Tags ---------------------------------------------------------------- */
 
 .tag {
-  font-size: 1.0625rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-radius: var(--radius-pill);
-  padding: 0.25rem 0.75rem;
+  border: var(--edge-tag) solid var(--outline);
+  border-radius: var(--radius-tag);
+  padding: 0.0625rem 0.5rem;
 }
 
 .tag-bonus {
@@ -1078,8 +1325,7 @@
   position: absolute;
   top: -0.875rem;
   right: 0.625rem;
-  font-size: 1rem;
-  padding: 0.1875rem 0.6875rem;
+  font-family: var(--font-body);
 }
 
 /* --- The week's own chores ----------------------------------------------- */
@@ -1099,13 +1345,13 @@
 
 .weekly-progress {
   margin-top: 0.625rem;
-  font-size: 1.4375rem;
-  font-weight: 700;
+  font-size: 1.125rem;
+  font-weight: 800;
   color: var(--ink-soft);
 }
 
 .weekly-waived {
-  background: var(--panel);
+  background: var(--settled);
 }
 
 /* --- The parent's screen -------------------------------------------------

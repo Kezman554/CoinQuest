@@ -26,6 +26,14 @@
  * so a figure that is now permanent does not sound like a projection still
  * moving.
  *
+ * The missed-chore notice (Recovery) sits in this card too, beside the
+ * make-good line: what went wrong with this figure, next to how to get it
+ * back.
+ *
+ * On a settled or voided week the card loses the shine — `settled` rather
+ * than gold, a muted coin — and the page drops every shadow (App.css), so
+ * nothing on a closed week looks tappable.
+ *
  * The make-good line lives here rather than on the day tile that happened to
  * be marked. A route back is a fact about the week, not about Wednesday, and
  * it has to still be readable on Friday by somebody who has just walked past
@@ -35,34 +43,46 @@
  * is no way back — see makeGoodLine.
  */
 
-import type { MakeGood, Totals } from '../api'
+import type { MakeGood, RecoveryPanel, Totals } from '../api'
 import { money } from '../api'
-import { makeGoodLine } from '../words'
+import { makeGoodLine, recoveryNotice, weekdayOf } from '../words'
+import { Coin } from './Coin'
+import { Recovery } from './Recovery'
 
 export function Total({
   totals,
   status = 'open',
   makeGood = null,
+  recovery = null,
 }: {
   totals: Totals
   status?: string
   makeGood?: MakeGood | null
+  recovery?: RecoveryPanel | null
 }) {
   const label =
     status === 'settled' ? 'Settled at' : status === 'voided' ? 'Voided at' : 'On track for'
   const route = status === 'open' ? makeGoodLine(makeGood) : null
+  const past = status !== 'open'
+  const notice =
+    recovery && recoveryNotice(recovery, weekdayOf(recovery.deadline)) ? (
+      <Recovery recovery={recovery} />
+    ) : null
 
   return (
-    <section className="total">
+    <section className={past ? 'total total-past' : 'total'}>
       <p className="total-label">{label}</p>
-      <p className="total-amount">{money(totals.payable_total_pence)}</p>
+      <div className="total-figure">
+        <Coin />
+        <p className="total-amount">{money(totals.payable_total_pence)}</p>
+      </div>
 
       <dl className="breakdown">
         <div>
           <dt>Every week</dt>
           <dd>{money(totals.base_pence)}</dd>
         </div>
-        <div className={totals.chore_pay_awarded ? '' : 'at-risk'}>
+        <div className={totals.chore_pay_awarded ? 'won' : 'at-risk'}>
           <dt>Chores</dt>
           <dd>
             {totals.chore_pay_awarded
@@ -94,7 +114,12 @@ export function Total({
         </p>
       )}
 
-      {route && <p className="total-makegood">{route}</p>}
+      {(notice || route) && (
+        <div className="total-route">
+          {notice}
+          {route && <p className="total-makegood">{route}</p>}
+        </div>
+      )}
     </section>
   )
 }

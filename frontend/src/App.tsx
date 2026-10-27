@@ -20,7 +20,7 @@
  * not pretending to be.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import './App.css'
 import { claim, clearMiss, loadWeek, loadWeekById, loadWeeks } from './api'
@@ -29,7 +29,7 @@ import { Days } from './components/Days'
 import { Owed } from './components/Owed'
 import type { PinAct } from './components/parent/PinDialog'
 import { PinDialog } from './components/parent/PinDialog'
-import { Recovery } from './components/Recovery'
+import { Bricks } from './components/Bricks'
 import { Total } from './components/Total'
 import { Weekly } from './components/Weekly'
 import { NotCurrentBanner, WeekNav } from './components/WeekNav'
@@ -63,7 +63,12 @@ function App() {
 
   return (
     <main className={screen === 'child' ? 'page page-wall' : 'page'}>
-      {screen === 'child' && <ChildWeek elsewhere={elsewhere} />}
+      {screen === 'child' && (
+        <>
+          <Bricks />
+          <ChildWeek elsewhere={elsewhere} />
+        </>
+      )}
       {screen === 'savings' && <SavingsView />}
       {screen === 'lifetime' && <LifetimeView />}
       {screen === 'parent' && <Parent onBack={() => setScreen('child')} />}
@@ -135,6 +140,7 @@ function ChildWeek({ elsewhere }: { elsewhere: ReactNode }) {
   //: parent view's own, unchanged: it states the consequence, holds the PIN
   //: for the length of the call, and unmounts with it.
   const [act, setAct] = useState<PinAct | null>(null)
+  const days = useRef<HTMLDivElement>(null)
 
   // `null` means "the current week" — the one the screen always opens on and
   // returns to. A specific id means paging back has landed on that week.
@@ -164,6 +170,28 @@ function ChildWeek({ elsewhere }: { elsewhere: ReactNode }) {
   useEffect(() => {
     void refresh(null)
   }, [refresh])
+
+  // The scroll hint. Seven across, the days region scrolls on its own when a
+  // heavy week outgrows it, and on a wall nobody sees a scrollbar — so while
+  // there is more below, the region says so (data-more), and App.css fades
+  // its bottom edge into the ground. Gone once the last row is in view.
+  useEffect(() => {
+    const region = days.current
+    if (!region) return
+    const update = () => {
+      const more = region.scrollHeight - region.clientHeight - region.scrollTop > 1
+      region.toggleAttribute('data-more', more)
+    }
+    update()
+    region.addEventListener('scroll', update, { passive: true })
+    const resized = new ResizeObserver(update)
+    resized.observe(region)
+    for (const child of region.children) resized.observe(child)
+    return () => {
+      region.removeEventListener('scroll', update)
+      resized.disconnect()
+    }
+  }, [week])
 
   const onNavigate = useCallback((weekId: number) => void refresh(weekId), [refresh])
   const onBackToNow = useCallback(() => void refresh(null), [refresh])
@@ -256,17 +284,16 @@ function ChildWeek({ elsewhere }: { elsewhere: ReactNode }) {
         />
       )}
 
-      <Recovery recovery={shown.recovery} />
-
       <div className="wall">
         <aside className="wall-side wall-side-start">
           <Total
             totals={shown.totals}
             status={shown.status}
             makeGood={shown.recovery.make_good}
+            recovery={shown.recovery}
           />
         </aside>
-        <div className="wall-main">
+        <div className="wall-main" ref={days}>
           <Days
             days={shown.days}
             onClaim={onClaim}

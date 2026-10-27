@@ -17,6 +17,7 @@
 import type { InstanceCard } from '../api'
 import { money } from '../api'
 import { rejectionNote, stateLabel } from '../words'
+import { Coin } from './Coin'
 
 type Props = {
   chore: InstanceCard
@@ -74,7 +75,12 @@ export function Chore({
   ) : (
     <div className={`chore chore-${chore.state}`}>
       {body}
-      <span className="chore-state">{label}</span>
+      <span className="chore-state">
+        {/* Done earns its coin: a small gold one with a tick, beside the
+            word that says the same. */}
+        {chore.state === 'confirmed' && <Coin mark="tick" className="coin-small" />}
+        {label}
+      </span>
     </div>
   )
 
