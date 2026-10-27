@@ -2789,3 +2789,9 @@ New spec e2e/wall-panel-fit.spec.ts holds this: the heavy week at
 scrolls the days only, with the total still in view; nothing overflows
 either edge at 390. The week is reshaped in transit and every chore reset
 first, so it does not depend on earlier specs' writes. e2e 9 passed.
+
+Pushed and deployed the same day. Backed up first
+(coinquest-2026-10-27-1643.tar.gz); frontend only, no migration or new
+env var. Healthy on rebuild; /health, /parent, /api/summary, /api/weeks
+and /api/weeks/owed/outstanding 200; the served stylesheet carries the
+days-region scroll. integrity_check ok, foreign_key_check empty.
