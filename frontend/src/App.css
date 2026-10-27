@@ -812,6 +812,39 @@
   color: var(--done);
 }
 
+/* On the gold card the chips keep their day look in both modes, because the
+   card does: the on-gold-* tokens are fixed. (The parent's closed weeks use
+   .breakdown on a panel, and follow the mode as before.) */
+.total .breakdown > div {
+  background: var(--on-gold-chip);
+  color: var(--on-gold-chip-ink);
+  border-color: var(--on-gold-chip-edge);
+}
+
+.total .breakdown dt {
+  color: var(--on-gold-chip-ink-soft);
+}
+
+.total .breakdown .at-risk {
+  background: var(--on-gold-danger-bg);
+  border-color: var(--on-gold-danger-edge);
+}
+
+.total .breakdown .at-risk dt,
+.total .breakdown .at-risk dd {
+  color: var(--on-gold-danger);
+}
+
+.total .breakdown .won {
+  background: var(--on-gold-done-bg);
+  border-color: var(--on-gold-done-edge);
+}
+
+.total .breakdown .won dt,
+.total .breakdown .won dd {
+  color: var(--on-gold-done);
+}
+
 .total-note {
   margin-top: 1rem;
   font-size: 1.125rem;
@@ -830,12 +863,12 @@
 
 .total-makegood {
   padding: 0.75rem 1rem;
-  border: var(--edge-tag) solid var(--outline);
+  border: var(--edge-tag) solid var(--on-gold-chip-edge);
   border-radius: var(--radius-button);
-  background: var(--panel);
+  background: var(--on-gold-chip);
   font-size: 1.125rem;
   font-weight: 700;
-  color: var(--ink);
+  color: var(--on-gold-chip-ink);
 }
 
 /* A settled or voided week loses the shine: settled rather than gold, a
@@ -858,9 +891,10 @@
 
 /* --- The coin ------------------------------------------------------------ */
 
+/* The coin is the same coin by day and by night. */
 .coin-rim {
   fill: var(--gold);
-  stroke: var(--outline);
+  stroke: var(--on-gold-chip-edge);
   stroke-width: 3;
 }
 
@@ -954,6 +988,25 @@
   border-radius: var(--radius-button);
 }
 
+/* The notice on the card keeps its day colours too. */
+.total .notice-todo {
+  background: var(--on-gold-danger-bg);
+  border-color: var(--on-gold-chip-edge);
+  color: var(--on-gold-danger);
+}
+
+.total .notice-urgent {
+  background: var(--on-gold-danger-bg);
+  border: var(--edge-card) solid var(--on-gold-danger-edge);
+  color: var(--on-gold-danger);
+}
+
+.total .notice-sorted {
+  background: var(--on-gold-done-bg);
+  border-color: var(--on-gold-done-edge);
+  color: var(--on-gold-done);
+}
+
 .total .notice h2 {
   font-size: 1.125rem;
   font-weight: 800;
@@ -973,8 +1026,7 @@
   color: var(--danger);
 }
 
-.notice-urgent,
-.total .notice-urgent {
+.notice-urgent {
   background: var(--danger-bg);
   border: var(--edge-card) solid var(--danger-edge);
   color: var(--danger);

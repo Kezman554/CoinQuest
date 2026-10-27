@@ -49,6 +49,9 @@ The values are provisional (see the top of this document). Day is light and nigh
 | `gold` / `on-gold` | `#FFC93C` / `#1E1B3A` | same | money card, coin, bonus tag |
 | `coin-light` / `coin-dark` | `#FFE27A` / `#C98A00` | same | coin face and inner ring (decoration) |
 | `action` / `on-action` | `#FFD54A` / `#1E1B3A` | same | "I've done it", "Have another go" |
+| `on-gold-chip` / `on-gold-chip-ink` / `on-gold-chip-ink-soft` / `on-gold-chip-edge` | `#FFFFFF` / `#1E1B3A` / `#4A4766` / `#1E1B3A` | same | chips, the make-good box and the notice frame on the money card, and the coin's outline: the gold card keeps its day look at night, so what is on it does too |
+| `on-gold-done` / `on-gold-done-bg` / `on-gold-done-edge` | `#1B6B2F` / `#DFF5E1` / `#23803A` | same | the Chores chip once won, a put-right notice, on the money card |
+| `on-gold-danger` / `on-gold-danger-bg` / `on-gold-danger-edge` | `#A61B1B` / `#FFE3E1` / `#C62828` | same | the Chores chip at risk, the missed-chore notice, on the money card |
 | `done` / `done-bg` / `done-edge` | `#1B6B2F` / `#DFF5E1` / `#23803A` | `#7EE59A` / `#1E3A33` / `#5BD27A` | finished chore, "All paid up", Put right |
 | `waiting` / `waiting-bg` / `waiting-edge` | `#7E5100` / `#FFF1C7` / `#9A6300` | `#FFD66B` / `#2E2E45` / `#FFC93C` | claimed, waiting to be checked (dashed edge) |
 | `danger` / `danger-bg` / `danger-edge` | `#A61B1B` / `#FFE3E1` / `#C62828` | `#FF9B93` / `#3A2338` / `#FF7A70` | missed, refusal tag, chores at risk, last-day notice |
@@ -61,7 +64,7 @@ The values are provisional (see the top of this document). Day is light and nigh
 
 ## Contrast floors
 
-Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. `npm run check:contrast` measures exactly the 35 pairings below, in both modes, and every one passes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64), `disabled-edge` on `ground` (3.61 by day, 3.37 at night) and `today` on `panel-today` at night (4.05). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
+Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. `npm run check:contrast` measures exactly the 42 pairings below, in both modes, and every one passes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64), `disabled-edge` on `ground` (3.61 by day, 3.37 at night) `today` on `panel-today` at night (4.05) and the won Chores chip's edge on `gold` (3.24, both modes). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
 
 A component is measured against the surface it sits on, and its fill or its outline may carry the boundary (WCAG 1.4.11): the gold card is told apart from the sky by its outline, not its gold. An outline is never measured against its own fill, because that isn't what makes a shape visible.
 
@@ -71,6 +74,7 @@ A component is measured against the surface it sits on, and its fill or its outl
 - `on-gold` on `gold`, `on-action` on `action`, `on-today` on `today`
 - `done` on `done-bg`, and on `panel` ("All paid up")
 - `waiting` on `waiting-bg`, `danger` on `danger-bg`, `disabled` on `disabled-bg`
+- on the money card, fixed in both modes: `on-gold-chip-ink` and `on-gold-chip-ink-soft` on `on-gold-chip`, `on-gold-done` on `on-gold-done-bg`, `on-gold-danger` on `on-gold-danger-bg`
 
 **Named non-text pairings (3.15:1), measured exactly as named:**
 - `today` on `panel-today` (the TODAY pill)
@@ -82,6 +86,7 @@ A component is measured against the surface it sits on, and its fill or its outl
 - on `panel`: a neutral button (`raised`/`control-edge`), "I've done it" (`action`/`outline`), a done chore (`done-bg`/`done-edge`), a waiting chore (`waiting-bg`/`waiting-edge`), a missed chore (`danger-bg`/`danger-edge`), the savings bar (`done-edge`)
 - on `panel-today`: "I've done it" (`action`/`outline`)
 - on `danger-bg`: "Not missed after all" (`raised`/`danger-edge`), inside a missed chore
+- on `gold`: a chip or the make-good box (`on-gold-chip`/`on-gold-chip-edge`), the won Chores chip (`on-gold-done-bg`/`on-gold-done-edge`), the at-risk chip and the notice (`on-gold-danger-bg`/`on-gold-danger-edge`)
 
 **Decoration, not measured:** `brick` and `mortar` (the bottom strip), `coin-light` and `coin-dark` (the coin's face and ring), and `shadow` (a depth cue under shapes whose boundaries are measured). Any other colour token that is neither measured nor listed here fails the check.
 

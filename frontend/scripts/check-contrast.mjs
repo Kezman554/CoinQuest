@@ -51,6 +51,10 @@ const TEXT_PAIRS = [
   ['danger', 'danger-bg', 'missed, refused, chores at risk, the last day'],
   ['on-today', 'today', 'the word TODAY on its tag'],
   ['disabled', 'disabled-bg', '"This is the latest" and forbidden controls'],
+  ['on-gold-chip-ink', 'on-gold-chip', 'a chip, the make-good box, on the money card'],
+  ['on-gold-chip-ink-soft', 'on-gold-chip', "a chip's label on the money card"],
+  ['on-gold-done', 'on-gold-done-bg', 'the Chores chip once won, a put-right notice'],
+  ['on-gold-danger', 'on-gold-danger-bg', 'the Chores chip at risk, the missed-chore notice'],
 ]
 
 // [colour, background, what it is] — DESIGN.md's Contrast floors, by name.
@@ -77,6 +81,9 @@ const BOUNDARIES = [
   ['danger-bg', 'danger-edge', 'panel', 'a missed chore on a day tile'],
   ['raised', 'danger-edge', 'danger-bg', '"Not missed after all" inside a missed chore'],
   ['done-edge', 'done-edge', 'panel', 'the savings progress bar on its panel'],
+  ['on-gold-chip', 'on-gold-chip-edge', 'gold', 'a chip, the make-good box, on the money card'],
+  ['on-gold-done-bg', 'on-gold-done-edge', 'gold', 'the Chores chip once won, on the money card'],
+  ['on-gold-danger-bg', 'on-gold-danger-edge', 'gold', 'the Chores chip at risk, the notice, on the money card'],
 ]
 
 // Colour tokens that are never read: each with why it may go unmeasured.

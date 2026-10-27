@@ -2920,3 +2920,12 @@ an override made 28 March 2026 expires at 06:00Z (07:00 BST), storage
 throwing (clock decides, button works, no page errors), no app JS at all
 still night at 21:00, and Savings / Lifetime / Parent all at night.
 e2e 19 passed, the fit spec included.
+
+Gold card at night (2026-10-27). The money card keeps its day look in
+both modes, so what is on it does too: fixed on-gold-* tokens (chip,
+chip ink, chip ink-soft, chip edge; done and danger trios at their day
+values) for the breakdown chips, the make-good box, the notice on the
+card, and the coin's outline. Scoped to .total; the parent's closed
+weeks keep .breakdown on panel tokens. check:contrast: 4 text pairs and
+3 boundaries on gold added, 42 in all, both modes; tightest the won
+chip's edge on gold, 3.24. DESIGN.md's table and list match.

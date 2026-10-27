@@ -42,6 +42,20 @@
   --action: #ffd54a;
   --on-action: #1e1b3a;
 
+  /* Everything that sits on the gold card, and the coin: the card keeps its
+     day look at night, so what is on it does too. Fixed day values, never
+     overridden by the night block below. */
+  --on-gold-chip: #ffffff;
+  --on-gold-chip-ink: #1e1b3a;
+  --on-gold-chip-ink-soft: #4a4766;
+  --on-gold-chip-edge: #1e1b3a;
+  --on-gold-done: #1b6b2f;
+  --on-gold-done-bg: #dff5e1;
+  --on-gold-done-edge: #23803a;
+  --on-gold-danger: #a61b1b;
+  --on-gold-danger-bg: #ffe3e1;
+  --on-gold-danger-edge: #c62828;
+
   --today: #b8161a;
   --on-today: #ffffff;
 
