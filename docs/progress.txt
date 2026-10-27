@@ -2929,3 +2929,13 @@ card, and the coin's outline. Scoped to .total; the parent's closed
 weeks keep .breakdown on panel tokens. check:contrast: 4 text pairs and
 3 boundaries on gold added, 42 in all, both modes; tightest the won
 chip's edge on gold, 3.24. DESIGN.md's table and list match.
+
+The Coin block makeover (0da728f..7fb8bdf: foundation, TODAY and
+disabled fixes, the restyle, its follow-ups, clause order, day and night,
+the gold card at night) pushed and deployed the same day. Backed up first
+(coinquest-2026-10-27-1802.tar.gz); frontend only, no migration or new
+env var — the image's npm ci picks up @fontsource. Healthy on rebuild;
+/health, /parent, /api/summary, /api/weeks and
+/api/weeks/owed/outstanding 200; the served page carries the mode script,
+the stylesheet the on-gold tokens and bundled Nunito. integrity_check ok,
+foreign_key_check empty.
