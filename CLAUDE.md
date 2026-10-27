@@ -20,6 +20,7 @@ Built with FastAPI, SQLite, Alembic, React, Vite and TypeScript, served from a s
 - `alembic check` - Fail if the models have drifted from the migrations
 - `npm run check:literals --prefix frontend` - Fail on a hex, rgb(), font name or px radius outside the token block
 - `npm run check:contrast --prefix frontend` - Measure the palette against DESIGN.md's contrast floors, day and night
+- `npm run icons --prefix frontend` - Regenerate favicon.svg, the PNGs and the touch icon from `frontend/icons/` (the only literal colours outside the token block)
 
 ## Design
 - `DESIGN.md` is the spec for how CoinQuest looks ("Coin block"), and it governs every visual change — read it before touching a colour, typeface, size, radius, shadow or layout

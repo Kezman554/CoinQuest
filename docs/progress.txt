@@ -2939,3 +2939,19 @@ env var — the image's npm ci picks up @fontsource. Healthy on rebuild;
 /api/weeks/owed/outstanding 200; the served page carries the mode script,
 the stylesheet the on-gold tokens and bundled Nunito. integrity_check ok,
 foreign_key_check empty.
+
+Icon (2026-10-27). Vite's favicon replaced by our own coin (DESIGN.md,
+Icon): frontend/icons/coin.svg and coin-small.svg, saved exactly as
+given. `npm run icons` (scripts/make-icons.mjs) copies coin-small.svg to
+public/favicon.svg and renders favicon-16/32.png from it and a 180px
+apple-touch-icon.png from coin.svg on the day ground (read from the
+token block), using Playwright's Chromium — no new dependency; the PNGs
+are committed and the image build never runs it. index.html links the
+PNGs, then the SVG, then the touch icon. check:literals now also fails
+on hex in any SVG: icons/ is exempt, and public/favicon.svg passes only
+while byte-identical to icons/coin-small.svg (planted a stray SVG hex
+and a hand-edited favicon: 2 findings, exit 1; removed: clean). Removed
+public/icons.svg, src/assets/react.svg and vite.svg (unused). Still
+unused, left: src/assets/hero.png, frontend/README.md (Vite template).
+Served from the built app as images (an unknown path would fall back to
+index.html with a 200, so the content type was checked). e2e 19 passed.

@@ -13,8 +13,16 @@
 //   - TSX/TS: colour strings anywhere, and the inline-style keys that carry
 //     design (color and friends, fontFamily, borderRadius — a bare number
 //     there is px).
-//   - SVG: rx/ry on <rect>, where they are corner radii. On an ellipse they
-//     are the shape itself, not a rounding, and are left alone.
+//   - SVG: hex colours anywhere, and rx/ry on <rect>, where they are corner
+//     radii. On an ellipse rx/ry are the shape itself, not a rounding, and
+//     are left alone.
+//
+// One exception, the icon (DESIGN.md, Icon): a favicon cannot read a CSS
+// token, so its colours are written into the SVG. The sources in icons/ are
+// the only files outside the token block allowed literal colours, and
+// public/favicon.svg passes only while it is an exact copy of
+// icons/coin-small.svg — `npm run icons` makes it so. Edit the source,
+// never the copy.
 //
 // Plain Node and no dependencies, so `npm run check:literals` runs the same
 // on Windows as on the Pi. Exit 1 with one line per finding.
@@ -121,8 +129,22 @@ function checkScript(file) {
   })
 }
 
+const ICONS = join(root, 'icons')
+const FAVICON = join(root, 'public', 'favicon.svg')
+const FAVICON_SOURCE = join(ICONS, 'coin-small.svg')
+
 function checkSvg(file) {
   const text = readFileSync(file, 'utf8')
+  if (file.startsWith(ICONS)) return
+  if (file === FAVICON) {
+    if (text !== readFileSync(FAVICON_SOURCE, 'utf8')) {
+      report(file, 1, 'icon copy', 'differs from icons/coin-small.svg — edit the source and run `npm run icons`')
+    }
+    return
+  }
+  for (const m of text.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
+    report(file, lineOf(text, m.index), 'hex', text.slice(Math.max(0, m.index - 24), m.index + 10))
+  }
   for (const m of text.matchAll(/<rect\b[^>]*>/g)) {
     if (/\b(rx|ry)\s*=\s*"(?!\s*var\()[^"]*"/.test(m[0])) report(file, lineOf(text, m.index), 'svg rx/ry', m[0])
   }
@@ -137,7 +159,7 @@ function walk(dir, out = []) {
   return out
 }
 
-const files = [...walk(join(root, 'src')), ...walk(join(root, 'public')), join(root, 'index.html')]
+const files = [...walk(join(root, 'src')), ...walk(join(root, 'public')), ...walk(ICONS), join(root, 'index.html')]
 for (const file of files) {
   if (file.endsWith('.css')) checkCss(file)
   else if (/\.(tsx|ts|html)$/.test(file)) checkScript(file)
