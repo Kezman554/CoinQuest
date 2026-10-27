@@ -26,7 +26,7 @@ export function Weekly({ weekly, onClaim, busyId, deadlineWeekday }: Props) {
   if (weekly.length === 0) return null
 
   return (
-    <section className="panel">
+    <section className="panel panel-weekly">
       <h2>Any time this week</h2>
       <div className="weekly">
         {weekly.map((card) => (

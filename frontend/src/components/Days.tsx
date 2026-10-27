@@ -23,7 +23,7 @@ type Props = {
 
 export function Days({ days, onClaim, busyId, onClearMiss }: Props) {
   return (
-    <section className="panel">
+    <section className="panel panel-days">
       <h2>Every day</h2>
       <div className="days">
         {days.map((day) => (

@@ -2720,3 +2720,24 @@ Pushed and deployed the same day. Backed up first
 env var. Healthy on rebuild; /health, /parent, /api/summary, /api/weeks
 and /api/weeks/owed/outstanding 200; the served bundle carries the Owed
 card. integrity_check ok, foreign_key_check empty.
+
+Wall layout reworked for the real panel (2026-10-27). The kitchen screen
+is a 10" 1280x800 touch panel, not 1920x1080. From 72rem the two money
+cards fold into one strip above the days ("Owed to you" shows the sum and
+a week count there; the list returns in the side column from 110rem).
+Title and week arrows share a row, the arrows sized to their words. From
+76rem the days go seven across, and the any-time cards sit on the same
+seven columns with the "Any time this week" heading in the first, so an
+any-time button is a day button's width. The "Every day" heading is kept
+for screen readers only there; the white panels around both rows are
+dropped. Chore rows keep the 3.5rem minimum height at every width.
+The TODAY badge sits on the tile's top edge, out of the flow, and today's
+ring moved outside the border, so today's chores line up with the rest
+at every width. Also fixed: the any-time card's 18rem minimum overflowed
+a phone sideways (pre-existing).
+
+Measured in Playwright: no page scroll at 1280x800 on the e2e seed, nor
+with two chores a day (one "Lunchbox / plates / cups by sink") and two
+owed weeks - about 18px to spare in that second case, so a third daily
+chore or a make-good line will scroll. 1920x1080 fits with room over;
+390 wide stacks with no horizontal scroll. e2e 6 passed. Not pushed.

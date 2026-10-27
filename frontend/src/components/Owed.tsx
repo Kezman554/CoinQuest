@@ -25,6 +25,11 @@ export function Owed({ owed }: { owed: OwedWeek[] }) {
       ) : (
         <>
           <p className="owed-card-amount">{money(total)}</p>
+          {/* The strip on the 1280 panel has room for the sum and a count,
+              not the list; a wider screen shows the list instead. */}
+          <p className="owed-card-count">
+            {owed.length} {owed.length === 1 ? 'week' : 'weeks'} to hand over
+          </p>
           <ul className="owed-card-weeks">
             {owed.map((week) => (
               <li key={week.week_id}>

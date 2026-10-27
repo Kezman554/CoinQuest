@@ -106,9 +106,10 @@ function Parent({ onBack }: { onBack: () => void }) {
  * second button under every chore, a child's mis-tap away from the one he
  * meant. Everything else is there to be read rather than operated.
  *
- * Laid out for a landscape wall panel: what this week is heading for down
- * one side, what earlier weeks are still owed down the other, and the days
- * between them, so the whole week fits without scrolling.
+ * Laid out for the kitchen's 1280x800 touch panel: what this week is heading
+ * for and what earlier weeks are still owed share a strip above the days, so
+ * the whole week fits without a page scroll; a wider screen stands them down
+ * either side instead. See the wall section of App.css.
  *
  * The page reloads its whole state after every one of them rather than
  * patching the row in place. That is what makes the figure honest: marking a
@@ -220,20 +221,21 @@ function ChildWeek() {
 
   return (
     <>
-      <header className="masthead">
-        <h1>{week.child_name}&rsquo;s week</h1>
-        <p className="dates">
-          {shortDate(week.start_date)} &ndash; {shortDate(week.end_date)}
-        </p>
-      </header>
+      <div className="wall-head">
+        <header className="masthead">
+          <h1>{week.child_name}&rsquo;s week</h1>
+          <p className="dates">
+            {shortDate(week.start_date)} &ndash; {shortDate(week.end_date)}
+          </p>
+        </header>
+        <WeekNav weeks={weeks} viewedWeekId={week.week_id} onNavigate={onNavigate} />
+      </div>
 
       {error && (
         <p className="problem" role="alert">
           {error}
         </p>
       )}
-
-      <WeekNav weeks={weeks} viewedWeekId={week.week_id} onNavigate={onNavigate} />
       {!week.is_current && (
         <NotCurrentBanner
           startDate={week.start_date}
