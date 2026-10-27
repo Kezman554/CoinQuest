@@ -94,22 +94,17 @@ export type Notice = {
  * what is actually true instead — today or not at all.
  *
  * Given the week's make-good route, the notice also says what doing it is
- * worth: its detail ends "— that takes this week back to £X", the same
- * clause the separate make-good line carries, so the money card shows one
- * box about the miss rather than two. Each tone's own sentences are
- * unchanged; the clause is only appended.
+ * worth: the "Do X to put it right" sentence carries the same clause the
+ * separate make-good line does ("— that takes this week back to £X"),
+ * straight after what to do and before how long is left, so the money card
+ * shows one box about the miss rather than two. Each tone's other sentences
+ * are unchanged.
  */
 export function recoveryNotice(
   recovery: RecoveryPanel,
   weekdayOfDeadline: string,
   makeGood: MakeGood | null = null,
 ): Notice | null {
-  const notice = noticeFor(recovery, weekdayOfDeadline)
-  if (!notice || !makeGood || makeGood.names.length === 0) return notice
-  return { ...notice, detail: `${notice.detail.replace(/\.$/, '')}${restores(makeGood)}.` }
-}
-
-function noticeFor(recovery: RecoveryPanel, weekdayOfDeadline: string): Notice | null {
   if (recovery.outstanding === 0) {
     if (recovery.covered === 0) return null
     const covered = recovery.needs
@@ -142,7 +137,8 @@ function noticeFor(recovery: RecoveryPanel, weekdayOfDeadline: string): Notice |
     }
   }
 
-  const how = `Do ${list(options, 'or')} to put ${them} right.`
+  const worth = makeGood && makeGood.names.length > 0 ? restores(makeGood) : ''
+  const how = `Do ${list(options, 'or')} to put ${them} right${worth}.`
 
   if (recovery.urgent) {
     return {

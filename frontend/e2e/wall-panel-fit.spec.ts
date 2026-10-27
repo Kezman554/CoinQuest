@@ -88,7 +88,9 @@ test.describe('the week on the 1280x800 kitchen panel', () => {
     // and it carries the make-good clause, so there is no separate box.
     const notice = page.locator('.total [role="status"]')
     await expect(notice).toContainText('You missed Make bed')
-    await expect(notice).toContainText('that takes this week back to £3')
+    await expect(notice).toContainText(
+      'Do Wash the car to put it right — that takes this week back to £3. You have 3 more days',
+    )
     await expect(page.locator('.total-makegood')).toHaveCount(0)
   })
 

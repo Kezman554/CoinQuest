@@ -57,7 +57,8 @@ test.describe('a missed chore on the day tiles', () => {
     // the notice showing there is no separate make-good box.
     const notice = page.locator('.total [role="status"]')
     await expect(notice).toContainText('Wash the car')
-    await expect(notice).toContainText('that takes this week back to £3')
+    // What to do, then what it is worth, then how long is left.
+    await expect(notice).toContainText('to put it right — that takes this week back to £3. You have')
     await expect(page.locator('.total-makegood')).toHaveCount(0)
 
     // The tile now reads as missed, and carries the undo inside it rather

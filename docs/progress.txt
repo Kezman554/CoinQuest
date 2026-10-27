@@ -2891,3 +2891,9 @@ raised button, not gold. check:contrast gains the undo's boundary
 (raised|danger-edge on danger-bg), 35 measurements, listed in DESIGN.md
 too. wall-screen-miss and the fit spec now look for the clause in the
 notice and no make-good box. e2e 9 passed; every state fits at 1280.
+
+Clause order (2026-10-27): the make-good clause sits straight after "Do X
+to put it right" in each tone, before the time-left sentence — "Do Wash
+the car to put it right — that takes this week back to £3. You have 3
+more days — until Saturday." / "… back to £3. The week ends tonight."
+wall-screen-miss and the fit spec assert that order.
