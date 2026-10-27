@@ -2714,3 +2714,9 @@ rule is unchanged (marking needs no PIN). "Not missed after all" stays
 on a marked tile, PIN-guarded, because it is still the only place a miss
 can be cleared. wall-screen-miss.spec.ts now marks via the API the parent
 screen calls and asserts the tiles offer no mark. e2e 6 passed.
+
+Pushed and deployed the same day. Backed up first
+(coinquest-2026-10-27-1602.tar.gz); frontend only, no migration or new
+env var. Healthy on rebuild; /health, /parent, /api/summary, /api/weeks
+and /api/weeks/owed/outstanding 200; the served bundle carries the Owed
+card. integrity_check ok, foreign_key_check empty.
