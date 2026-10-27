@@ -2965,3 +2965,9 @@ favicon copied from coin-small now fails the check). DESIGN.md's Icon
 section names three sources. src/assets/hero.png removed (unreferenced);
 frontend/README.md's Vite template text replaced by pointers to the root
 README and DESIGN.md. e2e 19 passed; check:literals clean.
+
+Icons (a25b95b, 62b877c) pushed and deployed the same day. Backed up
+first (coinquest-2026-10-27-1819.tar.gz); frontend only. Healthy;
+endpoints 200; /favicon.svg, /favicon-16.png, /favicon-32.png and
+/apple-touch-icon.png served as images. integrity_check ok,
+foreign_key_check empty.
