@@ -37,6 +37,14 @@ export function batchAction(confirmed: number, rejected: number): string {
   return parts.join(' and ')
 }
 
+/** After the fact, and by whom: "Confirmed 2 claims — by <name>." */
+export function batchDone(confirmed: number, rejected: number, party: string): string {
+  const parts: string[] = []
+  if (confirmed) parts.push(`Confirmed ${claims(confirmed)}`)
+  if (rejected) parts.push(`${confirmed ? 'refused' : 'Refused'} ${claims(rejected)}`)
+  return `${parts.join(' and ')} — by ${byWhom(party)}.`
+}
+
 function misses(count: number): string {
   if (count === 0) return 'no misses'
   return `${count} ${plural(count, 'miss', 'misses')}`
@@ -182,4 +190,13 @@ export function waitingFor(claimedAt: string | null): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   return `${days} ${plural(days, 'day', 'days')} ago`
+}
+
+/**
+ * Who did something, for the parent view's history: the parent's configured
+ * name ("Confirmed by …"). Rows recorded before parents had names carry
+ * "parent", and read as "a parent". The child's screens never show this.
+ */
+export function byWhom(party: string | null | undefined): string {
+  return !party || party === 'parent' ? 'a parent' : party
 }

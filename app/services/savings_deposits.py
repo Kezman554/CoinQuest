@@ -18,8 +18,10 @@ app.services.savings_match) keys only on SavingsType.WITHDRAWAL, which
 nothing here ever writes.
 
 Who may post what is read fresh from app.config on every call, not cached
-here — a name added to PARENT_NAMES takes effect the moment the process
-picks up the new environment, with no code of its own to update.
+here — a parent added to the environment (PARENT_n_NAME) takes effect the
+moment the process picks up the new environment, with no code of its own to
+update. A parent's direct deposit is recorded as the parent the PIN proves
+(app.routers.savings_deposits), never a name the request supplies.
 """
 
 from __future__ import annotations

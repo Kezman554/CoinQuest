@@ -65,7 +65,7 @@ import { Queue } from './components/parent/Queue'
 import { SavingsMatch } from './components/parent/SavingsMatch'
 import { ThisWeek } from './components/parent/ThisWeek'
 import { WeekBrowser } from './components/parent/WeekBrowser'
-import { batchAction, consequenceLines, consequenceSummary } from './parentWords'
+import { batchAction, batchDone, consequenceLines, consequenceSummary } from './parentWords'
 
 type Everything = {
   queue: Pending[]
@@ -110,6 +110,8 @@ export function ParentView() {
   const [data, setData] = useState<Everything | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [act, setAct] = useState<PinAct | null>(null)
+  //: Who the last batch was agreed by — the PIN's parent, by name.
+  const [lastBatch, setLastBatch] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -196,7 +198,10 @@ export function ParentView() {
         summary: consequenceSummary(effects),
         lines: effects.flatMap((effect) => consequenceLines(effect)),
         confirmLabel: 'Confirm the batch',
-        run: (pin) => submitReview(pin, decisions).then(() => undefined),
+        run: (pin) =>
+          submitReview(pin, decisions).then((result) => {
+            setLastBatch(batchDone(result.confirmed.length, result.rejected.length, result.authorised_by))
+          }),
       })
     },
     [ask],
@@ -233,6 +238,11 @@ export function ParentView() {
       <div role="tabpanel" id={`parent-panel-${tab}`} aria-labelledby={`parent-tab-${tab}`}>
         {tab === 'week' && (
           <>
+            {lastBatch && (
+              <p className="act-note last-batch" role="status">
+                {lastBatch}
+              </p>
+            )}
             <Queue queue={data.queue} onSubmit={submitBatch} />
 
             <WeekBrowser

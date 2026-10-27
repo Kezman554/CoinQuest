@@ -17,8 +17,9 @@
  * is listed as ready to settle — the same list the wall shows as "Interest
  * for …, going into your bank" until a parent does. Months settle strictly
  * in order, so only the earliest can be settled now. The match is real money
- * paid into his bank account by a parent, outside this app; settling records
- * that it was, so it comes after the transfer. The bank balance after it is
+ * paid into his bank account by the parent who holds it (BANK_HOLDER),
+ * outside this app; settling records that it was, so it comes after the
+ * transfer — and only that parent's PIN can do it (app.routers.savings_match). The bank balance after it is
  * asked for every time, optionally, and checked against the books with the
  * same reconcile action the Savings panel uses — which records nothing.
  */
@@ -27,7 +28,8 @@ import { useState } from 'react'
 import type { DueMonth } from '../../api'
 import { money, parsePence } from '../../api'
 import type { Reconciliation, SavingsMatchProposal, SettledMonth } from '../../parentApi'
-import { loadSavingsMatchProposal, reconcile, settleMonth } from '../../parentApi'
+import { loadSavingsMatchProposal, settleMonth } from '../../parentApi'
+import { byWhom } from '../../parentWords'
 import type { PinAct } from './PinDialog'
 import { Figure } from './ThisWeek'
 import { longDate, monthName, monthOnly } from '../../words'
@@ -60,7 +62,7 @@ export function SavingsMatch({
         <p className="closed-note">
           {monthName(lastSettled.period_start)}: matched {money(lastSettled.match_pence)} at{' '}
           {lastSettled.rate_percent}% on a low of {money(lastSettled.balance_low_pence)}, settled{' '}
-          {longDate(lastSettled.settled_at.slice(0, 10))} by {lastSettled.settled_by}.
+          {longDate(lastSettled.settled_at.slice(0, 10))} by {byWhom(lastSettled.settled_by)}.
         </p>
       )}
 
@@ -203,19 +205,12 @@ function SettleButton({
         ],
         confirmLabel: `Settle at ${money(fresh.match_pence)}`,
         permanent: true,
+        // The bank balance travels with the settle, so the server holds it
+        // to the same rule: only the bank holder's PIN settles the interest,
+        // and any other parent is refused with the reason, in this dialog.
         run: async (pin) => {
-          await settleMonth(pin, fresh.match_pence)
-          if (bankPence === null) {
-            onChecked(null, null)
-            return
-          }
-          // The month is settled whatever happens here: a failed check is
-          // said, not turned into a failed settlement.
-          try {
-            onChecked(await reconcile(bankPence), null)
-          } catch (error) {
-            onChecked(null, (error as Error).message)
-          }
+          const settled = await settleMonth(pin, fresh.match_pence, bankPence)
+          onChecked(settled.reconciliation, null)
         },
       })
     } catch (error) {

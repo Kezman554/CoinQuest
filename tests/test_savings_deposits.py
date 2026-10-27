@@ -50,7 +50,7 @@ def opened(session, *, amount_pence=1000, on=date(2026, 1, 5)):
 def test_the_depositor_list_names_the_child_and_the_parents(api):
     body = api.get("/api/savings/deposits/depositors").json()
     assert body["child_name"] == CHILD
-    assert body["parent_names"] == [PARENT]
+    assert body["parent_names"] == [PARENT, "Test Second"]
 
 
 # --- The child submits: pending, and inert on the balance -------------------
@@ -152,7 +152,7 @@ def test_a_parent_confirms_a_pending_deposit_and_it_lands_in_the_ledger(api, ses
     assert response.status_code == 200
     body = response.json()
     assert body["state"] == "confirmed"
-    assert body["decided_by"] == "parent"
+    assert body["decided_by"] == PARENT
     assert body["decided_at"] is not None
 
     assert api.get("/api/savings").json()["balance_pence"] == 1500

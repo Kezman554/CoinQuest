@@ -7,6 +7,7 @@
  * from memory, which is the problem this app exists to solve.
  */
 
+import { byWhom } from '../../parentWords'
 import { useState } from 'react'
 import { money, parsePence } from '../../api'
 import type { DepositRequest, Depositors, Owed, Preset, Savings } from '../../parentApi'
@@ -363,7 +364,7 @@ export function SavingsPanel({
                 <td>
                   {entry.reason ?? entry.entry_type}
                   {entry.posted_by && (
-                    <span className="ledger-posted-by"> — {entry.posted_by}</span>
+                    <span className="ledger-posted-by"> — {byWhom(entry.posted_by)}</span>
                   )}
                 </td>
                 <td className="ledger-amount">
@@ -390,10 +391,9 @@ export function SavingsPanel({
 function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
-  const [postedBy, setPostedBy] = useState(depositors.parent_names[0] ?? '')
 
   const pence = parsePence(amount)
-  const ready = pence !== null && pence > 0 && note.trim().length > 0 && postedBy !== ''
+  const ready = pence !== null && pence > 0 && note.trim().length > 0
 
   return (
     <div className="act">
@@ -401,7 +401,8 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
       <p className="act-note">
         Money that did not come from payday — a gift, birthday money, or the
         opening balance at the very start. Lands in the account straight
-        away.
+        away, recorded as posted by whoever's PIN agrees it
+        {depositors.parent_names.length > 1 ? ` (${depositors.parent_names.join(' or ')})` : ''}.
       </p>
       <div className="act-row">
         <input
@@ -417,15 +418,6 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
           value={note}
           onChange={(event) => setNote(event.target.value)}
         />
-        {depositors.parent_names.length > 1 && (
-          <select value={postedBy} onChange={(event) => setPostedBy(event.target.value)}>
-            {depositors.parent_names.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        )}
         <button
           type="button"
           className="button"
@@ -437,7 +429,7 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
               summary: `${money(pence)} — ${note.trim()}`,
               confirmLabel: `Record ${money(pence)}`,
               run: (pin) =>
-                recordParentDeposit(pin, pence, note.trim(), postedBy).then(() => {
+                recordParentDeposit(pin, pence, note.trim()).then(() => {
                   setAmount('')
                   setNote('')
                 }),

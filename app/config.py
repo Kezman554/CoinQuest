@@ -1,13 +1,21 @@
 """Configuration, read from the environment.
 
-CHILD_NAME and PARENT_PIN have no defaults: the child is configuration, not
-code, and a PIN that falls back to something is not a PIN. Both must be
-supplied at deployment or the service refuses to start.
+CHILD_NAME and the parents have no defaults: the people are configuration,
+not code — no name appears in this repository — and a PIN that falls back to
+something is not a PIN. They must be supplied at deployment or the service
+refuses to start.
+
+The parents are numbered pairs, PARENT_1_NAME / PARENT_1_PIN, PARENT_2_NAME /
+PARENT_2_PIN and so on, and a PIN proves which of them is acting (see
+app.services.authorisation). BANK_HOLDER names the one who pays the savings
+match into the bank — the only act restricted to one parent.
 """
 
 from __future__ import annotations
 
 import os
+import re
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -33,22 +41,91 @@ def _get(name: str, default: str | None = None) -> str:
     return default
 
 
+#: Every column a parent's name is recorded in is this long (String(60)).
+NAME_LIMIT = 60
+
+#: Replaced by the numbered parents. Refused rather than ignored if still
+#: set, so an old PIN cannot sit unnoticed in the environment.
+RETIRED = ("PARENT_PIN", "PARENT_NAMES")
+
+_PARENT_VARIABLE = re.compile(r"^PARENT_(\d+)_(NAME|PIN)$")
+
+
+@dataclass(frozen=True)
+class Parent:
+    """One configured parent: the number they are configured under, the name
+    recorded against what they authorise, and the PIN that proves it."""
+
+    number: int
+    name: str
+    pin: str
+
+
+def _parents() -> tuple[Parent, ...]:
+    """Every PARENT_n_NAME / PARENT_n_PIN pair, in number order.
+
+    A pair with both halves empty is not a parent: a compose file passes
+    PARENT_2_NAME / PARENT_2_PIN through whether or not there is a second
+    parent, and empty is how it says there is not. Refuses a half-configured
+    pair (one half empty), a name too long to record, two parents with the
+    same name (the record could not tell them apart) or the same PIN (a PIN
+    would not prove which one is acting), and no parents at all.
+    """
+    numbers = sorted(
+        {
+            int(match.group(1))
+            for key, value in os.environ.items()
+            if (match := _PARENT_VARIABLE.match(key)) and value.strip()
+        }
+    )
+    parents = []
+    for number in numbers:
+        name = _get(f"PARENT_{number}_NAME")
+        pin = _get(f"PARENT_{number}_PIN")
+        if len(name) > NAME_LIMIT:
+            raise ConfigError(f"PARENT_{number}_NAME is longer than {NAME_LIMIT} characters.")
+        parents.append(Parent(number=number, name=name, pin=pin))
+
+    if not parents:
+        raise ConfigError(
+            "No parent is configured. Set PARENT_1_NAME and PARENT_1_PIN"
+            " (and PARENT_2_NAME / PARENT_2_PIN for a second)."
+        )
+    if len({parent.pin for parent in parents}) != len(parents):
+        raise ConfigError("Two parents share a PIN; each PIN must prove one parent.")
+    if len({parent.name for parent in parents}) != len(parents):
+        raise ConfigError("Two parents share a name; the record could not tell them apart.")
+    return tuple(parents)
+
+
 class Settings:
     """Runtime configuration for one deployment of the service."""
 
     def __init__(self) -> None:
         self.child_name: str = _get("CHILD_NAME")
-        self.parent_pin: str = _get("PARENT_PIN")
 
-        # Who may post a savings deposit directly, authorised by the one PIN
-        # above — today one name, a second (Jess) later. A comma-separated
-        # list rather than a database enum specifically so that day is a
-        # config change here, not a migration: see app.services.depositors,
-        # the one place that reads this.
-        names = [name.strip() for name in _get("PARENT_NAMES").split(",")]
-        self.parent_names: list[str] = [name for name in names if name]
-        if not self.parent_names:
-            raise ConfigError("PARENT_NAMES is set but names to no one.")
+        for name in RETIRED:
+            if os.environ.get(name, "").strip():
+                raise ConfigError(
+                    f"{name} is no longer read: parents are PARENT_1_NAME / PARENT_1_PIN,"
+                    f" PARENT_2_NAME / PARENT_2_PIN, with BANK_HOLDER. Remove {name}."
+                )
+
+        self.parents: tuple[Parent, ...] = _parents()
+
+        # The parent who pays the savings match into the bank, by number.
+        holder = _get("BANK_HOLDER")
+        found = [parent for parent in self.parents if str(parent.number) == holder]
+        if not found:
+            raise ConfigError(
+                f"BANK_HOLDER must be the number of a configured parent"
+                f" ({', '.join(str(parent.number) for parent in self.parents)}), got {holder!r}."
+            )
+        self.bank_holder: Parent = found[0]
+
+        # Who may post a savings deposit directly: the configured parents, by
+        # name. See app.services.savings_deposits, the one place that reads it.
+        self.parent_names: list[str] = [parent.name for parent in self.parents]
 
         self.database_url: str = _get("DATABASE_URL", "sqlite:///./coinquest.db")
 

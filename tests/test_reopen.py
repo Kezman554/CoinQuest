@@ -161,7 +161,7 @@ def test_settle_pay_reopen_change_resettle(api, session, beds):
     # The reopening itself is recorded: who, when, why, what it undid.
     (reopening,) = session.query(WeekReopening).all()
     assert reopening.week_id == week.id
-    assert reopening.reopened_by == "parent"
+    assert reopening.reopened_by == "Test Parent"
     assert reopening.reason == "Confirmed a claim that was not actually done"
     assert reopening.previous_total_pence == 450
     assert reopening.was_paid is True

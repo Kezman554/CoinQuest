@@ -3,6 +3,13 @@
 Reading a proposal needs no PIN — it changes nothing, the same as a week's
 proposal. Settling does: it is the act that moves money, and closes the
 month forever.
+
+Settling is also the one act restricted to a single parent. The match is
+paid into the bank by the parent who holds the account (app.config,
+BANK_HOLDER), outside this app, and settling records that it was — so only
+that parent's PIN may settle, along with the bank balance checked as part of
+it. Any other parent's correct PIN is refused with a plain reason, and is not
+a failed PIN attempt: the PIN was right, the act was not theirs.
 """
 
 from __future__ import annotations
@@ -13,7 +20,9 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.routers.dependencies import AuthorisedRequest, authorise, get_session
-from app.services import savings_match
+from app.config import get_settings as _settings
+from app.routers.weeks import ReconciliationView
+from app.services import savings, savings_match
 from app.services.savings_match import (
     MonthAlreadySettled,
     MonthlyMatchProposal,
@@ -100,6 +109,17 @@ class DueMonthView(BaseModel):
 
 class SettleMonthRequest(AuthorisedRequest):
     agreed_match_pence: int = Field(ge=0)
+    #: What the bank account holds after the transfer, if the bank holder
+    #: gave it: checked against the books once the match is on them.
+    #: Optional; never recorded (app.services.savings.reconcile).
+    bank_balance_pence: int | None = Field(default=None, ge=0)
+
+
+class SettledMonthResultView(SettledMonthView):
+    """The month just settled, and the bank balance checked with it, if one
+    was given."""
+
+    reconciliation: ReconciliationView | None = None
 
 
 def _proposal(session: Session) -> MonthlyMatchProposal:
@@ -139,19 +159,27 @@ def list_due_months(session: Session = Depends(get_session)) -> list[DueMonthVie
     return [DueMonthView.of(month) for month in savings_match.due_months(session, tz)]
 
 
-@router.post("/settle", response_model=SettledMonthView)
+@router.post("/settle", response_model=SettledMonthResultView)
 def settle_month(
     request: Request,
     body: SettleMonthRequest,
     session: Session = Depends(get_session),
-) -> SettledMonthView:
-    """Close the next unsettled month on a figure a parent has read and agreed.
+) -> SettledMonthResultView:
+    """Close the next unsettled month on a figure the bank holder has read
+    and agreed, after paying it into the bank.
 
-    Refused with 409 if that month has not finished yet — propose() will
-    happily preview it, but nothing may be settled on figures still able to
-    move.
+    Refused with 403 for any parent but the bank holder — after the PIN is
+    verified, so it is not counted as a failed attempt. Refused with 409 if
+    that month has not finished yet — propose() will happily preview it, but
+    nothing may be settled on figures still able to move.
     """
     authorisation = authorise(request, body)
+    if not authorisation.bank_holder:
+        holder = _settings().bank_holder.name
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Only {holder} can settle the interest, because it is paid into the bank.",
+        )
 
     try:
         proposal = _proposal(session)
@@ -169,4 +197,9 @@ def settle_month(
         raise
 
     session.refresh(row)
-    return SettledMonthView.of(row)
+    checked = (
+        None
+        if body.bank_balance_pence is None
+        else ReconciliationView.of(savings.reconcile(session, body.bank_balance_pence))
+    )
+    return SettledMonthResultView(**SettledMonthView.of(row).model_dump(), reconciliation=checked)

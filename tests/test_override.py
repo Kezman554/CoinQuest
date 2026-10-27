@@ -392,7 +392,7 @@ def test_a_settled_week_records_that_it_was_overridden(api, session, losing_week
 
     session.expire_all()
     stored = session.get(Week, losing_week.id)
-    assert stored.overridden_by == "parent"
+    assert stored.overridden_by == "Test Parent"
     assert stored.override_reason == "He earned the week"
     # The figure that was turned down, kept beside the one that was paid: the
     # difference is the story, and neither number means much alone.
@@ -404,7 +404,7 @@ def test_the_week_reads_back_as_overridden(api, losing_week, scheme):
     settle_overridden(api, losing_week, scheme)
 
     body = api.get(f"/api/weeks/{losing_week.id}").json()
-    assert body["overridden_by"] == "parent"
+    assert body["overridden_by"] == "Test Parent"
     assert body["optimum_total_pence"] == 500
     assert body["total_pence"] == 450
     assert body["override_reason"] == "He earned the week"
@@ -628,7 +628,7 @@ def test_an_override_that_costs_nothing_needs_no_reason(api, session, week, sche
 
     session.expire_all()
     stored = session.get(Week, week.id)
-    assert stored.overridden_by == "parent"
+    assert stored.overridden_by == "Test Parent"
     assert stored.override_reason is None
     assert stored.settled_total_pence == stored.optimum_total_pence
 

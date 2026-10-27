@@ -626,7 +626,7 @@ def test_every_confirmation_records_who_authorised_it(api, session, instances):
     session.expire_all()
     for instance in instances:
         stored = session.get(ChoreInstance, instance.id)
-        assert stored.authorised_by == "parent"
+        assert stored.authorised_by == "Test Parent"
         assert stored.confirmed_at is not None
 
 
@@ -640,7 +640,23 @@ def test_a_rejection_records_who_rejected_it(api, session, instances):
         },
     )
     session.expire_all()
-    assert session.get(ChoreInstance, instances[0].id).authorised_by == "parent"
+    assert session.get(ChoreInstance, instances[0].id).authorised_by == "Test Parent"
+
+
+def test_the_second_parents_pin_records_the_second_parent(api, session, instances):
+    # Each PIN proves its own parent: the record names whoever's PIN it was.
+    claim(api, instances[0])
+    response = api.post(
+        "/api/claims/review",
+        json={
+            "pin": "1111",
+            "decisions": [{"instance_id": instances[0].id, "decision": "confirm"}],
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["authorised_by"] == "Test Second"
+    session.expire_all()
+    assert session.get(ChoreInstance, instances[0].id).authorised_by == "Test Second"
 
 
 def test_the_party_comes_from_the_pin_and_not_from_the_request(api, session, instances):
@@ -657,7 +673,7 @@ def test_the_party_comes_from_the_pin_and_not_from_the_request(api, session, ins
         },
     )
     session.expire_all()
-    assert session.get(ChoreInstance, instances[0].id).authorised_by == "parent"
+    assert session.get(ChoreInstance, instances[0].id).authorised_by == "Test Parent"
 
 
 def test_the_database_refuses_a_confirmation_with_no_author(session, instances):

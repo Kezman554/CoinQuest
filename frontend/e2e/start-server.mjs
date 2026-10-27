@@ -43,8 +43,15 @@ const server = spawn(
     env: {
       ...process.env,
       CHILD_NAME: 'E2E Kid',
-      PARENT_PIN: '0000',
-      PARENT_NAMES: 'E2E Parent',
+      // Two made-up parents, the first holding the bank. The retired single
+      // PIN is set empty so a developer's old .env cannot fill it in.
+      PARENT_1_NAME: 'E2E Parent',
+      PARENT_1_PIN: '0000',
+      PARENT_2_NAME: 'E2E Second',
+      PARENT_2_PIN: '1111',
+      BANK_HOLDER: '1',
+      PARENT_PIN: '',
+      PARENT_NAMES: '',
       DATABASE_URL: sqliteUrl(DB_PATH),
       TZ: 'Europe/London',
       FRONTEND_DIR: path.join(REPO_ROOT, 'frontend', 'dist'),

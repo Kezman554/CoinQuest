@@ -293,7 +293,7 @@ def test_settling_through_the_api_writes_a_closed_month(api, session):
     body = response.json()
     assert body["match_pence"] == 50
     assert body["rate_percent"] == 5
-    assert body["settled_by"] == "parent"
+    assert body["settled_by"] == "Test Parent"
 
     listed = api.get("/api/savings/match").json()
     assert len(listed) == 1

@@ -49,7 +49,7 @@ docker compose -f docker/docker-compose.yml --env-file .env up -d --build
 it looks for a bare `.env` on its own — is the directory holding the `-f`
 file, i.e. `docker/`, not the directory you ran the command from. Without the
 flag it silently finds no `.env`, substitutes empty strings for every
-`${VAR}`, and `CHILD_NAME`/`PARENT_PIN` fail closed with `set … in .env` even
+`${VAR}`, and `CHILD_NAME` and the parents fail closed with `set … in .env` even
 though the file is sitting right there one level up. `--env-file` is resolved
 relative to the working directory you run the command from, which is why this
 works from the repo root and would need `--env-file ../.env` if run from
@@ -149,6 +149,26 @@ docker compose -f docker/docker-compose.yml --env-file .env logs -f coinquest
 know the API's layout. The compose healthcheck hits it every 30s, with a 40s
 grace on first boot so migrations can finish.
 
+## Moving from one PIN to named parents
+
+Before parents had names, one `PARENT_PIN` authorised everything and every
+record said "parent". Now each parent has their own name and PIN, and the
+image refuses to start with the old variables still set. The change is three
+things done together — `.env`, compose file, new image — because the old
+image needs `PARENT_PIN` and the new one refuses it:
+
+1. In `.env`: add `PARENT_1_NAME`, `PARENT_1_PIN` (the old PIN can be reused
+   here), optionally `PARENT_2_NAME` / `PARENT_2_PIN`, and `BANK_HOLDER`.
+   Delete the `PARENT_PIN` and `PARENT_NAMES` lines.
+2. In the compose file: the same variables passed through (this repo's
+   `docker/docker-compose.yml` already does; in the household stack, the
+   `coinquest` service in AlfredHomeHub's `docker/docker-compose.yml`).
+3. Pull and rebuild CoinQuest.
+
+Nothing in the database changes: rows already recorded keep "parent" (the
+tables are append-only), and the parent view shows them as "a parent". New
+rows carry the acting parent's name.
+
 ## Configuration
 
 Set in `docker/docker-compose.yml`; overridden by this repo's root `.env` —
@@ -157,13 +177,15 @@ the same one `docs/coinquest_PRD.md` and `.env.example` describe — via
 load-bearing: compose's own `.env` auto-discovery looks in the directory
 holding the `-f` file (`docker/`), not the directory the command is run from,
 so without it every `${VAR}` in the compose file resolves empty and
-`CHILD_NAME`/`PARENT_PIN` refuse to start.
+`CHILD_NAME` and the parents refuse to start.
 
 | Variable | Container value | Why |
 | -------- | --------------- | --- |
 | `CHILD_NAME` | *(none)* | Required, no default. The child is configuration — see CLAUDE.md. |
-| `PARENT_PIN` | *(none)* | Required, no default. Verified server-side only, never returned to a client. |
-| `PARENT_NAMES` | *(none)* | Required, no default. Comma-separated; who the PIN may act as when posting a savings deposit directly. Adding a name is an env change, not a deploy. |
+| `PARENT_1_NAME` / `PARENT_1_PIN` | *(none)* | Required, no default. A parent's display name and their own PIN. The PIN is verified server-side only, never returned to a client, and proves which parent is acting: the name is what is recorded and what the parent view shows. |
+| `PARENT_2_NAME` / `PARENT_2_PIN` | *(empty)* | Optional: a second parent, the same shape. Both empty means there is none; one empty refuses to start. Parents may not share a PIN or a name; names are at most 60 characters. |
+| `BANK_HOLDER` | *(none)* | Required, no default. The number (`1` or `2`) of the parent who pays the savings match into the bank. Settling the monthly interest is refused for any other parent; everything else is open to all of them. |
+| ~~`PARENT_PIN`~~, ~~`PARENT_NAMES`~~ | — | **Retired. Remove both from `.env`.** The service refuses to start while either is set, so an old PIN cannot linger. `PARENT_PIN` becomes `PARENT_1_PIN`; `PARENT_NAMES` becomes the `PARENT_n_NAME` lines. |
 | `DATABASE_URL` | `sqlite:////data/coinquest.db` | Absolute. A relative path resolves against the working directory and dies with the container. |
 | `TZ` | `Europe/London` | Every week boundary, payday and monthly period depends on this. The container clock is UTC. |
 | `FRONTEND_DIR` | `/app/frontend_dist` | The built bundle, served at `/`. Baked into the image; not meant to be overridden at deploy time. |

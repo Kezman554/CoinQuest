@@ -143,8 +143,9 @@ export type SavingsEntry = {
 
 export type Savings = { balance_pence: number; entries: SavingsEntry[] }
 
-/** The fixed list a deposit's "posted by" may be chosen from — config, not
- * schema, so a third name (Jess) shows up here the moment it is deployed. */
+/** The child and the configured parents, by name — config, not schema, so a
+ * parent added to the environment shows up here the moment it is deployed.
+ * A parent's own deposit is recorded as whoever's PIN agreed it. */
 export type Depositors = { child_name: string; parent_names: string[] }
 
 export type DepositRequestState = 'pending' | 'confirmed' | 'rejected'
@@ -356,7 +357,7 @@ export const reconcile = (actual_balance_pence: number) =>
 // --- Acts. Each takes the PIN for that one submission. ---------------------
 
 export const submitReview = (pin: string, decisions: DecisionIn[]) =>
-  send<{ confirmed: number[]; rejected: number[] }>('/api/claims/review', {
+  send<{ confirmed: number[]; rejected: number[]; authorised_by: string }>('/api/claims/review', {
     pin,
     decisions,
   })
@@ -435,13 +436,12 @@ export const recordParentDeposit = (
   pin: string,
   amount: number,
   note: string,
-  postedBy: string,
 ) =>
+  // No posted_by: the server records whichever parent the PIN proves.
   send<SavingsEntry>('/api/savings/deposits/parent', {
     pin,
     amount_pence: amount,
     note,
-    posted_by: postedBy,
   })
 
 /** Agree a deposit the child proposed: it lands in the real ledger, for real. */
@@ -478,8 +478,9 @@ export const updateSchemeSettings = (
 /** Close the next unsettled month on a figure a parent has read and
  * agreed — refused server-side if that month has not finished yet, or if
  * the figure no longer matches what it currently proposes. */
-export const settleMonth = (pin: string, agreedMatchPence: number) =>
-  send<SettledMonth>('/api/savings/match/settle', {
+export const settleMonth = (pin: string, agreedMatchPence: number, bankBalancePence: number | null = null) =>
+  send<SettledMonth & { reconciliation: Reconciliation | null }>('/api/savings/match/settle', {
     pin,
     agreed_match_pence: agreedMatchPence,
+    bank_balance_pence: bankBalancePence,
   })

@@ -112,11 +112,16 @@ class DecideDepositRequest(AuthorisedRequest):
 
 class ParentDepositRequest(AuthorisedRequest):
     """A parent posting a deposit directly. Authorised at submission; there
-    is no pending step behind it."""
+    is no pending step behind it.
+
+    Who posted it is the parent the PIN proves, not anything the request
+    says. `posted_by` may still be sent, and is refused if it names anyone
+    else — a deposit saying one parent posted it under another's PIN is a
+    mistake, not a choice."""
 
     amount_pence: int = Field(gt=0)
     note: str = Field(min_length=1)
-    posted_by: str
+    posted_by: str | None = None
     occurred_on: date | None = None
 
 
@@ -261,7 +266,12 @@ def record_parent_deposit(
     authoritative. This is also how the opening balance is meant to be
     entered at go-live: a note like "opening balance", posted the same way
     any later deposit will be."""
-    authorise(request, body)
+    authorisation = authorise(request, body)
+    if body.posted_by is not None and body.posted_by != authorisation.party:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"That PIN is {authorisation.party}'s, so the deposit is theirs to post, not {body.posted_by}'s.",
+        )
     day = body.occurred_on or today(get_settings().tzinfo)
 
     try:
@@ -269,7 +279,7 @@ def record_parent_deposit(
             session,
             amount_pence=body.amount_pence,
             note=body.note,
-            posted_by=body.posted_by,
+            posted_by=authorisation.party,
             occurred_on=day,
         )
         session.commit()

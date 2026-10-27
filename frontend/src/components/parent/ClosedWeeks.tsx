@@ -16,6 +16,7 @@
  * and the money may already be in his hand.
  */
 
+import { byWhom } from '../../parentWords'
 import { useEffect, useState } from 'react'
 import { money } from '../../api'
 import type { SettledWeek, WeekSummary } from '../../parentApi'
@@ -139,7 +140,7 @@ export function ClosedWeek({
 
       {week.override_reason && (
         <p className="closed-override">
-          Settled on an assignment {week.overridden_by ?? 'a parent'} chose:{' '}
+          Settled on an assignment {byWhom(week.overridden_by)} chose:{' '}
           {week.override_reason}. The app offered{' '}
           {money(week.optimum_total_pence ?? 0)}.
         </p>
@@ -176,7 +177,7 @@ export function ClosedWeek({
             {week.reopenings.map((reopening, index) => (
               <li key={index}>
                 {shortDate(reopening.reopened_at.slice(0, 10))} by{' '}
-                {reopening.reopened_by} — {reopening.reason}. Undid{' '}
+                {byWhom(reopening.reopened_by)} — {reopening.reason}. Undid{' '}
                 {money(reopening.previous_total_pence)}
                 {reopening.was_paid
                   ? `, and reversed ${money(reopening.reversed_deposit_pence)} that had gone into the account.`

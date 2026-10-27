@@ -16,7 +16,7 @@ FastAPI · SQLite · Alembic · React · Vite · TypeScript. Single multi-stage 
 
 ## Running it
 
-Copy `.env.example` to `.env` and fill it in. `CHILD_NAME` and `PARENT_PIN` have no defaults and the service will not start without them; `docs/coinquest_PRD.md` describes what each setting does.
+Copy `.env.example` to `.env` and fill it in. `CHILD_NAME`, the parents (`PARENT_1_NAME` / `PARENT_1_PIN`, optionally a second pair) and `BANK_HOLDER` have no defaults and the service will not start without them; `docs/coinquest_PRD.md` describes what each setting does.
 
 ```
 python -m venv .venv && .venv/Scripts/activate   # source .venv/bin/activate on the Pi

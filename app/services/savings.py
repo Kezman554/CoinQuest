@@ -15,6 +15,8 @@ step with the entries that produced it.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from datetime import date
 
 from sqlalchemy import func
@@ -36,6 +38,68 @@ def current_balance(session: Session) -> int:
         .first()
     )
     return latest.balance_after_pence if latest else 0
+
+
+@dataclass(frozen=True)
+class Reconciliation:
+    """The ledger's balance beside what the real account holds."""
+
+    recorded_balance_pence: int
+    actual_balance_pence: int
+    difference_pence: int
+    agrees: bool
+    #: What would close the gap, named as one of the two acts that exist.
+    put_right_by: str | None
+
+
+def reconcile(session: Session, actual_balance_pence: int) -> Reconciliation:
+    """Compare the recorded balance with what the account really holds.
+
+    This deliberately records nothing, and that is the whole design rather
+    than an omission.
+
+    The ledger is append-only and has four entry types, none of which means
+    "the books were wrong". Inventing a fifth to paper over a difference would
+    make the balance agree while destroying the only information the
+    difference carries: that something happened to the account which nobody
+    wrote down. The monthly match is computed from the lowest balance a month
+    reached, so an unexplained adjustment silently moves money the scheme is
+    about to pay a match on.
+
+    A difference has a cause, and the cause is one of two things this app
+    already has an act for. Money missing is a withdrawal nobody logged. Money
+    extra is a deposit or a gift that never reached the ledger — and there is
+    no endpoint for that yet, which this says plainly rather than pretending
+    otherwise.
+
+    Two callers: the open check on the parent's Savings panel, and the bank
+    holder's settling of the savings match, which checks the balance after
+    the transfer (app.routers.savings_match).
+    """
+    recorded = current_balance(session)
+    difference = actual_balance_pence - recorded
+
+    if difference == 0:
+        put_right_by = None
+    elif difference < 0:
+        put_right_by = (
+            f"{abs(difference)}p has left the account without being logged."
+            " Record it as a withdrawal, with what it went on."
+        )
+    else:
+        put_right_by = (
+            f"{difference}p is in the account that the ledger does not know"
+            " about. Nothing here records money arriving from outside a"
+            " payday, so this needs deciding rather than entering."
+        )
+
+    return Reconciliation(
+        recorded_balance_pence=recorded,
+        actual_balance_pence=actual_balance_pence,
+        difference_pence=difference,
+        agrees=difference == 0,
+        put_right_by=put_right_by,
+    )
 
 
 def has_entries(session: Session) -> bool:

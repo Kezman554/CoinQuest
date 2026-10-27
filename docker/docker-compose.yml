@@ -10,7 +10,7 @@
 # --env-file .env is not optional: compose's own .env auto-discovery looks in
 # the directory holding this file (docker/), not the directory the command is
 # run from, so without the flag every ${VAR} below resolves empty and
-# CHILD_NAME/PARENT_PIN refuse to start. See DEPLOY.md.
+# CHILD_NAME and the parents refuse to start. See DEPLOY.md.
 
 services:
   coinquest:
@@ -21,15 +21,21 @@ services:
       dockerfile: Dockerfile
 
     environment:
-      # The child is configuration — see CLAUDE.md. Neither this nor the PIN
-      # has a default; an unset value fails the container at startup with a
-      # named error rather than serving with a placeholder.
+      # The child is configuration — see CLAUDE.md. Nor do the parents have
+      # defaults; an unset value fails the container at startup with a named
+      # error rather than serving with a placeholder.
       CHILD_NAME: ${CHILD_NAME:?set CHILD_NAME in .env}
-      PARENT_PIN: ${PARENT_PIN:?set PARENT_PIN in .env}
 
-      # Who the PIN may act as when posting a savings deposit directly,
-      # comma-separated. Also no default, for the same reason.
-      PARENT_NAMES: ${PARENT_NAMES:?set PARENT_NAMES in .env}
+      # The parents: a display name and their own PIN each. A PIN proves
+      # which parent is acting. A second parent is optional — left empty, the
+      # pair is no parent at all. BANK_HOLDER is the number of the parent who
+      # pays the savings match into the bank; only they can settle it.
+      # (PARENT_PIN and PARENT_NAMES are retired: refused if still set.)
+      PARENT_1_NAME: ${PARENT_1_NAME:?set PARENT_1_NAME in .env}
+      PARENT_1_PIN: ${PARENT_1_PIN:?set PARENT_1_PIN in .env}
+      PARENT_2_NAME: ${PARENT_2_NAME:-}
+      PARENT_2_PIN: ${PARENT_2_PIN:-}
+      BANK_HOLDER: ${BANK_HOLDER:?set BANK_HOLDER in .env}
 
       # Absolute, matching the volume mount below. A relative path would
       # resolve against the working directory and be lost with the container.

@@ -2287,7 +2287,7 @@ never touches the ledger at all.
 
 Who may post what is app.config.parent_names — a new required env var,
 PARENT_NAMES, comma-separated, alongside CHILD_NAME. Deliberately not a
-database enum: enum_column's CHECK would make a third name (Jess, later)
+database enum: enum_column's CHECK would make a third name (a second parent, later)
 a migration, and the whole point of a fixed list here is that it isn't
 one. app/services/savings_deposits.py reads it fresh on every call, no
 caching, so the env change is the whole deploy.
@@ -3023,3 +3023,38 @@ Healthy; endpoints 200. Live /api/savings/match/due lists September 2026
 at 50p — the household's first month, never settled — so the wall now
 shows "Interest for your bank: 50p" until a parent settles it.
 integrity_check ok, foreign_key_check empty.
+
+Named parents (2026-10-27). authorisation.py's promised change: each
+parent is configured with a name and their own PIN (PARENT_n_NAME /
+PARENT_n_PIN), and a correct PIN proves which parent is acting — every
+configured PIN compared in constant time, with no early exit. The party
+recorded is that parent's name; old rows keep "parent" (append-only, never
+rewritten) and the parent view shows them as "a parent" (byWhom). The
+client still never says who it is; the lockout still counts per source,
+shared by all parents. Config refuses: no parent, an empty half of a pair
+(a pair entirely empty is no parent — compose passes PARENT_2_* through
+blank), shared PINs or names, a name over 60 (the columns are
+String(60), so no migration — alembic check clean), a missing or unknown
+BANK_HOLDER, and the retired PARENT_PIN / PARENT_NAMES if still set.
+- One restriction: settling the savings match is the bank holder's alone
+  (403 "Only {name} can settle the interest, because it is paid into the
+  bank"), checked after the PIN so it is not a failed attempt. The bank
+  balance now travels inside the settle request and comes back as its
+  reconciliation, so it falls under the same rule; the open reconcile
+  check on the Savings panel is unchanged. reconcile moved into
+  app.services.savings, shared by both.
+- A parent's direct deposit is posted_by the PIN's parent; a request
+  naming someone else is refused (409). The deposit form lost its
+  parent picker.
+- Parent view: "Confirmed 1 claim — by <name>." after a batch; overrides,
+  reopenings, settled months and the ledger name the parent, or "a
+  parent". The wall shows no names (e2e asserts it).
+- Tests: test_parents.py (each PIN its parent; unknown PIN refused and
+  counted; config refusals; non-holder settle refused, never locked out,
+  balance refused with it; holder settles with the check; deposits by
+  PIN; an old "parent" row reads), a second-parent confirm in
+  test_claims, e2e second-parent.spec.ts. pytest 637, e2e 24.
+- Household: AlfredHomeHub docker/docker-compose.yml's coinquest service
+  edited on the Pi (PARENT_PIN / PARENT_NAMES out, PARENT_1/2_NAME/PIN and
+  BANK_HOLDER in), left uncommitted there for review. Not deployed: the
+  .env, the compose file and the new image go together.

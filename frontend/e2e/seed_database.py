@@ -30,8 +30,13 @@ db_path = Path(sys.argv[1]).resolve()
 # import time via get_settings(), and app.db's engine binds to DATABASE_URL
 # the first time it is touched.
 os.environ["CHILD_NAME"] = "E2E Kid"
-os.environ["PARENT_PIN"] = "0000"
-os.environ["PARENT_NAMES"] = "E2E Parent"
+os.environ["PARENT_1_NAME"] = "E2E Parent"
+os.environ["PARENT_1_PIN"] = "0000"
+os.environ["PARENT_2_NAME"] = "E2E Second"
+os.environ["PARENT_2_PIN"] = "1111"
+os.environ["BANK_HOLDER"] = "1"
+os.environ["PARENT_PIN"] = ""
+os.environ["PARENT_NAMES"] = ""
 os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
 os.environ["TZ"] = "Europe/London"
 

@@ -731,6 +731,16 @@ class ReconciliationView(BaseModel):
     #: What would close the gap, named as one of the two acts that exist.
     put_right_by: str | None
 
+    @classmethod
+    def of(cls, result: savings.Reconciliation) -> ReconciliationView:
+        return cls(
+            recorded_balance_pence=result.recorded_balance_pence,
+            actual_balance_pence=result.actual_balance_pence,
+            difference_pence=result.difference_pence,
+            agrees=result.agrees,
+            put_right_by=result.put_right_by,
+        )
+
 
 @savings_router.post(
     "/withdrawals", response_model=SavingsEntryView, status_code=status.HTTP_201_CREATED
@@ -770,44 +780,7 @@ def reconcile(
 ) -> ReconciliationView:
     """Compare the recorded balance with what the account really holds.
 
-    This deliberately records nothing, and that is the whole design rather
-    than an omission.
-
-    The ledger is append-only and has four entry types, none of which means
-    "the books were wrong". Inventing a fifth to paper over a difference would
-    make the balance agree while destroying the only information the
-    difference carries: that something happened to the account which nobody
-    wrote down. The monthly match is computed from the lowest balance a month
-    reached, so an unexplained adjustment silently moves money the scheme is
-    about to pay a match on.
-
-    A difference has a cause, and the cause is one of two things this app
-    already has an act for. Money missing is a withdrawal nobody logged. Money
-    extra is a deposit or a gift that never reached the ledger — and there is
-    no endpoint for that yet, which this response says plainly rather than
-    pretending otherwise.
+    Records nothing, deliberately — see app.services.savings.reconcile, which
+    says why. No PIN, for the same reason.
     """
-    recorded = savings.current_balance(session)
-    difference = body.actual_balance_pence - recorded
-
-    if difference == 0:
-        put_right_by = None
-    elif difference < 0:
-        put_right_by = (
-            f"{abs(difference)}p has left the account without being logged."
-            " Record it as a withdrawal, with what it went on."
-        )
-    else:
-        put_right_by = (
-            f"{difference}p is in the account that the ledger does not know"
-            " about. Nothing here records money arriving from outside a"
-            " payday, so this needs deciding rather than entering."
-        )
-
-    return ReconciliationView(
-        recorded_balance_pence=recorded,
-        actual_balance_pence=body.actual_balance_pence,
-        difference_pence=difference,
-        agrees=difference == 0,
-        put_right_by=put_right_by,
-    )
+    return ReconciliationView.of(savings.reconcile(session, body.actual_balance_pence))

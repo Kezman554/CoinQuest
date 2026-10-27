@@ -8,8 +8,17 @@ from pathlib import Path
 import pytest
 
 os.environ.setdefault("CHILD_NAME", "Test Child")
-os.environ.setdefault("PARENT_PIN", "0000")
-os.environ.setdefault("PARENT_NAMES", "Test Parent")
+# Two made-up parents, the first holding the bank. 0000 stays the first
+# parent's PIN, so every test written for one parent still means the same.
+os.environ.setdefault("PARENT_1_NAME", "Test Parent")
+os.environ.setdefault("PARENT_1_PIN", "0000")
+os.environ.setdefault("PARENT_2_NAME", "Test Second")
+os.environ.setdefault("PARENT_2_PIN", "1111")
+os.environ.setdefault("BANK_HOLDER", "1")
+# Retired, and refused if set. Set empty, not left unset, so a developer's old
+# .env (which load_dotenv would otherwise fill them from) cannot reach a test.
+os.environ["PARENT_PIN"] = ""
+os.environ["PARENT_NAMES"] = ""
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test-coinquest.db")
 os.environ.setdefault("COINQUEST_PORT", "8600")
 os.environ.setdefault("TZ", "Europe/London")
