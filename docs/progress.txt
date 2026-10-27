@@ -3016,3 +3016,10 @@ For AJ (the parent-screen restyle): "Settle the match" becomes raised /
 control-edge, not gold — gold is for money and the child's own do-it
 actions. Left gold here so it is restyled once, there; a comment at the
 button says so. e2e 22 passed.
+
+Due months (53d6558, 76cf5af) pushed and deployed the same day. Backed up
+first (coinquest-2026-10-27-1837.tar.gz); no migration, no new env var.
+Healthy; endpoints 200. Live /api/savings/match/due lists September 2026
+at 50p — the household's first month, never settled — so the wall now
+shows "Interest for your bank: 50p" until a parent settles it.
+integrity_check ok, foreign_key_check empty.
