@@ -2834,3 +2834,12 @@ cards restyle the screens:
   3.02, disabled-edge on disabled-bg 3.05) and the TODAY tag's shape on
   today's tile (night 1.88 - its word is measured, 6.63).
 pytest 604 passed; e2e 9 passed, the 1280x800 fit spec unchanged.
+
+Foundation follow-up (2026-10-27). Night TODAY: today #FF5A52 with
+on-today #1E1B3A (day unchanged), so the pill is 4.05:1 on panel-today
+and the word 5.37:1; "today on panel-today" is a named pairing in
+check:contrast, 34 measurements now. DESIGN.md's Contrast floors lists
+exactly those 34 and the boundary method, replacing the "48 pairings"
+line. Disabled controls (.button, the sending chore, the miss control)
+use disabled / disabled-bg / disabled-edge instead of an opacity fade;
+the parent's retired-chore row lost its fade too, for settled.

@@ -52,7 +52,7 @@ The values are provisional (see the top of this document). Day is light and nigh
 | `done` / `done-bg` / `done-edge` | `#1B6B2F` / `#DFF5E1` / `#23803A` | `#7EE59A` / `#1E3A33` / `#5BD27A` | finished chore, "All paid up", Put right |
 | `waiting` / `waiting-bg` / `waiting-edge` | `#7E5100` / `#FFF1C7` / `#9A6300` | `#FFD66B` / `#2E2E45` / `#FFC93C` | claimed, waiting to be checked (dashed edge) |
 | `danger` / `danger-bg` / `danger-edge` | `#A61B1B` / `#FFE3E1` / `#C62828` | `#FF9B93` / `#3A2338` / `#FF7A70` | missed, refusal tag, chores at risk, last-day notice |
-| `today` / `on-today` | `#B8161A` / `#FFFFFF` | `#B8161A` / `#FFFFFF` | the TODAY tag |
+| `today` / `on-today` | `#B8161A` / `#FFFFFF` | `#FF5A52` / `#1E1B3A` | the TODAY tag |
 | `today-edge` | `#B8161A` | `#FF5A52` | today's tile outline |
 | `disabled` / `disabled-bg` / `disabled-edge` | `#2E4A63` / `#B9E2FC` / `#3B6688` | `#9AA4D6` / `#1F2849` / `#6370AC` | "This is the latest", and any control the state forbids |
 | `settled` | `#E8E4D4` | `#343A55` | money card on a past week |
@@ -61,7 +61,28 @@ The values are provisional (see the top of this document). Day is light and nigh
 
 ## Contrast floors
 
-Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. All 48 pairings drawn on the canvas pass in both modes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64) and `disabled-edge` on `ground` (3.61 by day, 3.37 at night). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
+Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. `npm run check:contrast` measures exactly the 34 pairings below, in both modes, and every one passes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64), `disabled-edge` on `ground` (3.61 by day, 3.37 at night) and `today` on `panel-today` at night (4.05). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
+
+A component is measured against the surface it sits on, and its fill or its outline may carry the boundary (WCAG 1.4.11): the gold card is told apart from the sky by its outline, not its gold. An outline is never measured against its own fill, because that isn't what makes a shape visible.
+
+**Text (4.725:1), words on their fill:**
+- `ink` on `ground`, `panel`, `panel-today`, `raised` and `settled`
+- `ink-soft` on `ground`, `panel`, `panel-today` and `raised`
+- `on-gold` on `gold`, `on-action` on `action`, `on-today` on `today`
+- `done` on `done-bg`, and on `panel` ("All paid up")
+- `waiting` on `waiting-bg`, `danger` on `danger-bg`, `disabled` on `disabled-bg`
+
+**Named non-text pairings (3.15:1), measured exactly as named:**
+- `today` on `panel-today` (the TODAY pill)
+- `today-edge` on `ground`, `panel-edge` on `ground`, `disabled-edge` on `ground`
+- `waiting-edge` on `waiting-bg` (the dashed edge)
+
+**Boundaries (3.15:1), a component on its surface, by the better of fill and edge:**
+- on `ground`: a panel (`panel`/`panel-edge`), today's tile (`panel-today`/`today-edge`), the money card (`gold`/`outline`), a neutral button (`raised`/`control-edge`), a disabled control (`disabled-bg`/`disabled-edge`)
+- on `panel`: a neutral button (`raised`/`control-edge`), "I've done it" (`action`/`outline`), a done chore (`done-bg`/`done-edge`), a waiting chore (`waiting-bg`/`waiting-edge`), a missed chore (`danger-bg`/`danger-edge`), the savings bar (`done-edge`)
+- on `panel-today`: "I've done it" (`action`/`outline`)
+
+**Decoration, not measured:** `brick` and `mortar` (the bottom strip), `coin-light` and `coin-dark` (the coin's face and ring), and `shadow` (a depth cue under shapes whose boundaries are measured). Any other colour token that is neither measured nor listed here fails the check.
 
 ## Modes
 

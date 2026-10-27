@@ -10,8 +10,8 @@
 // and its Contrast floors section:
 //
 //   text      words on the fill they are written on.
-//   edge      the edge pairings DESIGN.md names one by one, measured exactly
-//             as named.
+//   named     the non-text pairings DESIGN.md names one by one, measured
+//             exactly as named.
 //   boundary  a component against the surface it sits on. WCAG 1.4.11 asks
 //             that a component be told apart from what is around it, and
 //             either its fill or its edge may do that — a gold card on the
@@ -53,8 +53,9 @@ const TEXT_PAIRS = [
   ['disabled', 'disabled-bg', '"This is the latest" and forbidden controls'],
 ]
 
-// [edge, background, what it is] — DESIGN.md's Contrast floors, by name.
+// [colour, background, what it is] — DESIGN.md's Contrast floors, by name.
 const EDGE_PAIRS = [
+  ['today', 'panel-today', "the TODAY tag's pill on today's tile"],
   ['today-edge', 'ground', "today's tile outline on the sky (tightest by day)"],
   ['panel-edge', 'ground', 'a panel outline on the sky (tightest at night)'],
   ['disabled-edge', 'ground', 'a disabled control on the sky (tight in both modes)'],
@@ -159,8 +160,8 @@ for (const [mode, palette] of [['day', day], ['night', night]]) {
     measured.add(edge).add(bg)
     if (!have(mode, palette, [edge, bg], what)) continue
     const r = ratio(palette[edge], palette[bg])
-    line(r >= NON_TEXT, 'edge', r, NON_TEXT, `${edge} on ${bg}`, what)
-    if (r < NON_TEXT) failures.push(`${mode}: edge ${edge} on ${bg} is ${r.toFixed(2)}:1, under ${NON_TEXT} (${what})`)
+    line(r >= NON_TEXT, 'named', r, NON_TEXT, `${edge} on ${bg}`, what)
+    if (r < NON_TEXT) failures.push(`${mode}: ${edge} on ${bg} is ${r.toFixed(2)}:1, under ${NON_TEXT} (${what})`)
   }
   for (const [fill, edge, surface, what] of BOUNDARIES) {
     measured.add(fill).add(edge).add(surface)

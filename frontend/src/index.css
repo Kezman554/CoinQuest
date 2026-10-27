@@ -34,13 +34,14 @@
   --control-edge: #1e1b3a;
   --shadow: #1e1b3a;
 
-  /* The same in both modes. */
+  /* The same in both modes, from here to --on-action. */
   --gold: #ffc93c;
   --on-gold: #1e1b3a;
   --coin-light: #ffe27a;
   --coin-dark: #c98a00;
   --action: #ffd54a;
   --on-action: #1e1b3a;
+
   --today: #b8161a;
   --on-today: #ffffff;
 
@@ -98,6 +99,10 @@
   --done: #7ee59a;
   --done-bg: #1e3a33;
   --done-edge: #5bd27a;
+  /* The TODAY tag lightens at night: the day red sank into today's tile. */
+  --today: #ff5a52;
+  --on-today: #1e1b3a;
+
   --waiting: #ffd66b;
   --waiting-bg: #2e2e45;
   --waiting-edge: #ffc93c;

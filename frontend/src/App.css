@@ -953,8 +953,16 @@
   transform: scale(0.99);
 }
 
+/* Sending: the disabled roles, never a fade — nothing see-through sits
+   behind text. */
 .chore-claimable:disabled {
-  opacity: 0.6;
+  background: var(--disabled-bg);
+  border-color: var(--disabled-edge);
+  color: var(--disabled);
+}
+
+.chore-claimable:disabled .chore-state {
+  color: var(--disabled);
 }
 
 .chore-confirmed {
@@ -1014,7 +1022,9 @@
 }
 
 .chore-control:disabled {
-  opacity: 0.5;
+  background: var(--disabled-bg);
+  border-color: var(--disabled-edge);
+  color: var(--disabled);
 }
 
 /* The way back reads as the way back: the same colour the "on track" figure
@@ -1130,8 +1140,12 @@
   cursor: pointer;
 }
 
+/* "This is the latest", and any control the state forbids: its own
+   opaque roles, not a fade. */
 .button:disabled {
-  opacity: 0.45;
+  background: var(--disabled-bg);
+  border-color: var(--disabled-edge);
+  color: var(--disabled);
   cursor: default;
 }
 
@@ -1807,7 +1821,7 @@ circle.lifetime-line-counterfactual {
 }
 
 .chore-def-retired {
-  opacity: 0.7;
+  background: var(--settled);
 }
 
 .tag-basic {
