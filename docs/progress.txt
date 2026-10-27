@@ -2763,3 +2763,10 @@ Phone: the old footer row did overflow at 390 - right-aligned and too
 wide, it ran off the left edge, which a right-edge check misses. Every
 quiet-button row now wraps, and the title-row copy fits one line at 390.
 e2e 6 passed. Not pushed.
+
+Both wall commits (2c44a8d, 3396721) pushed and deployed the same day.
+Backed up first (coinquest-2026-10-27-1636.tar.gz); frontend only, no
+migration or new env var. Healthy on rebuild; /health, /parent,
+/api/summary, /api/weeks and /api/weeks/owed/outstanding 200; the served
+bundle carries the title-row nav. integrity_check ok, foreign_key_check
+empty.
