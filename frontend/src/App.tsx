@@ -22,9 +22,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
-import { claim, clearMiss, loadWeek, loadWeekById, loadWeeks, markMissed } from './api'
+import { claim, clearMiss, loadWeek, loadWeekById, loadWeeks } from './api'
 import type { InstanceCard, WeekSummary, WeekView } from './api'
 import { Days } from './components/Days'
+import { Owed } from './components/Owed'
 import type { PinAct } from './components/parent/PinDialog'
 import { PinDialog } from './components/parent/PinDialog'
 import { Recovery } from './components/Recovery'
@@ -33,6 +34,8 @@ import { Weekly } from './components/Weekly'
 import { NotCurrentBanner, WeekNav } from './components/WeekNav'
 import { LifetimeView } from './LifetimeView'
 import { ParentView } from './ParentView'
+import { loadOwed } from './parentApi'
+import type { Owed as OwedWeek } from './parentApi'
 import { SavingsView } from './SavingsView'
 import { longDate, shortDate, weekdayOf } from './words'
 
@@ -42,7 +45,7 @@ function App() {
   const [screen, setScreen] = useState<Screen>('child')
 
   return (
-    <main className="page">
+    <main className={screen === 'child' ? 'page page-wall' : 'page'}>
       {screen === 'child' && <ChildWeek />}
       {screen === 'savings' && <SavingsView />}
       {screen === 'lifetime' && <LifetimeView />}
@@ -97,9 +100,15 @@ function Parent({ onBack }: { onBack: () => void }) {
 /**
  * The child's week.
  *
- * One screen, read standing up from a distance, with three things to do on
- * it: say a chore is done, say one was missed, and — with the PIN — take that
- * back. Everything else is there to be read rather than operated.
+ * One screen, read standing up from a distance, with two things to do on it:
+ * say a chore is done, and — with the PIN — take back a miss a parent marked.
+ * Marking the miss itself lives on the parent screen; on the tiles it was a
+ * second button under every chore, a child's mis-tap away from the one he
+ * meant. Everything else is there to be read rather than operated.
+ *
+ * Laid out for a landscape wall panel: what this week is heading for down
+ * one side, what earlier weeks are still owed down the other, and the days
+ * between them, so the whole week fits without scrolling.
  *
  * The page reloads its whole state after every one of them rather than
  * patching the row in place. That is what makes the figure honest: marking a
@@ -113,6 +122,7 @@ function Parent({ onBack }: { onBack: () => void }) {
 function ChildWeek() {
   const [week, setWeek] = useState<WeekView | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
+  const [owed, setOwed] = useState<OwedWeek[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   //: The one act on this screen that asks for the PIN. The dialog is the
@@ -127,8 +137,13 @@ function ChildWeek() {
       // The current week always loads too, whichever is being shown: it is
       // what "back to this week" returns to, and its id is what tells a
       // shown week apart from being the current one.
-      const [current, list] = await Promise.all([loadWeek(), loadWeeks()])
+      const [current, list, outstanding] = await Promise.all([
+        loadWeek(),
+        loadWeeks(),
+        loadOwed(),
+      ])
       setWeeks(list)
+      setOwed(outstanding)
       if (viewedWeekId === null || viewedWeekId === current.week_id) {
         setWeek(current)
       } else {
@@ -154,25 +169,6 @@ function ChildWeek() {
       setBusyId(instanceId)
       try {
         await claim(instanceId)
-        await refresh(viewed)
-      } catch (problem) {
-        setError((problem as Error).message)
-      } finally {
-        setBusyId(null)
-      }
-    },
-    [refresh, viewed],
-  )
-
-  /** No PIN, and no confirmation step either. The requirement is the ten
-   *  seconds a parent has while noticing it; a dialog in the middle of that
-   *  is the same defeat the PIN was. The undo is the safety net, and it is
-   *  right there on the tile. */
-  const onMissed = useCallback(
-    async (instanceId: number) => {
-      setBusyId(instanceId)
-      try {
-        await markMissed(instanceId)
         await refresh(viewed)
       } catch (problem) {
         setError((problem as Error).message)
@@ -218,10 +214,8 @@ function ChildWeek() {
   // state, and the server already applies it; see app/routers/claims.py.
   const shown = week
 
-  // The missed control, and the PIN-guarded clear, follow the same rule the
-  // claim button does: they exist on any week that has not settled, and
-  // nowhere else. A parent who notices on Sunday that last Wednesday was
-  // missed can still say so, right up until the week is agreed.
+  // The PIN-guarded clear follows the same rule the claim button does: it
+  // exists on any week that has not settled, and nowhere else.
   const rulable = week.status === 'open'
 
   return (
@@ -250,24 +244,33 @@ function ChildWeek() {
       )}
 
       <Recovery recovery={shown.recovery} />
-      <Total
-        totals={shown.totals}
-        status={shown.status}
-        makeGood={shown.recovery.make_good}
-      />
-      <Days
-        days={shown.days}
-        onClaim={onClaim}
-        busyId={busyId}
-        onMissed={rulable ? onMissed : undefined}
-        onClearMiss={rulable ? onClearMiss : undefined}
-      />
-      <Weekly
-        weekly={shown.weekly}
-        onClaim={onClaim}
-        busyId={busyId}
-        deadlineWeekday={weekdayOf(shown.end_date)}
-      />
+
+      <div className="wall">
+        <aside className="wall-side wall-side-start">
+          <Total
+            totals={shown.totals}
+            status={shown.status}
+            makeGood={shown.recovery.make_good}
+          />
+        </aside>
+        <div className="wall-main">
+          <Days
+            days={shown.days}
+            onClaim={onClaim}
+            busyId={busyId}
+            onClearMiss={rulable ? onClearMiss : undefined}
+          />
+          <Weekly
+            weekly={shown.weekly}
+            onClaim={onClaim}
+            busyId={busyId}
+            deadlineWeekday={weekdayOf(shown.end_date)}
+          />
+        </div>
+        <aside className="wall-side wall-side-end">
+          <Owed owed={owed} />
+        </aside>
+      </div>
 
       {act && (
         <PinDialog

@@ -20,6 +20,164 @@
   gap: 1.5rem;
 }
 
+/* The child's week is laid out for a landscape wall panel, so it takes the
+   width the other screens deliberately do not. */
+.page-wall {
+  max-width: 120rem;
+}
+
+/* --- The wall: total | the week | owed -----------------------------------
+ *
+ * Narrow screens stack the three in reading order. Wide ones put the two
+ * money cards down either side of the days, so the week fits on one screen
+ * and the sides stop being dead space. The cards stick while the middle
+ * scrolls, which on a wall panel means they never scroll away at all. */
+
+.wall {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.wall-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+@media (min-width: 72rem) {
+  .wall {
+    display: grid;
+    grid-template-columns: 14rem minmax(0, 1fr) 12rem;
+    align-items: start;
+    gap: 1.25rem;
+  }
+
+  .wall-side {
+    position: sticky;
+    top: 1rem;
+  }
+
+  .wall .total {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .wall .total-amount {
+    font-size: 4rem;
+  }
+
+  .wall .breakdown {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .wall .breakdown > div {
+    flex: none;
+  }
+
+  .wall .day {
+    padding: 0.85rem 0.75rem;
+  }
+
+  .wall .chore {
+    padding: 0.65rem 0.75rem;
+  }
+}
+
+/* A wide panel takes the whole week in one row — seven days, not five and a
+   leftover two. Below that the days wrap as they always did. */
+@media (min-width: 110rem) {
+  .wall {
+    grid-template-columns: 13rem minmax(0, 1fr) 11rem;
+  }
+
+  .wall .panel {
+    padding: 1rem;
+  }
+
+  .wall .days {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .wall .day {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .wall .day h3 {
+    font-size: 1.2rem;
+  }
+
+  .wall .chore {
+    padding: 0.6rem;
+  }
+
+  .wall .chore-name {
+    font-size: 1.1rem;
+  }
+
+  .wall .chore-claimable .chore-state {
+    font-size: 1.05rem;
+  }
+}
+
+/* What earlier weeks are still owed. The prize card's shape, quieter until
+   there is something in it — then the coin colour, because it is money
+   waiting to be handed over. */
+.owed-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  padding: 1.5rem 1.25rem;
+}
+
+.owed-card .total-label {
+  color: var(--ink-soft);
+}
+
+.owed-card-due {
+  background: color-mix(in srgb, var(--coin) 22%, var(--panel));
+  border-color: var(--coin);
+}
+
+.owed-card-due .total-label {
+  color: var(--ink);
+}
+
+.owed-card-amount {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin: 0.4rem 0 1rem;
+  color: var(--ink);
+}
+
+.owed-card-clear {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+  color: var(--done);
+}
+
+.owed-card-weeks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.owed-card-weeks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
 /* --- Masthead ------------------------------------------------------------ */
 
 .masthead h1 {

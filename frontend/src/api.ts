@@ -5,9 +5,10 @@
  * the API, and in the container the API serves this bundle itself.
  *
  * One call here carries the PIN, and exactly one: clearing a miss. Everything
- * else this screen writes — claiming, and marking a chore missed — is a
+ * else this screen writes — claiming, and proposing a deposit — is a
  * proposal rather than money, and needs no credential for the same reason: it
- * pays nothing, and settlement is what pays. Clearing is the direction that
+ * pays nothing, and settlement is what pays. Marking a miss, the other
+ * uncredentialed proposal, is made from the parent screen (parentApi.ts). Clearing is the direction that
  * gives money back, so it is the direction that asks. See
  * app/routers/claims.py, which states the rule and enforces it server-side;
  * nothing on this side is what makes it true.
@@ -245,7 +246,7 @@ export async function loadMyPendingDeposits(childName: string): Promise<DepositR
 }
 
 /**
- * Propose a deposit. No PIN — see markMissed's own note on why: this moves
+ * Propose a deposit. No PIN — see parentApi.ts's markMissed on why: this moves
  * no money by itself, and waits for a parent the same way a claim does.
  */
 export async function submitDeposit(
@@ -273,19 +274,7 @@ export async function claim(instanceId: number): Promise<void> {
 }
 
 /**
- * Mark a chore missed. No PIN, deliberately.
- *
- * A parent standing at the sink has about ten seconds to record that
- * yesterday was missed, and four digits on a wall screen is long enough to
- * lose that. It pays nothing and takes nothing: it proposes a miss, the way a
- * claim proposes work, and settlement is where either turns into money.
- */
-export async function markMissed(instanceId: number): Promise<void> {
-  await post(`/api/instances/${instanceId}/missed`, { instance_id: instanceId })
-}
-
-/**
- * Take that mark back. This one asks for the PIN.
+ * Take back a miss a parent marked. This one asks for the PIN.
  *
  * The asymmetry is the point: anything that costs him money is a tap, and
  * anything that gives it back is a parent. The PIN goes nowhere but into this

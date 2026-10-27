@@ -2698,3 +2698,19 @@ Pushed and deployed the same day. Backed up first
 /api/weeks 200. integrity_check ok, foreign_key_check empty. alembic
 check run inside the container against the live household database:
 green - the live schema matches the models too.
+
+Wall-panel layout (2026-10-27). The child's week is laid out for a
+landscape wall panel: the "on track for" card is a vertical column down
+the left of the days, a new "Owed to you" card down the right (settled,
+unpaid weeks from /api/weeks/owed/outstanding, read-only, "All paid up"
+when empty), and both stick while the middle scrolls. From 110rem
+(1760px) the days go seven across in tighter type; at 1920x1080 the
+whole week fits without scrolling. Narrow screens stack as before. The
+day tile's date line drops the repeated weekday ("25 October").
+
+The "Missed" button is gone from the day tiles - marking a miss is done
+from the parent screen's This week tab, which already had it. The server
+rule is unchanged (marking needs no PIN). "Not missed after all" stays
+on a marked tile, PIN-guarded, because it is still the only place a miss
+can be cleared. wall-screen-miss.spec.ts now marks via the API the parent
+screen calls and asserts the tiles offer no mark. e2e 6 passed.

@@ -9,20 +9,19 @@
 
 import type { DayCard, InstanceCard } from '../api'
 import { Chore } from './Chore'
-import { longDate } from '../words'
+import { shortDate } from '../words'
 
 type Props = {
   days: DayCard[]
   onClaim: (instanceId: number) => void
   busyId: number | null
-  /** Passed only for an open week, current or not. Absent, the tiles carry
-   *  no missed control at all, which is what keeps a settled week read-only
+  /** Passed only for an open week, current or not. Absent, a missed tile
+   *  carries no undo at all, which is what keeps a settled week read-only
    *  — the same rule can_claim already follows. */
-  onMissed?: (instanceId: number) => void
   onClearMiss?: (chore: InstanceCard) => void
 }
 
-export function Days({ days, onClaim, busyId, onMissed, onClearMiss }: Props) {
+export function Days({ days, onClaim, busyId, onClearMiss }: Props) {
   return (
     <section className="panel">
       <h2>Every day</h2>
@@ -33,7 +32,6 @@ export function Days({ days, onClaim, busyId, onMissed, onClearMiss }: Props) {
             day={day}
             onClaim={onClaim}
             busyId={busyId}
-            onMissed={onMissed}
             onClearMiss={onClearMiss}
           />
         ))}
@@ -46,13 +44,11 @@ function Day({
   day,
   onClaim,
   busyId,
-  onMissed,
   onClearMiss,
 }: {
   day: DayCard
   onClaim: (instanceId: number) => void
   busyId: number | null
-  onMissed?: (instanceId: number) => void
   onClearMiss?: (chore: InstanceCard) => void
 }) {
   const classes = ['day']
@@ -66,7 +62,7 @@ function Day({
         {day.weekday}
         {day.is_today && <span className="tag tag-today">Today</span>}
       </h3>
-      <p className="day-date">{longDate(day.day)}</p>
+      <p className="day-date">{shortDate(day.day)}</p>
 
       {day.waived ? (
         // A day away. Not an absence, not something to be put right, and —
@@ -85,7 +81,6 @@ function Day({
             chore={chore}
             onClaim={onClaim}
             busy={busyId === chore.instance_id}
-            onMissed={onMissed}
             onClearMiss={onClearMiss}
           />
         ))

@@ -1,21 +1,17 @@
 /**
- * One chore, with at most one button on it — and, on the day tiles, a second
- * control set deliberately apart from it.
+ * One chore, with at most one button on it — and, on a missed day tile, the
+ * way back set deliberately apart from it.
  *
  * The button is the whole row rather than a small control at the end of it:
  * this is tapped by a child in a hurry, on a wall screen, and a target the
  * size of a fingertip is a target that gets mis-hit and undone again.
  *
- * The missed control is the opposite shape on purpose. It is small, it sits
- * under the row rather than being the row, and it is worded as a statement
- * about the chore rather than as an instruction. A parent walking past has to
- * be able to hit it in a couple of seconds; a child in a hurry must not hit it
- * by accident while reaching for the thing that says "I've done it".
- *
- * Which control appears is the authorisation split, and only half of it: the
- * server refuses the clear without the PIN whatever this file renders. See
- * app/routers/claims.py. Marking is a tap because it only ever costs him
- * money; clearing opens the parents' own PIN dialog because it gives it back.
+ * The undo is the opposite shape on purpose. It is small and sits under the
+ * row rather than being the row. Marking a miss is no longer offered here at
+ * all — it is a parent's act, on the parent screen — but taking one back
+ * still is, because this is where the missed chore is seen, and it opens the
+ * parents' own PIN dialog. The server refuses the clear without the PIN
+ * whatever this file renders; see app/routers/claims.py.
  */
 
 import type { InstanceCard } from '../api'
@@ -29,9 +25,8 @@ type Props = {
   /** Off for one occasion of a chore paid once for the whole week: the
    *  amount belongs to the card around it, not to each slot inside it. */
   showAmount?: boolean
-  /** Both absent everywhere except the day tiles of an open week — which
-   *  is what keeps a settled week being paged back through read-only. */
-  onMissed?: (instanceId: number) => void
+  /** Absent everywhere except the day tiles of an open week — which is
+   *  what keeps a settled week being paged back through read-only. */
   onClearMiss?: (chore: InstanceCard) => void
 }
 
@@ -40,7 +35,6 @@ export function Chore({
   onClaim,
   busy,
   showAmount = true,
-  onMissed,
   onClearMiss,
 }: Props) {
   const note = rejectionNote(chore)
@@ -84,7 +78,7 @@ export function Chore({
     </div>
   )
 
-  const control = missedControl(chore, busy, onMissed, onClearMiss)
+  const control = clearControl(chore, onClearMiss)
   if (!control) return row
 
   return (
@@ -96,45 +90,20 @@ export function Chore({
 }
 
 /**
- * The one control that changes, and the rule about which way it points.
- *
- * Confirmed work is never offered a Missed button: confirmed work is not taken
- * back this way, and the server refuses it too. A miss that settlement worked
- * out rather than a person marked gets no Clear button either — that one
+ * Only a miss a person marked can be cleared. One settlement worked out
  * belongs to a week already closed, and offering to undo it would be offering
  * something the API is right to refuse.
  */
-function missedControl(
-  chore: InstanceCard,
-  busy: boolean,
-  onMissed?: (instanceId: number) => void,
-  onClearMiss?: (chore: InstanceCard) => void,
-) {
-  if (chore.instance_id === null) return null
-
-  if (chore.state === 'missed') {
-    if (!onClearMiss || chore.miss_origin !== 'parent_marked') return null
-    return (
-      <button
-        type="button"
-        className="chore-control chore-control-undo"
-        onClick={() => onClearMiss(chore)}
-      >
-        Not missed after all
-      </button>
-    )
-  }
-
-  if (chore.state === 'confirmed' || !onMissed) return null
-
+function clearControl(chore: InstanceCard, onClearMiss?: (chore: InstanceCard) => void) {
+  if (chore.instance_id === null || chore.state !== 'missed') return null
+  if (!onClearMiss || chore.miss_origin !== 'parent_marked') return null
   return (
     <button
       type="button"
-      className="chore-control"
-      disabled={busy}
-      onClick={() => onMissed(chore.instance_id as number)}
+      className="chore-control chore-control-undo"
+      onClick={() => onClearMiss(chore)}
     >
-      Missed
+      Not missed after all
     </button>
   )
 }
