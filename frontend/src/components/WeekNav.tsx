@@ -97,7 +97,9 @@ export function NotCurrentBanner({
       ) : (
         <p>You are looking back through history. Nothing here can be changed.</p>
       )}
-      <button type="button" className="button button-do" onClick={onBackToNow}>
+      {/* Neutral, not gold: gold is for money and the child's own
+          do-it actions (DESIGN.md). */}
+      <button type="button" className="button" onClick={onBackToNow}>
         Back to this week
       </button>
     </section>

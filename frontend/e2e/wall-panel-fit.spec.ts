@@ -4,9 +4,9 @@
  * A layout fact, and only a rendered page can show it. The seed is too light
  * to test against — one chore a day — so the week is reshaped on its way to
  * the page into the heavy week the household actually has: three chores a day,
- * one with a long name, the chore money at risk, a make-good route showing,
- * the missed-chore notice beside it inside the money card, the missed chore
- * itself on Monday's tile with its "Not missed after all" button under it,
+ * one with a long name, the chore money at risk, the missed-chore notice in
+ * the money card ending with the make-good clause, the missed chore itself
+ * on Monday's tile with "Not missed after all" inside it,
  * and two weeks owed. Every chore is reset to untouched, then one is set to
  * "Waiting to be checked" — the common state that wraps — so the result does
  * not depend on what earlier specs did to the scratch database. Nothing here
@@ -65,7 +65,7 @@ async function heavyWeek(page: Page, choresPerDay: number) {
 }
 
 async function measure(page: Page) {
-  await page.locator('.total-makegood').waitFor()
+  await page.locator('.total [role="status"]').waitFor()
   return page.evaluate(() => {
     const days = document.querySelector('.wall-main') as HTMLElement
     return {
@@ -84,10 +84,12 @@ test.describe('the week on the 1280x800 kitchen panel', () => {
     const fit = await measure(page)
     expect(fit.pageScrolls).toBe(false)
     expect(fit.daysOverflow).toBe(0)
-    // The notice is in the money card, beside the make-good line, not a row
-    // of its own above the week.
-    await expect(page.locator('.total [role="status"]')).toContainText('You missed Make bed')
-    await expect(page.locator('.total-route .total-makegood')).toBeVisible()
+    // The notice is in the money card, not a row of its own above the week,
+    // and it carries the make-good clause, so there is no separate box.
+    const notice = page.locator('.total [role="status"]')
+    await expect(notice).toContainText('You missed Make bed')
+    await expect(notice).toContainText('that takes this week back to £3')
+    await expect(page.locator('.total-makegood')).toHaveCount(0)
   })
 
   test('a heavier one scrolls the days, never the page', async ({ page }) => {
@@ -105,7 +107,7 @@ test('on a phone nothing runs off either edge', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await heavyWeek(page, 3)
   await page.goto('/')
-  await page.locator('.total-makegood').waitFor()
+  await page.locator('.total [role="status"]').waitFor()
   const spilled = await page.evaluate(() =>
     [...document.querySelectorAll('body *')]
       .filter((e) => {

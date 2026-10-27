@@ -2878,3 +2878,16 @@ week, a rejected claim, the last day and a settled week paged back to
 all fit with neither page nor days scrolling; 1920 and 390 have nothing
 off either edge. The fit spec now includes the notice and the missed
 tile. e2e 9 passed; check:literals and check:contrast pass.
+
+Coin block follow-ups (2026-10-27). "Not missed after all" moved inside
+the missed chore's own tile under "Missed" — white, a danger-edge
+outline, no shadow, 44px — so a day is one tile per chore; the
+.chore-row wrapper is gone. With the missed-chore notice showing, its
+detail ends with the make-good clause ("— that takes this week back to
+£X", appended by recoveryNotice when given the route; each tone's own
+sentences unchanged) and the separate make-good box is not shown; with
+no notice the box shows as before. "Back to this week" is a neutral
+raised button, not gold. check:contrast gains the undo's boundary
+(raised|danger-edge on danger-bg), 35 measurements, listed in DESIGN.md
+too. wall-screen-miss and the fit spec now look for the clause in the
+notice and no make-good box. e2e 9 passed; every state fits at 1280.

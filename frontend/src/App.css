@@ -521,17 +521,8 @@
     gap: 0.125rem 0.625rem;
   }
 
-  .wall .chore-row .chore {
-    margin-top: 0;
-  }
-
   .wall .chore-name {
     line-height: 1.15;
-  }
-
-  .wall .chore-control {
-    margin-top: 0.375rem;
-    padding-inline: 0.5rem;
   }
 
   .wall .weekly-side .tag {
@@ -1248,47 +1239,38 @@
   color: var(--danger);
 }
 
-/* A chore with a control under it. The row keeps the spacing the bare chore
-   had, so a tile of mixed chores does not step in and out of rhythm. */
-.chore-row {
-  margin-top: 0.625rem;
-}
-
-.chore-row .chore {
-  margin-top: 0;
-}
-
-/* "Not missed after all": a white outlined button set apart under the
-   missed row, deliberately not a full-width one. It is aimed at by a parent
-   walking past, once, and the child reaching for "I've done it" must not
-   land on it by accident. Still 50px, a comfortable thumb, and still a word
-   rather than an icon. It asks for the PIN (Chore.tsx). */
+/* "Not missed after all", inside the missed chore's own tile under the word
+   "Missed": white, outlined in danger's edge, and with no shadow — it sits
+   in a tile that is to be read, and a parent aims at it once, deliberately.
+   Not full width, so the child reaching for "I've done it" in the next tile
+   down cannot land on it by accident; still a word rather than an icon. It
+   asks for the PIN (Chore.tsx). */
 .chore-control {
-  display: block;
-  margin: 0.5rem 0 0 auto;
-  min-height: 3.125rem;
-  padding: 0.375rem 1rem;
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-height: 2.75rem;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.75rem;
   font: inherit;
   font-size: var(--size-button);
   font-weight: 800;
+  line-height: 1.15;
+  text-align: left;
   color: var(--ink);
   background: var(--raised);
-  border: var(--edge-card) solid var(--control-edge);
+  border: var(--edge-tag) solid var(--danger-edge);
   border-radius: var(--radius-button);
-  box-shadow: var(--shadow-button);
   cursor: pointer;
 }
 
 .chore-control:active:not(:disabled) {
-  transform: translateY(4px);
-  box-shadow: none;
+  transform: translateY(2px);
 }
 
 .chore-control:disabled {
   background: var(--disabled-bg);
   border-color: var(--disabled-edge);
   color: var(--disabled);
-  box-shadow: none;
 }
 
 /* --- Tags ---------------------------------------------------------------- */

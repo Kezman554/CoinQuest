@@ -75,6 +75,7 @@ const BOUNDARIES = [
   ['done-bg', 'done-edge', 'panel', 'a finished chore on a day tile'],
   ['waiting-bg', 'waiting-edge', 'panel', 'a waiting chore on a day tile'],
   ['danger-bg', 'danger-edge', 'panel', 'a missed chore on a day tile'],
+  ['raised', 'danger-edge', 'danger-bg', '"Not missed after all" inside a missed chore'],
   ['done-edge', 'done-edge', 'panel', 'the savings progress bar on its panel'],
 ]
 

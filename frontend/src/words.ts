@@ -92,11 +92,24 @@ export type Notice = {
  * the same one. "You have until Saturday" is advice while there is a tomorrow
  * to act in; inside the last day it is no longer advice, so the wording says
  * what is actually true instead — today or not at all.
+ *
+ * Given the week's make-good route, the notice also says what doing it is
+ * worth: its detail ends "— that takes this week back to £X", the same
+ * clause the separate make-good line carries, so the money card shows one
+ * box about the miss rather than two. Each tone's own sentences are
+ * unchanged; the clause is only appended.
  */
 export function recoveryNotice(
   recovery: RecoveryPanel,
   weekdayOfDeadline: string,
+  makeGood: MakeGood | null = null,
 ): Notice | null {
+  const notice = noticeFor(recovery, weekdayOfDeadline)
+  if (!notice || !makeGood || makeGood.names.length === 0) return notice
+  return { ...notice, detail: `${notice.detail.replace(/\.$/, '')}${restores(makeGood)}.` }
+}
+
+function noticeFor(recovery: RecoveryPanel, weekdayOfDeadline: string): Notice | null {
   if (recovery.outstanding === 0) {
     if (recovery.covered === 0) return null
     const covered = recovery.needs
@@ -169,9 +182,12 @@ export function recoveryNotice(
 export function makeGoodLine(makeGood: MakeGood | null): string | null {
   if (!makeGood || makeGood.names.length === 0) return null
   // "and", not "or": where the route needs two chores it needs both of them.
-  return `Do ${list(makeGood.names)} to put it right — that takes this week back to ${money(
-    makeGood.restores_to_pence,
-  )}.`
+  return `Do ${list(makeGood.names)} to put it right${restores(makeGood)}.`
+}
+
+/** " — that takes this week back to £3": what the route is worth. */
+function restores(makeGood: MakeGood): string {
+  return ` — that takes this week back to ${money(makeGood.restores_to_pence)}`
 }
 
 /** "Sunday 16 August", for a heading that has to be read from a distance. */

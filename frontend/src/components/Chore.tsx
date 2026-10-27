@@ -1,13 +1,13 @@
 /**
- * One chore, with at most one button on it — and, on a missed day tile, the
- * way back set deliberately apart from it.
+ * One chore, with at most one button on it — and, on a missed chore, the way
+ * back inside its tile, set deliberately apart from the rest of it.
  *
  * The button is the whole row rather than a small control at the end of it:
  * this is tapped by a child in a hurry, on a wall screen, and a target the
  * size of a fingertip is a target that gets mis-hit and undone again.
  *
- * The undo is the opposite shape on purpose. It is small and sits under the
- * row rather than being the row. Marking a miss is no longer offered here at
+ * The undo is the opposite shape on purpose. It is small, white and sits
+ * under the word "Missed" rather than being the row. Marking a miss is no longer offered here at
  * all — it is a parent's act, on the parent screen — but taking one back
  * still is, because this is where the missed chore is seen, and it opens the
  * parents' own PIN dialog. The server refuses the clear without the PIN
@@ -81,18 +81,13 @@ export function Chore({
         {chore.state === 'confirmed' && <Coin mark="tick" className="coin-small" />}
         {label}
       </span>
+      {/* The way back sits inside the missed chore's own tile, under
+          "Missed": one tile per chore, never a stray row in the day. */}
+      {clearControl(chore, onClearMiss)}
     </div>
   )
 
-  const control = clearControl(chore, onClearMiss)
-  if (!control) return row
-
-  return (
-    <div className="chore-row">
-      {row}
-      {control}
-    </div>
-  )
+  return row
 }
 
 /**

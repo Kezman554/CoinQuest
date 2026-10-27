@@ -26,9 +26,10 @@
  * so a figure that is now permanent does not sound like a projection still
  * moving.
  *
- * The missed-chore notice (Recovery) sits in this card too, beside the
- * make-good line: what went wrong with this figure, next to how to get it
- * back.
+ * The missed-chore notice (Recovery) sits in this card too: what went wrong
+ * with this figure, ending with what the make-good route takes it back to.
+ * While the notice shows, the separate make-good line does not — it would
+ * say the same thing twice.
  *
  * On a settled or voided week the card loses the shine — `settled` rather
  * than gold, a muted coin — and the page drops every shadow (App.css), so
@@ -62,12 +63,14 @@ export function Total({
 }) {
   const label =
     status === 'settled' ? 'Settled at' : status === 'voided' ? 'Voided at' : 'On track for'
-  const route = status === 'open' ? makeGoodLine(makeGood) : null
   const past = status !== 'open'
+  const routeBack = past ? null : makeGood
   const notice =
     recovery && recoveryNotice(recovery, weekdayOf(recovery.deadline)) ? (
-      <Recovery recovery={recovery} />
+      <Recovery recovery={recovery} makeGood={routeBack} />
     ) : null
+  // With a notice showing, the make-good clause ends the notice instead.
+  const route = notice ? null : makeGoodLine(routeBack)
 
   return (
     <section className={past ? 'total total-past' : 'total'}>

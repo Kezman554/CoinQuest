@@ -50,16 +50,19 @@ test.describe('a missed chore on the day tiles', () => {
     await markWednesdayBedMissed(page)
     await expect(total).toHaveText('£1')
     const wednesday = page.locator('.day', { hasText: 'Wednesday' })
-    const bed = wednesday.locator('.chore-row', { hasText: 'Make bed' })
+    const bed = wednesday.locator('.chore', { hasText: 'Make bed' })
 
-    // The way back, beside the number it restores, drawn from the same
-    // proposal that produced the number.
-    const makeGood = page.locator('.total-makegood')
-    await expect(makeGood).toContainText('Wash the car')
-    await expect(makeGood).toContainText('£3')
+    // The way back, in the notice in the money card beside the number it
+    // restores, drawn from the same proposal that produced the number. With
+    // the notice showing there is no separate make-good box.
+    const notice = page.locator('.total [role="status"]')
+    await expect(notice).toContainText('Wash the car')
+    await expect(notice).toContainText('that takes this week back to £3')
+    await expect(page.locator('.total-makegood')).toHaveCount(0)
 
-    // The tile now reads as missed, and carries the undo rather than a claim.
-    await expect(bed.locator('.chore-missed')).toBeVisible()
+    // The tile now reads as missed, and carries the undo inside it rather
+    // than a claim.
+    await expect(bed).toHaveClass(/chore-missed/)
 
     // And this is the direction that asks.
     await bed.getByRole('button', { name: 'Not missed after all' }).click()
@@ -72,6 +75,7 @@ test.describe('a missed chore on the day tiles', () => {
 
     await expect(dialog).toHaveCount(0)
     await expect(total).toHaveText('£3')
+    await expect(page.locator('.total [role="status"]')).toHaveCount(0)
     await expect(page.locator('.total-makegood')).toHaveCount(0)
 
     // It survives a real reload: the state is the database's, not the page's.
@@ -88,7 +92,7 @@ test.describe('a missed chore on the day tiles', () => {
     await markWednesdayBedMissed(page)
     await expect(page.locator('.total-amount')).toHaveText('£1')
     const wednesday = page.locator('.day', { hasText: 'Wednesday' })
-    const bed = wednesday.locator('.chore-row', { hasText: 'Make bed' })
+    const bed = wednesday.locator('.chore', { hasText: 'Make bed' })
 
     await bed.getByRole('button', { name: 'Not missed after all' }).click()
     const dialog = page.locator('.dialog-backdrop')
