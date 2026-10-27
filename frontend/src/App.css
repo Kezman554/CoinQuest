@@ -2,29 +2,34 @@
  *
  * Three rules, all of them about being read from four feet away:
  *
- *  - Nothing smaller than 1rem, and the things that matter are much bigger.
+ *  - Nothing smaller than 16px, and the things that matter are much bigger.
  *    The projected total is the largest thing on the page because it is the
  *    question the child came to the screen with.
- *  - Every chore is a full-width row at least 3rem (60px) tall. A child in
- *    a hurry does not aim. It was 3.5rem until the wall panel needed the
+ *  - Every chore is a full-width row at least 60px (3.75rem) tall. A child in
+ *    a hurry does not aim. It was 70px until the wall panel needed the
  *    height for a make-good line; 60px is still a generous fingertip.
+ *
+ * Every colour is a DESIGN.md token, by role (index.css). A rem is 16px;
+ * the media queries' rems always were, since a query reads the browser's
+ * own size, not the root's — which is why they kept their numbers when the
+ * root came down from 20px and everything else was scaled by 1.25.
  *  - Colour is never the only carrier. "Done", "Missed" and "Day off" are
  *    words first; the colour behind them is confirmation, not the message.
  */
 
 .page {
-  max-width: 68rem;
+  max-width: 85rem;
   margin: 0 auto;
-  padding: 1.5rem 1rem 4rem;
+  padding: 1.875rem 1.25rem 5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.875rem;
 }
 
 /* The child's week is laid out for the kitchen's 10" touch panel, 1280x800
    landscape, so it takes the width the other screens deliberately do not. */
 .page-wall {
-  max-width: 120rem;
+  max-width: 150rem;
 }
 
 /* --- The wall --------------------------------------------------------------
@@ -40,7 +45,7 @@
  *
  * From 76rem the days, and the any-time cards under them, go seven across
  * on the same column grid, so an any-time button is the same size as a
- * day's. Every chore row keeps its 3rem height throughout: the type and
+ * day's. Every chore row keeps its 60px height throughout: the type and
  * padding get tighter, the tap target does not.
  *
  * Seven across, the page is exactly one screen tall. The title row and the
@@ -52,36 +57,36 @@
 .wall-head {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.875rem;
 }
 
 .wall-head-controls {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.9375rem;
 }
 
 .wall-head .switcher {
   margin-top: 0;
   justify-content: flex-start;
-  gap: 0.5rem;
+  gap: 0.625rem;
 }
 
 /* Narrow enough that all three sit on one line of a 390-wide phone. */
 .wall-head .switcher .button {
-  padding-inline: 0.75rem;
+  padding-inline: 0.9375rem;
 }
 
 .wall {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.875rem;
 }
 
 .wall-main {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.875rem;
   min-width: 0;
 }
 
@@ -90,9 +95,9 @@
    waiting to be handed over. */
 .owed-card {
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 1.5rem;
-  padding: 1.5rem 1.25rem;
+  border: 1px solid var(--panel-edge);
+  border-radius: 1.875rem;
+  padding: 1.875rem 1.5625rem;
 }
 
 .owed-card .total-label {
@@ -101,8 +106,8 @@
 }
 
 .owed-card-due {
-  background: color-mix(in srgb, var(--coin) 22%, var(--panel));
-  border-color: var(--coin);
+  background: var(--panel);
+  border-color: var(--panel-edge);
 }
 
 .owed-card-due .total-label {
@@ -110,24 +115,24 @@
 }
 
 .owed-card-amount {
-  font-size: 3rem;
+  font-size: 3.75rem;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.03em;
-  margin: 0.4rem 0 1rem;
+  margin: 0.5rem 0 1.25rem;
   color: var(--ink);
 }
 
 .owed-card-clear {
-  font-size: 1.5rem;
+  font-size: 1.875rem;
   font-weight: 700;
-  margin-top: 0.5rem;
+  margin-top: 0.625rem;
   color: var(--done);
 }
 
 .owed-card-count {
   display: none;
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: var(--ink);
 }
@@ -138,15 +143,15 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .owed-card-weeks li {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 0 0.75rem;
-  font-size: 1rem;
+  gap: 0 0.9375rem;
+  font-size: 1.25rem;
   color: var(--ink);
 }
 
@@ -162,9 +167,9 @@
    next, then the days and the any-time chores. */
 @media (min-width: 72rem) {
   .page-wall {
-    gap: 0.5rem;
-    padding-top: 0.75rem;
-    padding-bottom: 0.25rem;
+    gap: 0.625rem;
+    padding-top: 0.9375rem;
+    padding-bottom: 0.3125rem;
   }
 
   .wall-head {
@@ -172,7 +177,7 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem 1.5rem;
+    gap: 0.625rem 1.875rem;
   }
 
   /* The dates under the name rather than beside it: beside, the name, the
@@ -182,13 +187,13 @@
   }
 
   .wall-head .masthead h1 {
-    font-size: 1.85rem;
+    font-size: 2.3125rem;
     line-height: 1.1;
   }
 
   .wall-head .dates {
     margin-top: 0;
-    font-size: 0.95rem;
+    font-size: 1.1875rem;
   }
 
   /* Week arrows, then the way to the other screens, quieter and set a
@@ -196,7 +201,7 @@
   .wall-head-controls {
     flex-direction: row;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.875rem;
   }
 
   .wall-head .switcher {
@@ -204,19 +209,19 @@
   }
 
   .wall-head .switcher .button {
-    min-height: 2.75rem;
-    padding-block: 0.25rem;
-    padding-inline: 0.9rem;
+    min-height: 3.4375rem;
+    padding-block: 0.3125rem;
+    padding-inline: 1.125rem;
   }
 
   /* Sized to their words, not half the row each — "This is the latest" is
      disabled and has no claim on the width. */
   .wall-head .week-nav-button {
     flex: none;
-    min-height: 2.75rem;
-    padding-block: 0.25rem;
-    padding-inline: 1rem;
-    font-size: 1rem;
+    min-height: 3.4375rem;
+    padding-block: 0.3125rem;
+    padding-inline: 1.25rem;
+    font-size: 1.25rem;
   }
 
   .wall {
@@ -225,7 +230,7 @@
     grid-template-areas:
       'total owed'
       'main main';
-    gap: 0.5rem;
+    gap: 0.625rem;
   }
 
   .wall-side-start {
@@ -238,16 +243,16 @@
 
   .wall-main {
     grid-area: main;
-    gap: 0.5rem;
+    gap: 0.625rem;
   }
 
   .wall .panel {
-    padding: 0.75rem 1rem 1rem;
+    padding: 0.9375rem 1.25rem 1.25rem;
   }
 
   .wall .panel h2 {
-    font-size: 1.3rem;
-    margin-bottom: 0.5rem;
+    font-size: 1.625rem;
+    margin-bottom: 0.625rem;
   }
 
   /* The prize card on its side: label over the figure on the left, the
@@ -256,15 +261,15 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    column-gap: 1.75rem;
+    column-gap: 2.1875rem;
     height: 100%;
-    padding: 0.5rem 1.25rem;
-    border-radius: 1.25rem;
+    padding: 0.625rem 1.5625rem;
+    border-radius: 1.5625rem;
   }
 
   .wall .total-label {
     grid-column: 1;
-    font-size: 1rem;
+    font-size: 1.25rem;
     line-height: 1.2;
   }
 
@@ -272,15 +277,15 @@
     grid-column: 1;
     grid-row: 2 / span 2;
     align-self: start;
-    font-size: 2.5rem;
-    margin: 0.1rem 0 0;
+    font-size: 3.125rem;
+    margin: 0.125rem 0 0;
   }
 
   .wall .breakdown {
     grid-column: 2;
     grid-row: 1 / span 2;
     flex-wrap: nowrap;
-    gap: 0.6rem;
+    gap: 0.75rem;
   }
 
   .wall .total:has(.total-note) .breakdown,
@@ -295,12 +300,12 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 0.6rem;
-    padding: 0.3rem 0.9rem;
+    gap: 0.75rem;
+    padding: 0.375rem 1.125rem;
   }
 
   .wall .breakdown dd {
-    font-size: 1.3rem;
+    font-size: 1.625rem;
     line-height: 1.2;
     margin-top: 0;
     white-space: nowrap;
@@ -310,8 +315,8 @@
     grid-column: 2;
     grid-row: 2;
     align-self: start;
-    margin-top: 0.4rem;
-    font-size: 1rem;
+    margin-top: 0.5rem;
+    font-size: 1.25rem;
   }
 
   /* The route back, under the note and beside the figure it restores —
@@ -319,9 +324,9 @@
   .wall .total-makegood {
     grid-column: 2;
     grid-row: 2;
-    margin-top: 0.4rem;
-    padding: 0.3rem 0.9rem;
-    font-size: 1rem;
+    margin-top: 0.5rem;
+    padding: 0.375rem 1.125rem;
+    font-size: 1.25rem;
   }
 
   .wall .total:has(.total-note) .total-makegood {
@@ -330,20 +335,20 @@
 
   .wall .owed-card {
     height: 100%;
-    padding: 0.5rem 1.5rem;
-    border-radius: 1.25rem;
+    padding: 0.625rem 1.875rem;
+    border-radius: 1.5625rem;
     display: flex;
     flex-direction: column;
     justify-content: center;
   }
 
   .wall .owed-card .total-label {
-    font-size: 1rem;
+    font-size: 1.25rem;
   }
 
   .wall .owed-card-amount {
-    font-size: 2rem;
-    margin: 0.1rem 0 0.15rem;
+    font-size: 2.5rem;
+    margin: 0.125rem 0 0.1875rem;
   }
 
   .wall .owed-card-count {
@@ -356,7 +361,7 @@
   }
 
   .wall .owed-card-clear {
-    margin-top: 0.25rem;
+    margin-top: 0.3125rem;
   }
 }
 
@@ -381,9 +386,9 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    margin-inline: -0.4rem;
-    padding-inline: 0.4rem;
-    padding-bottom: 0.3rem;
+    margin-inline: -0.5rem;
+    padding-inline: 0.5rem;
+    padding-bottom: 0.375rem;
   }
 }
 
@@ -398,7 +403,7 @@
   .wall .panel-weekly {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 0.5rem;
+    gap: 0.625rem;
   }
 
   .wall .panel-days,
@@ -410,7 +415,7 @@
 
   /* Room for the TODAY badge that sits on the tile's top edge. */
   .wall .panel-days {
-    padding-top: 0.6rem;
+    padding-top: 0.75rem;
   }
 
   .wall .days .day,
@@ -421,13 +426,11 @@
   .wall .days .day-today {
     border-width: 1px;
     border-top-width: 6px;
-    box-shadow:
-      0 0 0 2px var(--accent),
-      0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
+    box-shadow: 0 0 0 2px var(--today-edge);
   }
 
   .wall .days .day-past:not(.day-waived) {
-    background: color-mix(in srgb, var(--panel) 70%, var(--bg));
+    background: var(--panel);
   }
 
   .wall .panel-days > h2 {
@@ -446,7 +449,7 @@
   .wall .panel-weekly > h2 {
     align-self: center;
     margin: 0;
-    padding-inline: 0.25rem;
+    padding-inline: 0.3125rem;
   }
 
   .wall .weekly {
@@ -455,18 +458,18 @@
 
   .wall .day,
   .wall .weekly-card {
-    padding: 0.5rem 0.4rem 0.4rem;
+    padding: 0.625rem 0.5rem 0.5rem;
   }
 
   .wall .day h3,
   .wall .weekly-card h3 {
-    font-size: 1.1rem;
+    font-size: 1.375rem;
     line-height: 1.25;
   }
 
   .wall .day h3 {
     flex-wrap: nowrap;
-    gap: 0.3rem;
+    gap: 0.375rem;
     white-space: nowrap;
   }
 
@@ -482,9 +485,9 @@
 
   .wall .chore {
     line-height: 1.2;
-    padding: 0.3rem 0.55rem;
-    margin-top: 0.35rem;
-    gap: 0.1rem 0.5rem;
+    padding: 0.375rem 0.6875rem;
+    margin-top: 0.4375rem;
+    gap: 0.125rem 0.625rem;
   }
 
   .wall .chore-row .chore {
@@ -492,23 +495,23 @@
   }
 
   .wall .chore-name {
-    font-size: 1rem;
+    font-size: 1.25rem;
     line-height: 1.2;
   }
 
   .wall .chore-state,
   .wall .chore-claimable .chore-state {
-    font-size: 1rem;
+    font-size: 1.25rem;
   }
 
   .wall .weekly-side .tag {
-    padding-block: 0.1rem;
+    padding-block: 0.125rem;
   }
 
   .wall .weekly-side,
   .wall .weekly-progress {
-    margin-top: 0.1rem;
-    font-size: 1rem;
+    margin-top: 0.125rem;
+    font-size: 1.25rem;
     line-height: 1.2;
   }
 }
@@ -517,15 +520,15 @@
    the height the 1280 panel lacks, so the tiles go back to full-size type. */
 @media (min-width: 120rem) {
   .page-wall {
-    gap: 1rem;
+    gap: 1.25rem;
   }
 
   .wall {
-    grid-template-columns: 13rem minmax(0, 1fr) 15rem;
+    grid-template-columns: 16.25rem minmax(0, 1fr) 18.75rem;
     grid-template-areas: 'total main owed';
     grid-template-rows: minmax(0, 1fr);
     align-items: start;
-    gap: 1.25rem;
+    gap: 1.5625rem;
   }
 
   .page-wall .wall-main {
@@ -533,51 +536,51 @@
   }
 
   .wall-main {
-    gap: 1rem;
+    gap: 1.25rem;
   }
 
   .wall .days,
   .wall .panel-weekly {
-    gap: 0.75rem;
+    gap: 0.9375rem;
   }
 
   .wall .day,
   .wall .weekly-card {
-    padding: 0.7rem 0.4rem 0.5rem;
+    padding: 0.875rem 0.5rem 0.625rem;
   }
 
   .wall .chore {
-    padding: 0.5rem 0.65rem;
-    margin-top: 0.5rem;
+    padding: 0.625rem 0.8125rem;
+    margin-top: 0.625rem;
   }
 
   .wall .chore-name {
-    font-size: 1.1rem;
+    font-size: 1.375rem;
   }
 
   .wall .chore-state,
   .wall .chore-claimable .chore-state {
-    font-size: 1.05rem;
+    font-size: 1.3125rem;
   }
 
   .wall .panel-weekly > h2 {
-    font-size: 1.5rem;
+    font-size: 1.875rem;
   }
 
   .wall .total {
     display: block;
     height: auto;
-    padding: 1.5rem 1.25rem;
-    border-radius: 1.5rem;
+    padding: 1.875rem 1.5625rem;
+    border-radius: 1.875rem;
   }
 
   .wall .total-label {
-    font-size: 1.1rem;
+    font-size: 1.375rem;
   }
 
   .wall .total-amount {
-    font-size: 4rem;
-    margin: 0.25rem 0 1rem;
+    font-size: 5rem;
+    margin: 0.3125rem 0 1.25rem;
   }
 
   .wall .breakdown {
@@ -585,24 +588,24 @@
   }
 
   .wall .total-note {
-    margin-top: 1rem;
+    margin-top: 1.25rem;
   }
 
   .wall .breakdown > div {
     flex: none;
     display: block;
-    padding: 0.75rem 1rem;
+    padding: 0.9375rem 1.25rem;
   }
 
   .wall .owed-card {
     height: auto;
-    padding: 1.5rem 1.25rem;
-    border-radius: 1.5rem;
+    padding: 1.875rem 1.5625rem;
+    border-radius: 1.875rem;
   }
 
   .wall .owed-card-amount {
-    font-size: 3rem;
-    margin: 0.4rem 0 1rem;
+    font-size: 3.75rem;
+    margin: 0.5rem 0 1.25rem;
   }
 
   .wall .owed-card-count {
@@ -617,106 +620,103 @@
 /* --- Masthead ------------------------------------------------------------ */
 
 .masthead h1 {
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
   letter-spacing: -0.02em;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--ink);
 }
 
 .dates {
   color: var(--ink-soft);
-  font-size: 1.1rem;
-  margin-top: 0.25rem;
+  font-size: 1.375rem;
+  margin-top: 0.3125rem;
 }
 
 .loading,
 .problem {
   background: var(--panel);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  font-size: 1.25rem;
+  border-radius: 1.25rem;
+  padding: 1.875rem;
+  font-size: 1.5625rem;
 }
 
 .problem {
-  background: var(--urgent-bg);
-  color: var(--urgent);
+  background: var(--danger-bg);
+  color: var(--danger);
   font-weight: 600;
 }
 
 /* --- The projected total ------------------------------------------------- */
 
 /* The projected total is the one figure the child came to the screen for, so
-   it gets the loudest treatment on the page — a bright, gradient "prize
-   card" rather than another white panel. */
+   it gets the loudest treatment on the page: the gold card, money's own
+   colour, rather than another white panel. */
 .total {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
-  color: #fff;
-  border-radius: 1.5rem;
-  padding: 1.75rem 1.5rem;
+  background: var(--gold);
+  color: var(--on-gold);
+  border-radius: 1.875rem;
+  padding: 2.1875rem 1.875rem;
   border: none;
-  box-shadow: 0 1rem 2.5rem -1rem color-mix(in srgb, var(--accent) 65%, transparent);
+  box-shadow: 0 5px 0 var(--shadow);
 }
 
 .total-label {
-  font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.375rem;
+  color: var(--on-gold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 700;
 }
 
 .total-amount {
-  font-size: clamp(3.5rem, 12vw, 5.5rem);
+  font-size: clamp(4.375rem, 12vw, 6.875rem);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.03em;
-  margin: 0.25rem 0 1rem;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  margin: 0.3125rem 0 1.25rem;
 }
 
 .breakdown {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.9375rem;
   margin: 0;
 }
 
 .breakdown > div {
-  flex: 1 1 8rem;
-  /* A dark overlay rather than a light one: the card behind it is a
-     two-colour gradient, and a dark tint keeps the same contrast for white
-     text on both the purple and the coral end of it. */
-  background: rgba(0, 0, 0, 0.16);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
+  flex: 1 1 10rem;
+  /* Opaque, on an opaque card: DESIGN.md allows no translucent fill
+     behind text. */
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 0.9375rem;
+  padding: 0.9375rem 1.25rem;
 }
 
 .breakdown dt {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.25rem;
+  color: var(--ink-soft);
 }
 
 .breakdown dd {
-  margin: 0.15rem 0 0;
-  font-size: 1.5rem;
+  margin: 0.1875rem 0 0;
+  font-size: 1.875rem;
   font-weight: 700;
 }
 
+/* Chore money at risk is danger's tier, not gold's. */
 .breakdown .at-risk {
-  background: var(--coin);
+  background: var(--danger-bg);
 }
 
 .breakdown .at-risk dd,
 .breakdown .at-risk dt {
-  color: #4a2e00;
+  color: var(--danger);
 }
 
 .total-note {
-  margin-top: 1rem;
-  font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.92);
+  margin-top: 1.25rem;
+  font-size: 1.375rem;
+  color: var(--on-gold);
   font-weight: 600;
 }
 
@@ -724,42 +724,42 @@
    same card rather than beside it: it is about this number, and a box of its
    own would read as a separate announcement to be dealt with later. */
 .total-makegood {
-  margin-top: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.18);
-  font-size: 1.15rem;
+  margin-top: 0.9375rem;
+  padding: 0.9375rem 1.25rem;
+  border-radius: 0.9375rem;
+  background: var(--panel);
+  font-size: 1.4375rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--ink);
 }
 
 /* --- The recovery notice ------------------------------------------------- */
 
 .notice {
-  border-radius: 1.25rem;
-  padding: 1.5rem;
+  border-radius: 1.5625rem;
+  padding: 1.875rem;
   border: 3px solid transparent;
 }
 
 .notice h2 {
-  font-size: clamp(1.5rem, 4vw, 2.25rem);
-  margin-bottom: 0.5rem;
+  font-size: clamp(1.875rem, 4vw, 2.8125rem);
+  margin-bottom: 0.625rem;
 }
 
 .notice p {
-  font-size: 1.25rem;
+  font-size: 1.5625rem;
 }
 
 .notice-todo {
-  background: var(--todo-bg);
-  border-color: var(--todo);
-  color: var(--todo);
+  background: var(--waiting-bg);
+  border-color: var(--waiting);
+  color: var(--waiting);
 }
 
 .notice-urgent {
-  background: var(--urgent-bg);
-  border-color: var(--urgent);
-  color: var(--urgent);
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .notice-sorted {
@@ -771,13 +771,13 @@
 /* The same colour a waived day already reads in: set apart from the ordinary
    flow of the week, not an alarm and not an achievement. */
 .notice-away {
-  background: var(--away-bg);
-  border-color: var(--away);
-  color: var(--away);
+  background: var(--settled);
+  border-color: var(--panel-edge);
+  color: var(--ink);
 }
 
 .notice-away .button {
-  margin-top: 0.75rem;
+  margin-top: 0.9375rem;
 }
 
 /* A small icon on the headline — decoration on top of a message the words
@@ -802,79 +802,53 @@
 
 .week-nav {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.9375rem;
   justify-content: space-between;
 }
 
 .week-nav-button {
   flex: 1;
-  min-height: 3.5rem;
-  font-size: 1.1rem;
+  min-height: 4.375rem;
+  font-size: 1.375rem;
 }
 
 /* --- Panels -------------------------------------------------------------- */
 
 .panel h2 {
-  font-size: 1.6rem;
-  margin-bottom: 0.75rem;
+  font-size: 2rem;
+  margin-bottom: 0.9375rem;
 }
 
 .days {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr));
+  gap: 0.9375rem;
 }
 
 .day,
 .weekly-card {
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-top: 6px solid var(--line);
-  border-radius: 1rem;
-  padding: 1rem;
-}
-
-/* A colour per day of the week — decorative only. The heading above each
-   card already names the day; this just makes the row of seven read as a
-   week rather than seven identical boxes. */
-.days > .day:nth-child(7n + 1) {
-  border-top-color: var(--day-1);
-}
-.days > .day:nth-child(7n + 2) {
-  border-top-color: var(--day-2);
-}
-.days > .day:nth-child(7n + 3) {
-  border-top-color: var(--day-3);
-}
-.days > .day:nth-child(7n + 4) {
-  border-top-color: var(--day-4);
-}
-.days > .day:nth-child(7n + 5) {
-  border-top-color: var(--day-5);
-}
-.days > .day:nth-child(7n + 6) {
-  border-top-color: var(--day-6);
-}
-.days > .day:nth-child(7n + 7) {
-  border-top-color: var(--day-7);
+  border: 1px solid var(--panel-edge);
+  border-top: 6px solid var(--panel-edge);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
 }
 
 .day-today {
-  border: 3px solid var(--accent);
+  border: 3px solid var(--today-edge);
   border-top-width: 6px;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .day-past:not(.day-waived) {
-  background: color-mix(in srgb, var(--panel) 80%, var(--bg));
+  background: var(--panel);
 }
 
 .day h3,
 .weekly-card h3 {
-  font-size: 1.4rem;
+  font-size: 1.75rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   flex-wrap: wrap;
 }
 
@@ -883,95 +857,96 @@
 }
 
 .day-date {
-  font-size: 0.95rem;
+  font-size: 1.1875rem;
   color: var(--ink-soft);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.9375rem;
 }
 
 .nothing {
   color: var(--ink-soft);
-  font-size: 1.05rem;
-  padding: 0.5rem 0;
+  font-size: 1.3125rem;
+  padding: 0.625rem 0;
 }
 
 /* A day away reads as a day away, in its own colour and its own words. */
 .waived {
-  background: var(--away-bg);
-  color: var(--away);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
+  background: var(--settled);
+  color: var(--ink);
+  border-radius: 0.9375rem;
+  padding: 0.9375rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.1875rem;
 }
 
 .waived strong {
-  font-size: 1.25rem;
+  font-size: 1.5625rem;
 }
 
 .waived span {
-  font-size: 1rem;
+  font-size: 1.25rem;
 }
 
 /* --- One chore ----------------------------------------------------------- */
 
 .chore {
   width: 100%;
-  min-height: 3rem;
+  min-height: 3.75rem;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 0.25rem 0.75rem;
+  gap: 0.3125rem 0.9375rem;
   text-align: left;
   font: inherit;
   color: inherit;
-  background: var(--bg);
-  border: 2px solid var(--line);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
-  margin-top: 0.5rem;
+  background: var(--panel);
+  border: 2px solid var(--panel-edge);
+  border-radius: 0.9375rem;
+  padding: 0.9375rem 1.25rem;
+  margin-top: 0.625rem;
 }
 
 .chore-name {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   font-weight: 600;
 }
 
 .chore-side {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .chore-amount {
-  font-size: 1.1rem;
+  font-size: 1.375rem;
   font-weight: 700;
-  color: color-mix(in srgb, var(--coin) 70%, var(--ink));
+  color: var(--ink);
 }
 
 .chore-state {
   grid-column: 1 / -1;
-  font-size: 1.05rem;
+  font-size: 1.3125rem;
   color: var(--ink-soft);
 }
 
 .chore-note {
   grid-column: 1 / -1;
-  font-size: 1rem;
-  color: var(--todo);
+  font-size: 1.25rem;
+  color: var(--waiting);
 }
 
 /* The one thing on this page that does anything. */
 .chore-claimable {
   cursor: pointer;
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: var(--action);
+  border-color: var(--outline);
+  color: var(--on-action);
 }
 
 .chore-claimable .chore-state {
   font-weight: 700;
-  font-size: 1.15rem;
-  color: var(--accent);
+  font-size: 1.4375rem;
+  color: var(--on-action);
 }
 
 .chore-claimable:active {
@@ -994,19 +969,19 @@
 }
 
 .chore-claimed {
-  background: var(--todo-bg);
-  border-color: var(--todo);
+  background: var(--waiting-bg);
+  border-color: var(--waiting);
 }
 
 .chore-claimed .chore-state {
-  color: var(--todo);
+  color: var(--waiting);
   font-weight: 600;
 }
 
 /* A chore with a control under it. The row keeps the spacing the bare chore
    had, so a tile of mixed chores does not step in and out of rhythm. */
 .chore-row {
-  margin-top: 0.5rem;
+  margin-top: 0.625rem;
 }
 
 .chore-row .chore {
@@ -1017,20 +992,20 @@
    Every chore on this screen is a 3rem row because a child in a hurry
    does not aim — which is exactly why this one is not. It is aimed at
    by a parent walking past, once, and the child reaching for "I've done it"
-   must not land on it by accident. Still 2.5rem, which is a comfortable
+   must not land on it by accident. Still 50px, which is a comfortable
    thumb, and still a word rather than an icon. */
 .chore-control {
   display: block;
-  margin: 0.25rem 0 0 auto;
-  min-height: 2.5rem;
-  padding: 0.35rem 0.9rem;
+  margin: 0.3125rem 0 0 auto;
+  min-height: 3.125rem;
+  padding: 0.4375rem 1.125rem;
   font: inherit;
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: var(--ink-soft);
   background: transparent;
-  border: 2px solid var(--line);
-  border-radius: 0.6rem;
+  border: 2px solid var(--panel-edge);
+  border-radius: 0.75rem;
   cursor: pointer;
 }
 
@@ -1045,40 +1020,40 @@
 /* The way back reads as the way back: the same colour the "on track" figure
    and every other route-forward control uses, not the red of the miss. */
 .chore-control-undo {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--on-action);
+  border-color: var(--outline);
+  background: var(--action);
 }
 
 .chore-missed {
-  background: var(--urgent-bg);
-  border-color: var(--urgent);
+  background: var(--danger-bg);
+  border-color: var(--danger);
 }
 
 .chore-missed .chore-state {
-  color: var(--urgent);
+  color: var(--danger);
   font-weight: 700;
 }
 
 /* --- Tags ---------------------------------------------------------------- */
 
 .tag {
-  font-size: 0.85rem;
+  font-size: 1.0625rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  padding: 0.25rem 0.75rem;
 }
 
 .tag-bonus {
-  background: color-mix(in srgb, var(--coin) 25%, var(--panel));
-  color: color-mix(in srgb, var(--coin) 55%, black);
+  background: var(--gold);
+  color: var(--on-gold);
 }
 
 .tag-today {
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  color: #fff;
+  background: var(--today);
+  color: var(--on-today);
 }
 
 /* Pinned to the tile's top edge rather than set beside the weekday: in the
@@ -1091,37 +1066,36 @@
 
 .day .tag-today {
   position: absolute;
-  top: -0.7rem;
-  right: 0.5rem;
-  font-size: 0.8rem;
-  padding: 0.15rem 0.55rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  top: -0.875rem;
+  right: 0.625rem;
+  font-size: 1rem;
+  padding: 0.1875rem 0.6875rem;
 }
 
 /* --- The week's own chores ----------------------------------------------- */
 
 .weekly {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(22.5rem, 100%), 1fr));
+  gap: 0.9375rem;
 }
 
 .weekly-side {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
+  gap: 0.625rem;
+  margin-top: 0.4375rem;
 }
 
 .weekly-progress {
-  margin-top: 0.5rem;
-  font-size: 1.15rem;
+  margin-top: 0.625rem;
+  font-size: 1.4375rem;
   font-weight: 700;
   color: var(--ink-soft);
 }
 
 .weekly-waived {
-  background: color-mix(in srgb, var(--panel) 80%, var(--bg));
+  background: var(--panel);
 }
 
 /* --- The parent's screen -------------------------------------------------
@@ -1136,21 +1110,21 @@
  */
 
 .switcher {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: 0.9375rem;
 }
 
 .button {
   font: inherit;
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  min-height: 2.75rem;
-  padding: 0.5rem 1.1rem;
-  border-radius: 0.6rem;
-  border: 2px solid var(--line);
+  min-height: 3.4375rem;
+  padding: 0.625rem 1.375rem;
+  border-radius: 0.75rem;
+  border: 2px solid var(--panel-edge);
   background: var(--panel);
   color: var(--ink);
   cursor: pointer;
@@ -1162,9 +1136,9 @@
 }
 
 .button-do {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
+  background: var(--action);
+  color: var(--on-action);
+  border-color: var(--outline);
 }
 
 .button-quiet {
@@ -1174,16 +1148,16 @@
 /* The parent page's second way back, above the masthead rather than fighting
    it for attention — the footer control below stays the primary one. */
 .button-back-top {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 /* The parent page's three tabs. Full width and as tall as any other control,
    so the one wanted is a tap from across the kitchen rather than a scroll. */
 .parent-tabs {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.25rem;
-  border-bottom: 2px solid var(--line);
+  gap: 0.625rem;
+  margin-bottom: 1.5625rem;
+  border-bottom: 2px solid var(--panel-edge);
 }
 
 .parent-tab {
@@ -1191,17 +1165,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   font: inherit;
-  font-size: 1.05rem;
+  font-size: 1.3125rem;
   font-weight: 600;
-  min-height: 3.25rem;
-  padding: 0.5rem 0.4rem;
+  min-height: 4.0625rem;
+  padding: 0.625rem 0.5rem;
   margin-bottom: -2px;
   white-space: nowrap;
   border: 2px solid transparent;
   border-bottom: 4px solid transparent;
-  border-radius: 0.6rem 0.6rem 0 0;
+  border-radius: 0.75rem 0.75rem 0 0;
   background: none;
   color: var(--ink-soft);
   cursor: pointer;
@@ -1209,36 +1183,36 @@
 
 .parent-tab.chosen {
   background: var(--panel);
-  border-color: var(--line);
-  border-bottom-color: var(--accent);
+  border-color: var(--panel-edge);
+  border-bottom-color: var(--ink);
   color: var(--ink);
 }
 
 .parent-tab-count {
-  min-width: 1.6rem;
-  padding: 0 0.4rem;
-  border-radius: 999px;
-  background: var(--accent-2);
-  color: #fff;
-  font-size: 0.85rem;
-  line-height: 1.6rem;
+  min-width: 2rem;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 1.0625rem;
+  line-height: 2rem;
 }
 
 @media (max-width: 420px) {
   .parent-tabs {
-    gap: 0.25rem;
+    gap: 0.3125rem;
   }
 
   .parent-tab {
-    font-size: 0.95rem;
-    gap: 0.3rem;
-    padding: 0.5rem 0.2rem;
+    font-size: 1.1875rem;
+    gap: 0.375rem;
+    padding: 0.625rem 0.25rem;
   }
 }
 
 .button-danger {
-  border-color: var(--urgent);
-  color: var(--urgent);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .button-yes.chosen {
@@ -1248,100 +1222,100 @@
 }
 
 .button-no.chosen {
-  background: var(--urgent-bg);
-  border-color: var(--urgent);
-  color: var(--urgent);
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .act-note {
   color: var(--ink-soft);
-  font-size: 0.95rem;
-  margin-bottom: 0.75rem;
-  max-width: 46rem;
+  font-size: 1.1875rem;
+  margin-bottom: 0.9375rem;
+  max-width: 57.5rem;
 }
 
 .panel {
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-top: 4px solid var(--accent-soft);
-  border-radius: 1rem;
-  padding: 1.25rem;
+  border: 1px solid var(--panel-edge);
+  border-top: 5px solid var(--panel-edge);
+  border-radius: 1.25rem;
+  padding: 1.5625rem;
 }
 
 /* The day and weekly grids sit inside .panel on the child's screen and must
    not carry the panel background twice. */
 .days .day,
 .weekly .weekly-card {
-  background: var(--bg);
+  background: var(--panel);
 }
 
 input[type='text'],
 select {
   font: inherit;
-  font-size: 1rem;
-  min-height: 2.75rem;
-  padding: 0.4rem 0.7rem;
-  border-radius: 0.6rem;
-  border: 2px solid var(--line);
-  background: var(--bg);
+  font-size: 1.25rem;
+  min-height: 3.4375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.75rem;
+  border: 2px solid var(--control-edge);
+  background: var(--raised);
   color: var(--ink);
-  flex: 1 1 12rem;
+  flex: 1 1 15rem;
   min-width: 0;
 }
 
 .act {
-  border-top: 1px solid var(--line);
-  padding-top: 1rem;
-  margin-top: 1rem;
+  border-top: 1px solid var(--panel-edge);
+  padding-top: 1.25rem;
+  margin-top: 1.25rem;
 }
 
 .act h3 {
-  font-size: 1.15rem;
-  margin-bottom: 0.35rem;
+  font-size: 1.4375rem;
+  margin-bottom: 0.4375rem;
 }
 
 .act-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.625rem;
   align-items: center;
-  margin-top: 0.5rem;
+  margin-top: 0.625rem;
 }
 
 /* --- The queue ----------------------------------------------------------- */
 
 .queue-week + .queue-week {
-  margin-top: 1.25rem;
+  margin-top: 1.5625rem;
 }
 
 .queue-week-heading {
-  font-size: 0.95rem;
+  font-size: 1.1875rem;
   font-weight: 700;
   color: var(--ink-soft);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.625rem;
 }
 
 .queue {
   list-style: none;
-  margin: 0 0 1rem;
+  margin: 0 0 1.25rem;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.625rem;
 }
 
 .queue-item {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.625rem;
   align-items: center;
   justify-content: space-between;
-  border: 2px solid var(--line);
-  border-radius: 0.75rem;
-  padding: 0.6rem 0.9rem;
-  background: var(--bg);
+  border: 2px solid var(--panel-edge);
+  border-radius: 0.9375rem;
+  padding: 0.75rem 1.125rem;
+  background: var(--panel);
 }
 
 .queue-item.ruled-confirm {
@@ -1350,33 +1324,33 @@ select {
 }
 
 .queue-item.ruled-reject {
-  border-color: var(--urgent);
-  background: var(--urgent-bg);
+  border-color: var(--danger);
+  background: var(--danger-bg);
 }
 
 .queue-name {
   font-weight: 600;
-  font-size: 1.05rem;
+  font-size: 1.3125rem;
   display: block;
 }
 
 .queue-meta {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   flex-wrap: wrap;
-  font-size: 0.9rem;
+  font-size: 1.125rem;
   color: var(--ink-soft);
 }
 
 .queue-rule {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .tag-again {
-  background: var(--todo-bg);
-  color: var(--todo);
+  background: var(--waiting-bg);
+  color: var(--waiting);
 }
 
 .tag-settled {
@@ -1385,23 +1359,23 @@ select {
 }
 
 .tag-voided {
-  background: var(--away-bg);
-  color: var(--away);
+  background: var(--settled);
+  color: var(--ink);
 }
 
 /* --- What the batch does ------------------------------------------------- */
 
 .batch {
-  border-top: 2px solid var(--line);
-  padding-top: 1rem;
+  border-top: 2px solid var(--panel-edge);
+  padding-top: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.9375rem;
   align-items: flex-start;
 }
 
 .batch-action {
-  font-size: 1.15rem;
+  font-size: 1.4375rem;
   font-weight: 700;
 }
 
@@ -1410,26 +1384,26 @@ select {
 .figures {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 0.5rem;
+  gap: 0.75rem;
+  margin-bottom: 0.625rem;
 }
 
 .figure {
-  background: var(--bg);
-  border-radius: 0.7rem;
-  padding: 0.6rem 0.9rem;
+  background: var(--panel);
+  border-radius: 0.875rem;
+  padding: 0.75rem 1.125rem;
   display: flex;
   flex-direction: column;
-  flex: 1 1 8rem;
+  flex: 1 1 10rem;
 }
 
 .figure-label {
-  font-size: 0.85rem;
+  font-size: 1.0625rem;
   color: var(--ink-soft);
 }
 
 .figure-value {
-  font-size: 1.4rem;
+  font-size: 1.75rem;
   font-weight: 700;
 }
 
@@ -1438,76 +1412,76 @@ select {
 }
 
 .figure-big .figure-value {
-  font-size: 2.5rem;
+  font-size: 3.125rem;
 }
 
 .figure-warn {
-  background: var(--todo-bg);
+  background: var(--waiting-bg);
 }
 
 .figure-warn .figure-value,
 .figure-warn .figure-label {
-  color: var(--todo);
+  color: var(--waiting);
 }
 
 .figure-note {
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: var(--ink-soft);
 }
 
 /* --- Closing a week ------------------------------------------------------ */
 
 .closing {
-  border-top: 2px solid var(--line);
-  margin-top: 1.25rem;
-  padding-top: 1rem;
+  border-top: 2px solid var(--panel-edge);
+  margin-top: 1.5625rem;
+  padding-top: 1.25rem;
 }
 
 .closing-note {
-  font-size: 0.95rem;
+  font-size: 1.1875rem;
   color: var(--ink-soft);
-  margin-bottom: 0.75rem;
-  max-width: 46rem;
+  margin-bottom: 0.9375rem;
+  max-width: 57.5rem;
 }
 
 .closing-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.25rem;
   align-items: flex-start;
 }
 
 .void-week {
   display: flex;
-  gap: 0.5rem;
-  flex: 1 1 20rem;
+  gap: 0.625rem;
+  flex: 1 1 25rem;
 }
 
 .settle-button {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 /* --- Payday and savings -------------------------------------------------- */
 
 .owed {
   list-style: none;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.9375rem;
   padding: 0;
 }
 
 .owed label {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0;
+  gap: 0.75rem;
+  padding: 0.625rem 0;
   flex-wrap: wrap;
 }
 
 .owed input {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .owed-week {
@@ -1520,14 +1494,14 @@ select {
 
 .owed-note,
 .queue-when {
-  font-size: 0.85rem;
+  font-size: 1.0625rem;
   color: var(--ink-soft);
 }
 
 /* The child's own deposits still waiting on a parent — see SavingsView.tsx. */
 .deposit-pending {
   list-style: none;
-  margin: 1rem 0 0;
+  margin: 1.25rem 0 0;
   padding: 0;
 }
 
@@ -1535,27 +1509,27 @@ select {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-  border-top: 1px solid var(--line);
+  gap: 0.9375rem;
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--panel-edge);
   flex-wrap: wrap;
 }
 
 .deposit-pending-note {
-  font-size: 0.85rem;
+  font-size: 1.0625rem;
   color: var(--ink-soft);
 }
 
 .ledger {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1rem;
-  font-size: 0.95rem;
+  margin-top: 1.25rem;
+  font-size: 1.1875rem;
 }
 
 .ledger td {
-  padding: 0.4rem 0.5rem;
-  border-top: 1px solid var(--line);
+  padding: 0.5rem 0.625rem;
+  border-top: 1px solid var(--panel-edge);
 }
 
 .ledger-amount,
@@ -1574,48 +1548,48 @@ select {
 }
 
 .reconciled-ok {
-  margin-top: 0.6rem;
+  margin-top: 0.75rem;
   color: var(--done);
   font-weight: 600;
 }
 
 .reconciled-off {
-  margin-top: 0.6rem;
-  color: var(--todo);
+  margin-top: 0.75rem;
+  color: var(--waiting);
   font-weight: 600;
 }
 
 .presets {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.625rem;
   flex-wrap: wrap;
-  margin-top: 0.75rem;
+  margin-top: 0.9375rem;
 }
 
 /* --- Progress toward the savings-match cap -------------------------------- */
 
 .savings-cap {
-  margin-top: 1rem;
+  margin-top: 1.25rem;
 }
 
 .savings-cap-bar {
-  height: 0.9rem;
-  border-radius: 999px;
-  background: var(--bg);
-  border: 1px solid var(--line);
+  height: 1.125rem;
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
   overflow: hidden;
 }
 
 .savings-cap-fill {
   height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: var(--radius-pill);
+  background: var(--done-edge);
   transition: width 0.3s ease;
 }
 
 .savings-cap-note {
-  margin-top: 0.4rem;
-  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
   color: var(--ink-soft);
 }
 
@@ -1628,7 +1602,7 @@ select {
 }
 
 .lifetime-chart-axis {
-  stroke: var(--line);
+  stroke: var(--panel-edge);
   stroke-width: 2;
 }
 
@@ -1651,7 +1625,7 @@ path.lifetime-line {
 }
 
 .lifetime-line-counterfactual {
-  stroke: var(--accent);
+  stroke: var(--done);
 }
 
 circle.lifetime-line-real {
@@ -1659,23 +1633,23 @@ circle.lifetime-line-real {
 }
 
 circle.lifetime-line-counterfactual {
-  fill: var(--accent);
+  fill: var(--done);
 }
 
 .lifetime-legend {
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 1.25rem;
-  margin: 0.75rem 0 0;
+  gap: 1.5625rem;
+  margin: 0.9375rem 0 0;
   padding: 0;
-  font-size: 0.9rem;
+  font-size: 1.125rem;
   color: var(--ink-soft);
 }
 
 .lifetime-legend li {
   position: relative;
-  padding-left: 1.3rem;
+  padding-left: 1.625rem;
 }
 
 .lifetime-legend li::before {
@@ -1683,9 +1657,9 @@ circle.lifetime-line-counterfactual {
   position: absolute;
   left: 0;
   top: 0.35em;
-  width: 0.9rem;
-  height: 0.3rem;
-  border-radius: 999px;
+  width: 1.125rem;
+  height: 0.375rem;
+  border-radius: var(--radius-pill);
 }
 
 .lifetime-legend-real::before {
@@ -1693,7 +1667,7 @@ circle.lifetime-line-counterfactual {
 }
 
 .lifetime-legend-counterfactual::before {
-  background: var(--accent);
+  background: var(--done);
 }
 
 /* --- Closed weeks -------------------------------------------------------- */
@@ -1708,14 +1682,14 @@ circle.lifetime-line-counterfactual {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.9375rem;
   font: inherit;
   color: inherit;
   text-align: left;
   background: none;
   border: none;
-  border-top: 1px solid var(--line);
-  padding: 0.75rem 0;
+  border-top: 1px solid var(--panel-edge);
+  padding: 0.9375rem 0;
   cursor: pointer;
 }
 
@@ -1730,35 +1704,35 @@ circle.lifetime-line-counterfactual {
 }
 
 .closed-detail {
-  background: var(--bg);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  margin-bottom: 0.75rem;
+  background: var(--panel);
+  border-radius: 0.9375rem;
+  padding: 1.25rem;
+  margin-bottom: 0.9375rem;
 }
 
 .closed-note,
 .closed-paid,
 .closed-override,
 .closed-void {
-  font-size: 0.95rem;
+  font-size: 1.1875rem;
   color: var(--ink-soft);
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.75rem;
 }
 
 .closed-void {
-  color: var(--away);
+  color: var(--ink-soft);
   font-weight: 600;
 }
 
 .reopening-history {
-  border-top: 1px solid var(--line);
-  padding-top: 0.75rem;
-  margin-top: 0.75rem;
+  border-top: 1px solid var(--panel-edge);
+  padding-top: 0.9375rem;
+  margin-top: 0.9375rem;
 }
 
 .reopening-history h4 {
-  font-size: 1rem;
-  margin-bottom: 0.35rem;
+  font-size: 1.25rem;
+  margin-bottom: 0.4375rem;
 }
 
 .reopening-history ul {
@@ -1767,58 +1741,58 @@ circle.lifetime-line-counterfactual {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .reopening-history li {
-  font-size: 0.9rem;
+  font-size: 1.125rem;
   color: var(--ink-soft);
 }
 
 .reopen-week {
-  border-top: 2px solid var(--urgent);
-  padding-top: 0.75rem;
-  margin-top: 1rem;
+  border-top: 2px solid var(--danger);
+  padding-top: 0.9375rem;
+  margin-top: 1.25rem;
 }
 
 .reopen-week h4 {
-  font-size: 1.05rem;
-  margin-bottom: 0.35rem;
-  color: var(--urgent);
+  font-size: 1.3125rem;
+  margin-bottom: 0.4375rem;
+  color: var(--danger);
 }
 
 /* --- Managing chores ------------------------------------------------------ */
 
 .chore-defs {
   list-style: none;
-  margin: 0 0 1rem;
+  margin: 0 0 1.25rem;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.625rem;
 }
 
 .chore-def {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.625rem;
   align-items: center;
-  border: 2px solid var(--line);
-  border-radius: 0.75rem;
-  padding: 0.6rem 0.9rem;
-  background: var(--bg);
+  border: 2px solid var(--panel-edge);
+  border-radius: 0.9375rem;
+  padding: 0.75rem 1.125rem;
+  background: var(--panel);
 }
 
 .chore-def-name {
   font-weight: 600;
-  font-size: 1.05rem;
+  font-size: 1.3125rem;
   flex: 1 1 auto;
-  min-width: 8rem;
+  min-width: 10rem;
 }
 
 .chore-def-cadence,
 .chore-def-admin {
-  font-size: 0.9rem;
+  font-size: 1.125rem;
   color: var(--ink-soft);
 }
 
@@ -1828,7 +1802,7 @@ circle.lifetime-line-counterfactual {
 
 .chore-def-actions {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.5rem;
   margin-left: auto;
 }
 
@@ -1837,9 +1811,9 @@ circle.lifetime-line-counterfactual {
 }
 
 .tag-basic {
-  background: var(--bg);
+  background: var(--panel);
   color: var(--ink-soft);
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-edge);
 }
 
 .tag-reward {
@@ -1848,31 +1822,31 @@ circle.lifetime-line-counterfactual {
 }
 
 .tag-retired {
-  background: var(--line);
+  background: var(--settled);
   color: var(--ink-soft);
 }
 
 .chore-form-administered {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.6rem;
-  font-size: 0.95rem;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 1.1875rem;
   color: var(--ink-soft);
 }
 
 .chore-form-weekdays {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  margin-top: 0.6rem;
+  gap: 0.625rem 1.25rem;
+  margin-top: 0.75rem;
 }
 
 .chore-form-weekday {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.95rem;
+  gap: 0.375rem;
+  font-size: 1.1875rem;
 }
 
 .chore-def-amount-shared {
@@ -1882,19 +1856,19 @@ circle.lifetime-line-counterfactual {
 }
 
 .chore-basic-pay {
-  background: var(--bg);
-  border-radius: 0.75rem;
-  padding: 0.75rem 0.9rem;
-  margin-bottom: 1rem;
+  background: var(--panel);
+  border-radius: 0.9375rem;
+  padding: 0.9375rem 1.125rem;
+  margin-bottom: 1.25rem;
 }
 
 .chore-basic-pay h3 {
-  font-size: 1.05rem;
-  margin-bottom: 0.25rem;
+  font-size: 1.3125rem;
+  margin-bottom: 0.3125rem;
 }
 
 .chore-basic-pay-amount {
-  font-size: 1.35rem;
+  font-size: 1.6875rem;
   font-weight: 700;
 }
 
@@ -1903,82 +1877,82 @@ circle.lifetime-line-counterfactual {
 .dialog-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: color-mix(in srgb, var(--shadow) 55%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 1.25rem;
   z-index: 10;
 }
 
 .dialog {
   background: var(--panel);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  width: min(32rem, 100%);
+  border-radius: 1.25rem;
+  padding: 1.875rem;
+  width: min(40rem, 100%);
   max-height: 90vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.9375rem;
 }
 
 .dialog h2 {
-  font-size: 1.4rem;
+  font-size: 1.75rem;
 }
 
 .dialog-summary {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   font-weight: 700;
 }
 
 .dialog-lines {
   margin: 0;
-  padding-left: 1.1rem;
+  padding-left: 1.375rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4375rem;
   color: var(--ink-soft);
 }
 
 .dialog-permanent {
-  background: var(--todo-bg);
-  color: var(--todo);
+  background: var(--waiting-bg);
+  color: var(--waiting);
   font-weight: 700;
-  border-radius: 0.6rem;
-  padding: 0.6rem 0.8rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
 }
 
 .pin-label {
   font-weight: 600;
-  margin-top: 0.25rem;
+  margin-top: 0.3125rem;
 }
 
 .pin-input {
   font: inherit;
-  font-size: 1.75rem;
+  font-size: 2.1875rem;
   letter-spacing: 0.4em;
   text-align: center;
-  padding: 0.5rem;
-  border-radius: 0.6rem;
-  border: 2px solid var(--line);
-  background: var(--bg);
+  padding: 0.625rem;
+  border-radius: 0.75rem;
+  border: 2px solid var(--control-edge);
+  background: var(--raised);
   color: var(--ink);
 }
 
 .dialog-error {
-  color: var(--urgent);
+  color: var(--danger);
   font-weight: 600;
 }
 
 .dialog-buttons {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.9375rem;
   justify-content: flex-end;
 }
 
 .pin-note {
-  font-size: 0.9rem;
+  font-size: 1.125rem;
   color: var(--ink-soft);
   text-align: center;
 }

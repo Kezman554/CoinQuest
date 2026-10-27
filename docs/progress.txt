@@ -2795,3 +2795,42 @@ Pushed and deployed the same day. Backed up first
 env var. Healthy on rebuild; /health, /parent, /api/summary, /api/weeks
 and /api/weeks/owed/outstanding 200; the served stylesheet carries the
 days-region scroll. integrity_check ok, foreign_key_check empty.
+
+Design foundation (2026-10-27). DESIGN.md ("Coin block") committed as
+the visual spec; CLAUDE.md now points to it. Foundation only - later
+cards restyle the screens:
+- Tokens: index.css holds every colour as a DESIGN.md role, day on
+  :root / [data-theme='day'] and night on [data-theme='night'], between
+  /* tokens:start */ and /* tokens:end */. index.html sets
+  data-theme="day"; the clock and toggle are a later card. The
+  prefers-color-scheme block is gone. Every old variable was mapped to
+  a role: todo->waiting, urgent->danger, line->panel-edge; the gradient
+  money card is solid gold with a hard 0 5px 0 shadow; offers (claimable
+  chore, "Not missed after all", primary buttons) are action/on-action
+  with an outline edge; the old purple "away" became settled with ink;
+  nested backgrounds became panel, inputs raised; the weekday stripe
+  colours and the page's background blobs went (no role for them).
+- Type: @fontsource Lilita One (400, its only weight) and Nunito 600/700/
+  800, imported in main.tsx; --font-display, --font-body. Body weight is
+  600. Display is not applied yet.
+- Root: html is 16px. Every rem in App.css was scaled x1.25 to keep its
+  rendered size - except @media conditions, which read the browser's
+  16px and were always right. Body text stays 20px as 1.25rem; the chore
+  floor is 3.75rem = 60px. Size tokens for DESIGN.md's named sizes exist
+  but are unused until the restyle.
+- check:literals (scripts/check-literals.mjs): hex, rgb()/hsl(), quoted
+  font names, system-ui, px radii, and CSS named colours in colour
+  properties, outside the token block; CSS declarations, TSX/TS strings
+  and inline style keys, rect rx/ry in TSX and .svg. Ellipse rx/ry are
+  geometry, not rounding, and are left alone. Standalone .svg fills are
+  not checked (a favicon cannot read tokens). Planted one of each kind:
+  8 findings, exit 1; removed: clean, exit 0.
+- check:contrast (scripts/check-contrast.mjs): 17 text pairs, the 4
+  edge pairs DESIGN.md's Contrast floors name, and 12 boundaries (a
+  component on its surface, passing on the better of fill and edge, per
+  WCAG 1.4.11), day and night: 33 pass. Decoration, with reasons: brick,
+  mortar, coin-light, coin-dark, shadow. Measured but dropped as a
+  requirement: an edge against its own fill (night: panel-edge on panel
+  3.02, disabled-edge on disabled-bg 3.05) and the TODAY tag's shape on
+  today's tile (night 1.88 - its word is measured, 6.63).
+pytest 604 passed; e2e 9 passed, the 1280x800 fit spec unchanged.

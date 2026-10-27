@@ -3,70 +3,126 @@
  * Large type as the baseline rather than as an accommodation: this is read
  * standing up, from across the room, by somebody who is not going to lean in.
  * The scaffold's centred, bordered #root is gone with it — the week is a page,
- * not a demo panel. */
+ * not a demo panel.
+ *
+ * The look is DESIGN.md's ("Coin block"). Everything it is made of — every
+ * colour, the two typefaces, the named sizes and the px radii — is declared
+ * once, between the two token markers below, and used everywhere else by
+ * var(). `npm run check:literals` fails on a literal outside the block, and
+ * `npm run check:contrast` measures the colours inside it. */
 
-:root {
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+/* tokens:start */
 
-  --bg: #eef2ff;
+/* Day, and the default: the root carries data-theme="day" or "night", and
+   until something sets it (the clock and the sun/moon button are a later
+   card) it is day. The device's own light/dark setting deliberately has no
+   say. Roles, values and what each is for: DESIGN.md's token table. */
+:root,
+:root[data-theme='day'] {
+  color-scheme: light;
+
+  --ground: #8ccffa;
+  --brick: #c2602a;
+  --mortar: #8a3e14;
   --panel: #ffffff;
-  --ink: #191934;
-  --ink-soft: #5c5e80;
-  --line: #dbdcf5;
+  --panel-today: #fff6d6;
+  --raised: #ffffff;
+  --ink: #1e1b3a;
+  --ink-soft: #4a4766;
+  --outline: #1e1b3a;
+  --panel-edge: #1e1b3a;
+  --control-edge: #1e1b3a;
+  --shadow: #1e1b3a;
 
-  /* Two brand accents, used for the header, the totals card, the tappable
-     chore and the general sense that this is a game, not a spreadsheet. */
-  --accent: #6a4cff;
-  --accent-soft: #efeaff;
-  --accent-2: #ff6f59;
-  --accent-2-soft: #ffe6de;
-  --coin: #ffb703;
+  /* The same in both modes. */
+  --gold: #ffc93c;
+  --on-gold: #1e1b3a;
+  --coin-light: #ffe27a;
+  --coin-dark: #c98a00;
+  --action: #ffd54a;
+  --on-action: #1e1b3a;
+  --today: #b8161a;
+  --on-today: #ffffff;
 
-  /* A colour per weekday, purely decorative — the day's own heading and date
-     already say which day it is, so this never has to be read to be understood. */
-  --day-1: #ff6f59;
-  --day-2: #ffb703;
-  --day-3: #14b881;
-  --day-4: #2ec4f1;
-  --day-5: #6a4cff;
-  --day-6: #e64bd6;
-  --day-7: #ff8fa3;
+  --done: #1b6b2f;
+  --done-bg: #dff5e1;
+  --done-edge: #23803a;
+  --waiting: #7e5100;
+  --waiting-bg: #fff1c7;
+  --waiting-edge: #9a6300;
+  --danger: #a61b1b;
+  --danger-bg: #ffe3e1;
+  --danger-edge: #c62828;
+  --today-edge: #b8161a;
+  --disabled: #2e4a63;
+  --disabled-bg: #b9e2fc;
+  --disabled-edge: #3b6688;
+  --settled: #e8e4d4;
 
-  --done: #128a4f;
-  --done-bg: #d8f7e6;
-  --todo: #9a5b00;
-  --todo-bg: #fff0c2;
-  --urgent: #c62828;
-  --urgent-bg: #ffe1de;
-  --away: #6a3fc7;
-  --away-bg: #ede3ff;
+  /* Bundled by @fontsource (main.tsx); nothing is fetched from a URL. */
+  --font-display: 'Lilita One', sans-serif;
+  --font-body: 'Nunito', sans-serif;
 
-  font: 20px/1.4 var(--sans);
-  color: var(--ink);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
+  /* The sizes DESIGN.md names, at 1rem = 16px. Provisional, and not yet
+     applied: the screens take them up as each is restyled. */
+  --size-title: 2.5rem;
+  --size-day-name: 1.375rem;
+  --size-money: 3.25rem;
+  --size-owed: 2.5rem;
+  --size-chore-name: 0.9375rem;
+  --size-button: 1rem;
+  --size-date: 0.875rem;
+
+  --radius-card: 14px;
+  --radius-button: 12px;
+  --radius-tag: 10px;
+  --radius-pill: 999px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14131f;
-    --panel: #201f30;
-    --ink: #f4f3fb;
-    --ink-soft: #ada9c9;
-    --line: #35324a;
+:root[data-theme='night'] {
+  color-scheme: dark;
 
-    --accent-soft: #2a2247;
-    --accent-2-soft: #3a2419;
+  --ground: #18203f;
+  --brick: #7a3a1a;
+  --mortar: #4a220c;
+  --panel: #242d57;
+  --panel-today: #2f2f5e;
+  --raised: #2a3463;
+  --ink: #f2f4ff;
+  --ink-soft: #c9d2ff;
+  --outline: #0a0d1c;
+  --panel-edge: #6674bc;
+  --control-edge: #8e9be0;
+  --shadow: #0a0d1c;
 
-    --done: #6fe0a3;
-    --done-bg: #123424;
-    --todo: #f3c56b;
-    --todo-bg: #382a0c;
-    --urgent: #ff8f85;
-    --urgent-bg: #3a1512;
-    --away: #bcb2ff;
-    --away-bg: #241d47;
-  }
+  --done: #7ee59a;
+  --done-bg: #1e3a33;
+  --done-edge: #5bd27a;
+  --waiting: #ffd66b;
+  --waiting-bg: #2e2e45;
+  --waiting-edge: #ffc93c;
+  --danger: #ff9b93;
+  --danger-bg: #3a2338;
+  --danger-edge: #ff7a70;
+  --today-edge: #ff5a52;
+  --disabled: #9aa4d6;
+  --disabled-bg: #1f2849;
+  --disabled-edge: #6370ac;
+  --settled: #343a55;
+}
+
+/* tokens:end */
+
+/* 1rem is 16px, so a rem means what it says. Body text stays the 20px it has
+   always been, as 1.25rem; every rem in App.css was scaled to keep its
+   rendered size when the root came down from 20px. */
+html {
+  font-size: 16px;
+  line-height: 1.4;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--ground);
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -76,16 +132,11 @@
 body {
   margin: 0;
   min-height: 100vh;
+  font-size: 1.25rem;
+  /* Nunito is bundled at 600, 700 and 800 only; 600 is the body weight. */
+  font-weight: 600;
   color: var(--ink);
-  background-color: var(--bg);
-  /* A couple of soft, fixed colour blobs behind the page — a kitchen wall
-     screen gets to feel like a poster, not a form. Content sits in solid
-     panels above this, so it never touches legibility. */
-  background-image:
-    radial-gradient(55rem 38rem at 100% -8%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 60%),
-    radial-gradient(48rem 34rem at -8% 12%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+  background-color: var(--ground);
 }
 
 h1,
