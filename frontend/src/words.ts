@@ -221,8 +221,25 @@ export function interestLine(periodStart: string, matchPence: number): {
   amount: string
   where: string
 } {
-  const month = new Date(`${periodStart}T12:00:00`).toLocaleDateString('en-GB', { month: 'long' })
-  return { label: `Interest for ${month}:`, amount: money(matchPence), where: 'going into your bank' }
+  return {
+    label: `Interest for ${monthOnly(periodStart)}:`,
+    amount: money(matchPence),
+    where: 'going into your bank',
+  }
+}
+
+/**
+ * Every due month as one line, for where the card has no room for a list:
+ * "Interest for your bank: £2.15". Like the cash weeks' total, and still
+ * kept apart from them — the bank, not cash.
+ */
+export function interestTotalLine(totalPence: number): { label: string; amount: string } {
+  return { label: 'Interest for your bank:', amount: money(totalPence) }
+}
+
+/** "August", for a month named on its own. */
+export function monthOnly(iso: string): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', { month: 'long' })
 }
 
 export function weekdayOf(iso: string): string {

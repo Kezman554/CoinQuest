@@ -103,9 +103,22 @@ test.describe('the week on the 1280x800 kitchen panel', () => {
     expect(fit.pageScrolls).toBe(false)
     expect(fit.daysOverflow).toBe(0)
     // Its own line, beside the cash and not added to it.
-    await expect(page.locator('.owed-interest li')).toHaveText(
-      'Interest for September: £1.20 going into your bank',
-    )
+    await expect(page.locator('.owed-interest-total')).toHaveText('Interest for your bank: £1.20')
+    await expect(page.locator('.owed-card-amount')).toHaveText('£5.50')
+  })
+
+  test('with two months of interest waiting, it is one line and still fits', async ({ page }) => {
+    await heavyWeek(page, 3, [
+      { period_start: '2026-08-01', period_end: '2026-08-31', match_pence: 95 },
+      { period_start: '2026-09-01', period_end: '2026-09-30', match_pence: 120 },
+    ])
+    await page.goto('/')
+    const fit = await measure(page)
+    expect(fit.pageScrolls).toBe(false)
+    expect(fit.daysOverflow).toBe(0)
+    // The strip has room for a total, not a list: one line for both months.
+    await expect(page.locator('.owed-interest-total')).toHaveText('Interest for your bank: £2.15')
+    await expect(page.locator('.owed-interest')).toBeHidden()
     await expect(page.locator('.owed-card-amount')).toHaveText('£5.50')
   })
 

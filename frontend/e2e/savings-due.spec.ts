@@ -27,6 +27,8 @@ test('settling the month clears its interest line from the wall', async ({ page,
   })
   expect(opened.status()).toBe(201)
 
+  // Wide enough for the card to list each month.
+  await page.setViewportSize({ width: 1920, height: 1080 })
   await page.goto('/')
   const line = page.locator('.owed-interest li', { hasText: `Interest for ${last.month}:` })
   await expect(line).toBeVisible()
@@ -53,5 +55,6 @@ test('settling the month clears its interest line from the wall', async ({ page,
   await page.getByRole('button', { name: 'Back to the week' }).first().click()
   await page.locator('.total').waitFor()
   await expect(page.locator('.owed-interest')).toHaveCount(0)
+  await expect(page.locator('.owed-interest-total')).toHaveCount(0)
   await expect(page.locator('.owed-card-clear')).toHaveText('All paid up')
 })

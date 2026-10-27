@@ -21,10 +21,11 @@
 import type { DueMonth } from '../api'
 import type { Owed as OwedWeek } from '../parentApi'
 import { money } from '../api'
-import { interestLine, shortDate } from '../words'
+import { interestLine, interestTotalLine, shortDate } from '../words'
 
 export function Owed({ owed, due = [] }: { owed: OwedWeek[]; due?: DueMonth[] }) {
   const total = owed.reduce((sum, week) => sum + week.owed_pence, 0)
+  const interest = interestTotalLine(due.reduce((sum, month) => sum + month.match_pence, 0))
   const anything = owed.length > 0 || due.length > 0
 
   return (
@@ -50,6 +51,13 @@ export function Owed({ owed, due = [] }: { owed: OwedWeek[]; due?: DueMonth[] })
             ))}
           </ul>
         </>
+      )}
+      {due.length > 0 && (
+        // The strip on the 1280 panel has room for one line, as the cash
+        // weeks have a total and a count there; elsewhere, each month.
+        <p className="owed-interest-total">
+          {interest.label} <strong className="owed-interest-amount">{interest.amount}</strong>
+        </p>
       )}
       {due.length > 0 && (
         <ul className="owed-interest">

@@ -30,7 +30,7 @@ import type { Reconciliation, SavingsMatchProposal, SettledMonth } from '../../p
 import { loadSavingsMatchProposal, reconcile, settleMonth } from '../../parentApi'
 import type { PinAct } from './PinDialog'
 import { Figure } from './ThisWeek'
-import { longDate, monthName } from '../../words'
+import { longDate, monthName, monthOnly } from '../../words'
 
 type Ask = { ask: (act: PinAct) => void }
 
@@ -90,7 +90,11 @@ export function SavingsMatch({
           <div className="figures">
             <Figure label="Rate in force" value={`${proposal.rate_percent}%`} />
             <Figure
-              label={`${monthName(proposal.period_start)}'s low so far`}
+              label={
+                proposal.month_has_ended
+                  ? `${monthOnly(proposal.period_start)}'s low`
+                  : `${monthName(proposal.period_start)}'s low so far`
+              }
               value={money(proposal.balance_low_pence)}
             />
             <Figure
@@ -237,6 +241,9 @@ function SettleButton({
           onChange={(event) => setBank(event.target.value)}
         />
       </label>
+      {/* Gold for now, like every parent button. The parent-screen restyle
+          (AJ) makes this raised, not gold: gold is for money and the
+          child's own do-it actions (DESIGN.md). Restyle it there, once. */}
       <button type="button" className="button button-do" onClick={() => void settle()} disabled={checking}>
         {checking ? 'Working out the true figure…' : 'Settle the match'}
       </button>

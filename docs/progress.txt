@@ -3002,3 +3002,17 @@ ended month waiting on a parent is now visible until one settles it.
   first settles), the uncredentialed read; e2e savings-due.spec.ts
   settles through the parent screen and the wall line goes; the fit spec
   pins due to [] and gains a case with one due month. pytest 610, e2e 21.
+
+Due-months follow-ups (2026-10-27). At the 1280 strip the owed card shows
+every due month as one line, "Interest for your bank: £X" (words.ts
+interestTotalLine), as the cash weeks show a total and a count there; the
+months are listed one by one where the card has room — the 1920 side
+column, and the phone stack, as the cash weeks are. The money card's
+contents stay top-aligned however tall the strip row grows (align-content:
+start). The fit spec gains the heavy week with two due months. The parent
+panel says "August's low" for an ended month, "… low so far" only for the
+month in progress.
+For AJ (the parent-screen restyle): "Settle the match" becomes raised /
+control-edge, not gold — gold is for money and the child's own do-it
+actions. Left gold here so it is restyled once, there; a comment at the
+button says so. e2e 22 passed.
