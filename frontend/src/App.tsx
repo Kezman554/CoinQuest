@@ -30,6 +30,7 @@ import { Owed } from './components/Owed'
 import type { PinAct } from './components/parent/PinDialog'
 import { PinDialog } from './components/parent/PinDialog'
 import { Bricks } from './components/Bricks'
+import { ModeToggle } from './components/ModeToggle'
 import { Total } from './components/Total'
 import { Weekly } from './components/Weekly'
 import { NotCurrentBanner, WeekNav } from './components/WeekNav'
@@ -38,12 +39,16 @@ import { ParentView } from './ParentView'
 import { loadOwed } from './parentApi'
 import type { Owed as OwedWeek } from './parentApi'
 import { SavingsView } from './SavingsView'
+import { useMode } from './useMode'
 import { longDate, shortDate, weekdayOf } from './words'
 
 type Screen = 'child' | 'savings' | 'lifetime' | 'parent'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('child')
+  // Here, above every screen, so Savings, Lifetime and the parent view follow
+  // the mode too; the button that flips it lives in the week's title row.
+  const { mode, toggle } = useMode()
 
   // On the week they sit in its title row rather than a footer: the wall
   // panel is 800px tall, and a row of its own was height the days needed.
@@ -66,7 +71,7 @@ function App() {
       {screen === 'child' && (
         <>
           <Bricks />
-          <ChildWeek elsewhere={elsewhere} />
+          <ChildWeek elsewhere={elsewhere} modeToggle={<ModeToggle mode={mode} onToggle={toggle} />} />
         </>
       )}
       {screen === 'savings' && <SavingsView />}
@@ -130,7 +135,7 @@ function Parent({ onBack }: { onBack: () => void }) {
  * all-or-nothing rule, the cap and the optimiser, and it would eventually
  * disagree with what actually settles.
  */
-function ChildWeek({ elsewhere }: { elsewhere: ReactNode }) {
+function ChildWeek({ elsewhere, modeToggle }: { elsewhere: ReactNode; modeToggle: ReactNode }) {
   const [week, setWeek] = useState<WeekView | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
   const [owed, setOwed] = useState<OwedWeek[]>([])
@@ -266,7 +271,10 @@ function ChildWeek({ elsewhere }: { elsewhere: ReactNode }) {
         </header>
         <div className="wall-head-controls">
           <WeekNav weeks={weeks} viewedWeekId={week.week_id} onNavigate={onNavigate} />
-          {elsewhere}
+          <div className="wall-head-tools">
+            {elsewhere}
+            {modeToggle}
+          </div>
         </div>
       </div>
 

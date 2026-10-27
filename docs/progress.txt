@@ -2897,3 +2897,26 @@ to put it right" in each tone, before the time-left sentence — "Do Wash
 the car to put it right — that takes this week back to £3. You have 3
 more days — until Saturday." / "… back to £3. The week ends tonight."
 wall-screen-miss and the fit spec assert that order.
+
+Day and night (2026-10-27). src/theme.ts holds NIGHT = { from: '19:00',
+until: '07:00' } (Europe/London, set explicitly) and the plain functions
+that decide: londonMinutes, clockMode, modeFor (override while it lasts,
+else the clock) and nextSwitch (counted on the London wall clock, then
+corrected once for a clock change in between). vite.config.ts writes
+those functions' own source into an inline <head> script in index.html
+at build time, so the root has its mode before first paint and the
+script cannot drift from the app. useMode (App level, so every screen
+follows) re-reads the clock every 30s and applies the override. The
+sun/moon button (ModeToggle, 46px, raised / control-edge, stroke SVG,
+aria-label "Switch to night|day") flips the mode until nextSwitch; the
+override is {mode, until} in localStorage under coinquest.mode, every
+read and write in try/catch — unreadable storage means the clock decides,
+and a failed write holds the flip in memory. Pressing it back to the
+clock's mode stores nothing. Nothing reaches the API.
+e2e/day-night.spec.ts, on Playwright's clock: 18:30 day, 19:30 night,
+06:30 night then 07:30 day, 18:59 to night without a reload, an override
+held across a reload and cleared at 19:00, pressed twice stores nothing,
+an override made 28 March 2026 expires at 06:00Z (07:00 BST), storage
+throwing (clock decides, button works, no page errors), no app JS at all
+still night at 21:00, and Savings / Lifetime / Parent all at night.
+e2e 19 passed, the fit spec included.
