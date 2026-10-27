@@ -5,8 +5,9 @@
  *  - Nothing smaller than 1rem, and the things that matter are much bigger.
  *    The projected total is the largest thing on the page because it is the
  *    question the child came to the screen with.
- *  - Every tappable thing is a full-width row at least 3.5rem tall. A child in
- *    a hurry does not aim.
+ *  - Every chore is a full-width row at least 3rem (60px) tall. A child in
+ *    a hurry does not aim. It was 3.5rem until the wall panel needed the
+ *    height for a make-good line; 60px is still a generous fingertip.
  *  - Colour is never the only carrier. "Done", "Missed" and "Day off" are
  *    words first; the colour behind them is confirmation, not the message.
  */
@@ -35,12 +36,18 @@
  *    "Owed to you" fold into one strip above the days, so the days get the
  *    whole width and the week fits in 800px without a page scroll.
  *  - From 120rem (a 1920 screen): the two cards stand as columns either
- *    side of the days and stick while the middle scrolls.
+ *    side of the days.
  *
  * From 76rem the days, and the any-time cards under them, go seven across
  * on the same column grid, so an any-time button is the same size as a
- * day's. Every chore row keeps its 3.5rem height throughout: the type and
- * padding get tighter, the tap target does not. */
+ * day's. Every chore row keeps its 3rem height throughout: the type and
+ * padding get tighter, the tap target does not.
+ *
+ * Seven across, the page is exactly one screen tall. The title row and the
+ * money cards keep their height and the days, with the any-time row, take
+ * what is left and scroll inside it if a heavy week needs more — so the
+ * figure the child came to read never scrolls out of view, and the page
+ * itself never scrolls at all. */
 
 .wall-head {
   display: flex;
@@ -175,7 +182,7 @@
   }
 
   .wall-head .masthead h1 {
-    font-size: 2rem;
+    font-size: 1.85rem;
     line-height: 1.1;
   }
 
@@ -251,7 +258,7 @@
     align-items: center;
     column-gap: 1.75rem;
     height: 100%;
-    padding: 0.6rem 1.25rem;
+    padding: 0.5rem 1.25rem;
     border-radius: 1.25rem;
   }
 
@@ -263,6 +270,8 @@
 
   .wall .total-amount {
     grid-column: 1;
+    grid-row: 2 / span 2;
+    align-self: start;
     font-size: 2.5rem;
     margin: 0.1rem 0 0;
   }
@@ -274,7 +283,8 @@
     gap: 0.6rem;
   }
 
-  .wall .total:has(.total-note) .breakdown {
+  .wall .total:has(.total-note) .breakdown,
+  .wall .total:has(.total-makegood) .breakdown {
     grid-row: 1;
     align-self: end;
   }
@@ -304,19 +314,23 @@
     font-size: 1rem;
   }
 
+  /* The route back, under the note and beside the figure it restores —
+     not a full-width row of its own, which cost the days 50px. */
   .wall .total-makegood {
-    grid-column: 1 / -1;
-    margin-top: 0.5rem;
-    font-size: 1.05rem;
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0.4rem;
+    padding: 0.3rem 0.9rem;
+    font-size: 1rem;
   }
 
-  .wall .total-makegood {
-    padding: 0.5rem 0.9rem;
+  .wall .total:has(.total-note) .total-makegood {
+    grid-row: 3;
   }
 
   .wall .owed-card {
     height: 100%;
-    padding: 0.6rem 1.5rem;
+    padding: 0.5rem 1.5rem;
     border-radius: 1.25rem;
     display: flex;
     flex-direction: column;
@@ -346,6 +360,33 @@
   }
 }
 
+/* One screen, with the days region as the only thing that scrolls. */
+@media (min-width: 76rem) {
+  .page-wall {
+    height: 100vh;
+    height: 100dvh;
+    box-sizing: border-box;
+  }
+
+  .page-wall .wall {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  /* Pulled out by the width of today's ring and padded back in by the
+     same, so the ring is not clipped at the scroll box's edge and the
+     columns still line up with the strip above. */
+  .page-wall .wall-main {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-inline: -0.4rem;
+    padding-inline: 0.4rem;
+    padding-bottom: 0.3rem;
+  }
+}
+
 /* Seven across, with the any-time cards on the same columns.
  *
  * Seven named, dated tiles say "every day" by themselves, so that heading is
@@ -369,7 +410,7 @@
 
   /* Room for the TODAY badge that sits on the tile's top edge. */
   .wall .panel-days {
-    padding-top: 0.7rem;
+    padding-top: 0.6rem;
   }
 
   .wall .days .day,
@@ -441,7 +482,7 @@
 
   .wall .chore {
     line-height: 1.2;
-    padding: 0.35rem 0.55rem;
+    padding: 0.3rem 0.55rem;
     margin-top: 0.35rem;
     gap: 0.1rem 0.5rem;
   }
@@ -458,6 +499,10 @@
   .wall .chore-state,
   .wall .chore-claimable .chore-state {
     font-size: 1rem;
+  }
+
+  .wall .weekly-side .tag {
+    padding-block: 0.1rem;
   }
 
   .wall .weekly-side,
@@ -478,8 +523,13 @@
   .wall {
     grid-template-columns: 13rem minmax(0, 1fr) 15rem;
     grid-template-areas: 'total main owed';
+    grid-template-rows: minmax(0, 1fr);
     align-items: start;
     gap: 1.25rem;
+  }
+
+  .page-wall .wall-main {
+    align-self: stretch;
   }
 
   .wall-main {
@@ -512,11 +562,6 @@
 
   .wall .panel-weekly > h2 {
     font-size: 1.5rem;
-  }
-
-  .wall-side {
-    position: sticky;
-    top: 1rem;
   }
 
   .wall .total {
@@ -872,7 +917,7 @@
 
 .chore {
   width: 100%;
-  min-height: 3.5rem;
+  min-height: 3rem;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -969,8 +1014,8 @@
 }
 
 /* Deliberately not a full-width row, and deliberately quiet.
-   Every other tappable thing on this screen is 3.5rem tall because a child in
-   a hurry does not aim — which is exactly why this one is not. It is aimed at
+   Every chore on this screen is a 3rem row because a child in a hurry
+   does not aim — which is exactly why this one is not. It is aimed at
    by a parent walking past, once, and the child reaching for "I've done it"
    must not land on it by accident. Still 2.5rem, which is a comfortable
    thumb, and still a word rather than an icon. */
@@ -1046,7 +1091,7 @@
 
 .day .tag-today {
   position: absolute;
-  top: -0.8rem;
+  top: -0.7rem;
   right: 0.5rem;
   font-size: 0.8rem;
   padding: 0.15rem 0.55rem;

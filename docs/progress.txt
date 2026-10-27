@@ -2770,3 +2770,22 @@ migration or new env var. Healthy on rebuild; /health, /parent,
 /api/summary, /api/weeks and /api/weeks/owed/outstanding 200; the served
 bundle carries the title-row nav. integrity_check ok, foreign_key_check
 empty.
+
+Make-good headroom (2026-10-27). The chore-row floor is 3rem (60px at
+this app's 20px rem), down from 3.5rem, so a coverable miss's make-good
+line fits on the 1280 panel. In the strip the make-good line sits in the
+card's right column under the at-risk note rather than a full-width row
+(that row cost the days 50px); with small trims to strip padding, badge
+room and the title, a week of three chores, the at-risk note, the
+make-good line and two owed weeks fits with ~1px to spare. Backstop:
+from 76rem the week page is one screen tall and only .wall-main (days
+plus any-time row) scrolls; the title row and money cards stay put, and
+the page itself never scrolls. A fourth daily chore, or a rejected chore
+("Have another go" / "Not accepted last time", two lines more), scrolls
+the days region. The 1920 side columns no longer need sticky.
+
+New spec e2e/wall-panel-fit.spec.ts holds this: the heavy week at
+1280x800 fits with neither page nor days scrolling; a fourth chore
+scrolls the days only, with the total still in view; nothing overflows
+either edge at 390. The week is reshaped in transit and every chore reset
+first, so it does not depend on earlier specs' writes. e2e 9 passed.
