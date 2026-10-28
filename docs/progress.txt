@@ -3165,3 +3165,7 @@ parentWords.ts untouched.
 - e2e/parent-narrow.spec.ts: no parent tab scrolls sideways at 390;
   Confirm is disabled with its reason until a ruling, and a ruling is
   aria-pressed. check:literals and check:contrast clean; e2e 32 passed.
+
+Pushed and deployed the same day. Backup coinquest-2026-10-28-1020.tar.gz
+(local only); frontend only. Healthy; /health, /parent, /api/summary 200;
+integrity_check ok, foreign_key_check empty.
