@@ -25,7 +25,7 @@
  * for, their own individual amount.
  */
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { money, parsePence } from '../../api'
 import type {
   Cadence,
@@ -43,6 +43,7 @@ import {
 } from '../../parentApi'
 import { cadenceLabel, weekdayLabel } from '../../parentWords'
 import type { PinAct } from './PinDialog'
+import { Why } from '../Why'
 
 type Ask = { ask: (act: PinAct) => void }
 
@@ -136,6 +137,7 @@ function WeeklyBasicPay({ settings, ask }: Ask & { settings: SchemeSettings }) {
 
   const pence = parsePence(amount)
   const ready = pence !== null && pence >= 0
+  const payWhy = useId()
 
   if (!editing) {
     return (
@@ -185,8 +187,9 @@ function WeeklyBasicPay({ settings, ask }: Ask & { settings: SchemeSettings }) {
         </button>
         <button
           type="button"
-          className="button button-do"
+          className="button button-confirm"
           disabled={!ready}
+          aria-describedby={ready ? undefined : payWhy}
           onClick={() => {
             if (!ready || pence === null) return
             ask({
@@ -212,6 +215,7 @@ function WeeklyBasicPay({ settings, ask }: Ask & { settings: SchemeSettings }) {
           Save
         </button>
       </div>
+      <Why id={payWhy} reason={ready ? null : 'Needs an amount that can be paid in coins.'} />
       {amount !== '' && pence === null && (
         <p className="dialog-error">
           That is not an amount that can be paid in coins.
@@ -273,6 +277,7 @@ function ChoreDefRow({ chore, ask }: Ask & { chore: ChoreDefinition }) {
                 'Switched off, not deleted — any settled week that already paid for it is untouched.',
               confirmLabel: 'Retire',
               permanent: true,
+              danger: true,
               run: (pin) => retireChore(pin, chore.id).then(() => undefined),
             })
           }
@@ -318,6 +323,18 @@ function ChoreForm({
     (isBasic || (pence !== null && pence >= 0)) &&
     (!needsCount || (count !== null && count > 0)) &&
     (!needsWeekdays || weekdays.length > 0)
+  const formWhy = useId()
+  // The first thing still missing, so the disabled Save says what to do next.
+  const formReason =
+    name.trim().length === 0
+      ? 'Needs a name.'
+      : !isBasic && (pence === null || pence < 0)
+        ? 'Needs an amount that can be paid in coins.'
+        : needsCount && !(count !== null && count > 0)
+          ? 'Needs how many times a week.'
+          : needsWeekdays && weekdays.length === 0
+            ? 'Needs at least one day.'
+            : null
 
   const toggleWeekday = (day: Weekday) => {
     setWeekdays((current) =>
@@ -454,13 +471,15 @@ function ChoreForm({
         </button>
         <button
           type="button"
-          className="button button-do"
+          className="button button-confirm"
           disabled={!ready}
+          aria-describedby={ready ? undefined : formWhy}
           onClick={submit}
         >
           {submitLabel}
         </button>
       </div>
+      <Why id={formWhy} reason={formReason} />
     </div>
   )
 }

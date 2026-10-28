@@ -7,7 +7,7 @@
  * next month add if nothing changes, and how close is that to the point
  * where saving more stops earning more.
  *
- * Built from the same two shapes "This week" already uses — the gradient
+ * Built from the same two shapes "This week" already uses — the gold
  * `.total` card for the one figure that matters most, and a `.figures` grid
  * for the rest — rather than inventing a second visual language for a second
  * screen. `Figure` itself is imported from the parent view's ThisWeek: it is
@@ -15,7 +15,7 @@
  * way PinDialog already crosses that boundary the other way in App.tsx.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import {
   loadDepositors,
   loadMyPendingDeposits,
@@ -27,6 +27,7 @@ import {
 } from './api'
 import type { DepositRequest, Depositors, SavingsBalance, SavingsMatchProposal } from './api'
 import { Figure } from './components/parent/ThisWeek'
+import { Why } from './components/Why'
 import { monthName, shortDate } from './words'
 
 export function SavingsView() {
@@ -152,6 +153,8 @@ function DepositForm({
 
   const pence = parsePence(amount)
   const ready = pence !== null && pence > 0 && note.trim().length > 0
+  const whyId = useId()
+  const why = ready || busy ? null : 'Needs an amount and where it came from.'
 
   const submit = async () => {
     if (!ready) return
@@ -191,10 +194,18 @@ function DepositForm({
           value={note}
           onChange={(event) => setNote(event.target.value)}
         />
-        <button type="button" className="button" disabled={!ready || busy} onClick={submit}>
+        {/* His own do-it action, so it is gold like "I've done it". */}
+        <button
+          type="button"
+          className="button button-do"
+          disabled={!ready || busy}
+          aria-describedby={why ? whyId : undefined}
+          onClick={submit}
+        >
           {busy ? 'Sending…' : 'Add it'}
         </button>
       </div>
+      <Why id={whyId} reason={why} />
 
       {error && (
         <p className="problem" role="alert">

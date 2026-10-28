@@ -8,8 +8,9 @@
  * one — with the single, narrow exception below.
  *
  * Reopening is that exception, and it is kept apart from everything else on
- * this screen on purpose: offered only on the most recent closed week (the
- * only one the server will actually accept), tucked inside that week's own
+ * this screen on purpose: usable only on the most recent closed week (the
+ * only one the server will actually accept; on any other it sits disabled
+ * and says so, DESIGN.md), tucked inside that week's own
  * detail rather than sitting next to a total where a stray tap could reach
  * it, and gated by the same PIN dialog as every other act — one that says
  * plainly, before it happens, that a payment already made is being reversed
@@ -17,12 +18,13 @@
  */
 
 import { byWhom } from '../../parentWords'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { money } from '../../api'
 import type { SettledWeek, WeekSummary } from '../../parentApi'
 import { loadWeek, reopenWeek } from '../../parentApi'
 import type { PinAct } from './PinDialog'
 import { shortDate } from '../../words'
+import { Why } from '../Why'
 
 type Ask = { ask: (act: PinAct) => void }
 
@@ -53,7 +55,7 @@ export function ClosedWeeks({ weeks, ask }: Ask & { weeks: WeekSummary[] }) {
 
   // The server accepts a reopen only on the most recent closed week — a week
   // with any closed week after it is refused, by name. Mirrored here so the
-  // action is only ever offered where it will actually be accepted.
+  // action is only ever usable where it will actually be accepted.
   const mostRecent = mostRecentClosedWeek(weeks)
 
   return (
@@ -188,20 +190,31 @@ export function ClosedWeek({
         </div>
       )}
 
-      {canReopen && <ReopenWeek week={week} ask={ask} />}
+      <ReopenWeek week={week} ask={ask} canReopen={canReopen} />
     </div>
   )
 }
 
 /** The one deliberate exception to "a closed week has no controls".
  *
- * Offered only on the week the server will actually accept — see the
- * `mostRecent` check above — and confirmed like any permanent act, except
+ * Usable only on the week the server will actually accept — see the
+ * `mostRecent` check above; on any other it is disabled and says why — and
+ * confirmed like any permanent act, except
  * this one also has to say, when the week was paid, that the payment is
  * being reversed rather than merely a figure changing.
  */
-function ReopenWeek({ week, ask }: Ask & { week: SettledWeek }) {
+function ReopenWeek({
+  week,
+  ask,
+  canReopen,
+}: Ask & { week: SettledWeek; canReopen: boolean }) {
   const [reason, setReason] = useState('')
+  const whyId = useId()
+  const why = !canReopen
+    ? 'Only the most recent closed week can be reopened.'
+    : reason.trim().length === 0
+      ? 'Needs a reason first.'
+      : null
 
   const paidLines = week.paid_at
     ? [
@@ -233,12 +246,14 @@ function ReopenWeek({ week, ask }: Ask & { week: SettledWeek }) {
           type="text"
           placeholder="Why this week is being reopened"
           value={reason}
+          disabled={!canReopen}
           onChange={(event) => setReason(event.target.value)}
         />
         <button
           type="button"
           className="button button-danger"
-          disabled={reason.trim().length === 0}
+          disabled={why !== null}
+          aria-describedby={why ? whyId : undefined}
           onClick={() =>
             ask({
               title: 'Reopen this week',
@@ -248,6 +263,7 @@ function ReopenWeek({ week, ask }: Ask & { week: SettledWeek }) {
               lines: [...paidLines, reason.trim()],
               confirmLabel: 'Reopen the week',
               permanent: true,
+              danger: true,
               run: (pin) =>
                 reopenWeek(pin, week.week_id, reason).then(() => {
                   setReason('')
@@ -258,6 +274,7 @@ function ReopenWeek({ week, ask }: Ask & { week: SettledWeek }) {
           Reopen
         </button>
       </div>
+      <Why id={whyId} reason={why} />
     </div>
   )
 }

@@ -3117,3 +3117,51 @@ Pushed and deployed the same day. Backup coinquest-2026-10-28-0853.tar.gz
 (offsite restic OK); frontend only. Healthy; endpoints 200; /favicon.ico now
 image/vnd.microsoft.icon with the ICO header, the other icons images.
 integrity_check ok, foreign_key_check empty.
+
+2026-10-28 — Session AJ: the Coin block look on every other screen
+
+Savings, Lifetime, the parent view and the PIN dialog now wear the week's
+look: .button and .panel carry the outlines, hard shadows, radii and
+display headings themselves (the .page-wall-scoped copies are gone, so the
+wall renders exactly as before), the brick strip shows on every screen,
+and money figures are display type. Tokens only; words.ts and
+parentWords.ts untouched.
+- Gold is the child's alone: "Add it" on his Savings page is button-do.
+  Every parent button left gold: confirming (confirm, settle, pay, record,
+  the reward presets) is button-confirm, raised with control-edge;
+  refusing or money-removing (No, Void, Reopen, Mark missed, Log a
+  withdrawal, Decline, Retire) is button-danger, danger-edge and danger
+  words. PinAct.danger carries that into the dialog's own button.
+  "Settle the match" is raised/control-edge now — the AJ note above, done;
+  its comment says why. Cautions stay waiting's: "This cannot be undone",
+  a rate reset, and the tab counts (were danger-bg). Chore money at risk
+  in the parent's figures moved from waiting to danger (Figure danger),
+  matching the child's Chores chip.
+- Yes / No in the queue carry aria-pressed and press in when chosen; a
+  ruled row takes its tier's text colour, not ink-soft. The chosen tab is
+  pressed in and underlined in ink. Neither is colour alone.
+- Lifetime chart: real balance in ink, never-withdrawn in done and dashed
+  (and its legend swatch), baseline in ink-soft — all tokens, so it
+  follows day and night.
+- check:contrast measures 57 pairings (was 43): the chart's three strokes,
+  danger on raised and panel, waiting on panel, ink-soft on settled, and
+  seven boundaries (a danger button on a panel, Yes/No on ruled rows, the
+  tab count, chore money at risk). All pass both modes. DESIGN.md's lists
+  and rules updated to match.
+- 390 wide: .void-week wraps (it reached 409px; with the old rules
+  re-injected in the browser it measured 477px here, now inside 342).
+  The parent panels inside a tab now have the page's gap between them.
+- Disabled controls stay and say why (components/Why.tsx, named by
+  aria-describedby): Queue's Confirm before any ruling, Mark missed when
+  nothing is left (was hidden), Mark paid before a week is ticked (was
+  hidden), withdrawal and reconcile on an empty account (were hidden),
+  Settle the match before the month ends (was hidden), Reopen on an older
+  closed week (was hidden), and every form button and the PIN dialog's.
+- Not measured, on purpose: panel-edge on panel at night is 3.02 (nested
+  rows, figures, the closed-week detail — groupings, not components; the
+  wall's own chore rows sit on the same pairing), and disabled-edge on
+  panel at night is 2.80 (inactive controls are exempt from 1.4.11; their
+  text, disabled on disabled-bg, is measured).
+- e2e/parent-narrow.spec.ts: no parent tab scrolls sideways at 390;
+  Confirm is disabled with its reason until a ruling, and a ruling is
+  aria-pressed. check:literals and check:contrast clean; e2e 32 passed.

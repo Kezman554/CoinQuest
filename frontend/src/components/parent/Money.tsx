@@ -8,7 +8,7 @@
  */
 
 import { byWhom } from '../../parentWords'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { money, parsePence } from '../../api'
 import type { DepositRequest, Depositors, Owed, Preset, Savings } from '../../parentApi'
 import {
@@ -25,6 +25,7 @@ import type { Reconciliation } from '../../parentApi'
 import type { PinAct } from './PinDialog'
 import { shortDate } from '../../words'
 import { plural } from '../../words'
+import { Why } from '../Why'
 
 type Ask = { ask: (act: PinAct) => void }
 
@@ -35,6 +36,8 @@ export function Rewards({ presets, ask }: Ask & { presets: Preset[] }) {
   const [reason, setReason] = useState('')
   const pence = parsePence(amount)
   const ready = pence !== null && pence > 0 && reason.trim().length > 0
+  const whyId = useId()
+  const why = ready ? null : 'Needs an amount and what it is for.'
 
   return (
     <section className="panel">
@@ -62,8 +65,9 @@ export function Rewards({ presets, ask }: Ask & { presets: Preset[] }) {
         />
         <button
           type="button"
-          className="button"
+          className="button button-confirm"
           disabled={!ready}
+          aria-describedby={why ? whyId : undefined}
           onClick={() =>
             ready &&
             ask({
@@ -81,6 +85,7 @@ export function Rewards({ presets, ask }: Ask & { presets: Preset[] }) {
           Record
         </button>
       </div>
+      <Why id={whyId} reason={why} />
 
       {amount !== '' && pence === null && (
         <p className="dialog-error">
@@ -93,7 +98,7 @@ export function Rewards({ presets, ask }: Ask & { presets: Preset[] }) {
           <button
             key={preset.key}
             type="button"
-            className="button button-quiet"
+            className="button button-confirm"
             onClick={() =>
               ask({
                 title: preset.name,
@@ -116,6 +121,7 @@ export function Rewards({ presets, ask }: Ask & { presets: Preset[] }) {
 export function Payday({ owed, ask }: Ask & { owed: Owed[] }) {
   const [chosen, setChosen] = useState<number[]>([])
   const [deposit, setDeposit] = useState('')
+  const whyId = useId()
 
   if (owed.length === 0) {
     return (
@@ -130,6 +136,7 @@ export function Payday({ owed, ask }: Ask & { owed: Owed[] }) {
   const total = weeks.reduce((sum, week) => sum + week.owed_pence, 0)
   const deposited = parsePence(deposit) ?? 0
   const ready = weeks.length > 0 && deposited <= total
+  const overpaid = deposited > total
 
   return (
     <section className="panel">
@@ -168,56 +175,64 @@ export function Payday({ owed, ask }: Ask & { owed: Owed[] }) {
         ))}
       </ul>
 
-      {weeks.length > 0 && (
-        <div className="act-row">
+      {/* Mark paid stays in place before any week is ticked, disabled and
+          saying so, rather than appearing only once one is. */}
+      <div className="act-row">
+        {weeks.length > 0 && (
           <p className="batch-action">
             {money(total)} across {weeks.length}{' '}
             {plural(weeks.length, 'week', 'weeks')}
           </p>
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="Banked, e.g. £3"
-            value={deposit}
-            onChange={(event) => setDeposit(event.target.value)}
-          />
-          <button
-            type="button"
-            className="button button-do"
-            disabled={!ready}
-            onClick={() =>
-              ready &&
-              ask({
-                title: 'Mark paid',
-                summary: `${money(total)} handed over.`,
-                lines: [
-                  `${money(deposited)} into the account, ${money(
-                    total - deposited,
-                  )} kept.`,
-                  'The deposit is split across the weeks in date order, so each week records its share.',
-                ],
-                confirmLabel: 'Mark paid',
-                permanent: true,
-                run: (pin) =>
-                  payWeeks(
-                    pin,
-                    weeks.map((week) => week.week_id),
-                    deposited,
-                  ).then(() => {
-                    setChosen([])
-                    setDeposit('')
-                  }),
-              })
-            }
-          >
-            Mark paid
-          </button>
-        </div>
-      )}
-      {deposited > total && (
-        <p className="dialog-error">
-          {money(deposited)} cannot come out of a payment of {money(total)}.
-        </p>
+        )}
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="Banked, e.g. £3"
+          value={deposit}
+          disabled={weeks.length === 0}
+          onChange={(event) => setDeposit(event.target.value)}
+        />
+        <button
+          type="button"
+          className="button button-confirm"
+          disabled={!ready}
+          aria-describedby={ready ? undefined : whyId}
+          onClick={() =>
+            ready &&
+            ask({
+              title: 'Mark paid',
+              summary: `${money(total)} handed over.`,
+              lines: [
+                `${money(deposited)} into the account, ${money(
+                  total - deposited,
+                )} kept.`,
+                'The deposit is split across the weeks in date order, so each week records its share.',
+              ],
+              confirmLabel: 'Mark paid',
+              permanent: true,
+              run: (pin) =>
+                payWeeks(
+                  pin,
+                  weeks.map((week) => week.week_id),
+                  deposited,
+                ).then(() => {
+                  setChosen([])
+                  setDeposit('')
+                }),
+            })
+          }
+        >
+          Mark paid
+        </button>
+      </div>
+      {overpaid ? (
+        <Why
+          id={whyId}
+          className="dialog-error"
+          reason={`${money(deposited)} cannot come out of a payment of ${money(total)}.`}
+        />
+      ) : (
+        <Why id={whyId} reason={weeks.length === 0 ? 'Tick the weeks being paid first.' : null} />
       )}
     </section>
   )
@@ -243,6 +258,18 @@ export function SavingsPanel({
   const pence = parsePence(amount)
   const ready = pence !== null && pence > 0 && reason.trim().length > 0
   const empty = savings.entries.length === 0
+  const logWhy = useId()
+  const checkWhy = useId()
+  const logReason = empty
+    ? 'Nothing in the account to withdraw.'
+    : ready
+      ? null
+      : 'Needs an amount and what it went on.'
+  const checkReason = empty
+    ? 'Nothing in the account to check yet.'
+    : parsePence(actual) === null
+      ? 'Needs what the account really holds.'
+      : null
 
   return (
     <section className="panel">
@@ -254,106 +281,108 @@ export function SavingsPanel({
         <PendingDeposits requests={pendingDeposits} ask={ask} />
       )}
 
-      {/* Nothing shows here while the account is empty: there is nothing to
-          withdraw and nothing to reconcile yet, and depositing — the
-          Record-a-deposit act above, with a note like "opening balance" for
-          the very first one — is the only mechanism for getting money in.
-          There used to be a second, opening-balance-only act here; it did
-          exactly what a deposit already does, since an entry lands as the
-          ledger's first simply by being entered first. */}
-      {!empty && (
-        <>
-          <div className="act">
-            <h3>Log a withdrawal</h3>
-            <p className="act-note">
-              His own money leaving his own account. Nothing is ever deducted
-              from what he earned — this is not that.
-            </p>
-            <div className="act-row">
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="Amount"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="What it went on"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-              />
-              <button
-                type="button"
-                className="button"
-                disabled={!ready}
-                onClick={() =>
-                  ready &&
-                  ask({
-                    title: 'Log a withdrawal',
-                    summary: `${money(pence)} out — ${reason.trim()}`,
-                    lines: [
-                      `The balance goes to ${money(
-                        savings.balance_pence - pence,
-                      )}.`,
-                    ],
-                    confirmLabel: 'Log it',
-                    run: (pin) =>
-                      recordWithdrawal(pin, pence, reason).then(() => {
-                        setAmount('')
-                        setReason('')
-                      }),
-                  })
-                }
-              >
-                Log
-              </button>
-            </div>
-          </div>
+      {/* Withdrawing and reconciling stay on screen while the account is
+          empty, disabled and saying why (DESIGN.md: a control the state
+          forbids keeps its place). Depositing, above (with a note like
+          "opening balance" for the very first one), is the only way money
+          gets in. */}
+      <div className="act">
+        <h3>Log a withdrawal</h3>
+        <p className="act-note">
+          His own money leaving his own account. Nothing is ever deducted
+          from what he earned — this is not that.
+        </p>
+        <div className="act-row">
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="Amount"
+            value={amount}
+            disabled={empty}
+            onChange={(event) => setAmount(event.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="What it went on"
+            value={reason}
+            disabled={empty}
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <button
+            type="button"
+            className="button button-danger"
+            disabled={logReason !== null}
+            aria-describedby={logReason ? logWhy : undefined}
+            onClick={() =>
+              ready &&
+              ask({
+                title: 'Log a withdrawal',
+                summary: `${money(pence)} out — ${reason.trim()}`,
+                lines: [
+                  `The balance goes to ${money(
+                    savings.balance_pence - pence,
+                  )}.`,
+                ],
+                confirmLabel: 'Log it',
+                danger: true,
+                run: (pin) =>
+                  recordWithdrawal(pin, pence, reason).then(() => {
+                    setAmount('')
+                    setReason('')
+                  }),
+              })
+            }
+          >
+            Log
+          </button>
+        </div>
+        <Why id={logWhy} reason={logReason} />
+      </div>
 
-          <div className="act">
-            <h3>Reconcile</h3>
-            <p className="act-note">
-              Compare the ledger with what the account really holds. This
-              records nothing: a difference means something happened that
-              nobody wrote down, and papering over it would destroy the only
-              information the difference carries.
-            </p>
-            <div className="act-row">
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="What the account really holds"
-                value={actual}
-                onChange={(event) => setActual(event.target.value)}
-              />
-              <button
-                type="button"
-                className="button"
-                disabled={parsePence(actual) === null}
-                onClick={async () => {
-                  const value = parsePence(actual)
-                  if (value === null) return
-                  setChecked(await reconcile(value))
-                }}
-              >
-                Check
-              </button>
-            </div>
-            {checked && (
-              <p className={checked.agrees ? 'reconciled-ok' : 'reconciled-off'}>
-                {checked.agrees
-                  ? `They agree: ${money(checked.recorded_balance_pence)}.`
-                  : `The ledger says ${money(
-                      checked.recorded_balance_pence,
-                    )}, the account holds ${money(
-                      checked.actual_balance_pence,
-                    )}. ${checked.put_right_by}`}
-              </p>
-            )}
-          </div>
-        </>
-      )}
+      <div className="act">
+        <h3>Reconcile</h3>
+        <p className="act-note">
+          Compare the ledger with what the account really holds. This
+          records nothing: a difference means something happened that
+          nobody wrote down, and papering over it would destroy the only
+          information the difference carries.
+        </p>
+        <div className="act-row">
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="What the account really holds"
+            value={actual}
+            disabled={empty}
+            onChange={(event) => setActual(event.target.value)}
+          />
+          <button
+            type="button"
+            className="button"
+            disabled={checkReason !== null}
+            aria-describedby={checkReason ? checkWhy : undefined}
+            onClick={async () => {
+              const value = parsePence(actual)
+              if (value === null) return
+              setChecked(await reconcile(value))
+            }}
+          >
+            Check
+          </button>
+        </div>
+        <Why id={checkWhy} reason={checkReason} />
+        {checked && (
+          <p className={checked.agrees ? 'reconciled-ok' : 'reconciled-off'}>
+            {checked.agrees
+              ? `They agree: ${money(checked.recorded_balance_pence)}.`
+              : `The ledger says ${money(
+                  checked.recorded_balance_pence,
+                )}, the account holds ${money(
+                  checked.actual_balance_pence,
+                )}. ${checked.put_right_by}`}
+          </p>
+        )}
+      </div>
 
       {savings.entries.length > 0 && (
         <table className="ledger">
@@ -394,6 +423,8 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
 
   const pence = parsePence(amount)
   const ready = pence !== null && pence > 0 && note.trim().length > 0
+  const whyId = useId()
+  const why = ready ? null : 'Needs an amount and where it came from.'
 
   return (
     <div className="act">
@@ -420,8 +451,9 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
         />
         <button
           type="button"
-          className="button"
+          className="button button-confirm"
           disabled={!ready}
+          aria-describedby={why ? whyId : undefined}
           onClick={() =>
             ready &&
             ask({
@@ -439,6 +471,7 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
           Record
         </button>
       </div>
+      <Why id={whyId} reason={why} />
     </div>
   )
 }
@@ -464,7 +497,7 @@ function PendingDeposits({ requests, ask }: Ask & { requests: DepositRequest[] }
             <span className="act-row">
               <button
                 type="button"
-                className="button button-do"
+                className="button button-confirm"
                 onClick={() =>
                   ask({
                     title: 'Confirm this deposit',
@@ -485,6 +518,7 @@ function PendingDeposits({ requests, ask }: Ask & { requests: DepositRequest[] }
                     summary: `${money(request.amount_pence)} — ${request.note}`,
                     lines: ['It never reaches the ledger; nothing is recorded.'],
                     confirmLabel: 'Decline',
+                    danger: true,
                     run: (pin) => rejectDeposit(pin, request.id).then(() => undefined),
                   })
                 }

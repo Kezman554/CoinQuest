@@ -10,8 +10,8 @@
  * A month can be previewed before it has finished — see `month_has_ended` —
  * and this panel shows that preview plainly rather than hiding the section
  * until there is something to settle: a parent watching the figure climb
- * over the month is exactly what the ladder is for. Settle is only offered
- * once the month is actually over.
+ * over the month is exactly what the ladder is for. Settle is there all
+ * month, disabled and saying why until the month is actually over.
  *
  * Nothing settles itself, so a month that has ended and would pay something
  * is listed as ready to settle — the same list the wall shows as "Interest
@@ -24,7 +24,7 @@
  * same reconcile action the Savings panel uses — which records nothing.
  */
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { DueMonth } from '../../api'
 import { money, parsePence } from '../../api'
 import type { Reconciliation, SavingsMatchProposal, SettledMonth } from '../../parentApi'
@@ -33,6 +33,7 @@ import { byWhom } from '../../parentWords'
 import type { PinAct } from './PinDialog'
 import { Figure } from './ThisWeek'
 import { longDate, monthName, monthOnly } from '../../words'
+import { Why } from '../Why'
 
 type Ask = { ask: (act: PinAct) => void }
 
@@ -113,20 +114,18 @@ export function SavingsMatch({
             )}
           </div>
 
-          {proposal.month_has_ended ? (
-            <SettleButton
-              ask={ask}
-              onChecked={(result, problem) => {
-                setChecked(result)
-                setCheckProblem(problem)
-              }}
-            />
-          ) : (
-            <p className="act-note">
-              {monthName(proposal.period_start)} is not over yet — these figures will keep
-              moving until it ends, and nothing can be settled before then.
-            </p>
-          )}
+          <SettleButton
+            ask={ask}
+            blocked={
+              proposal.month_has_ended
+                ? null
+                : `${monthName(proposal.period_start)} is not over yet — these figures will keep moving until it ends, and nothing can be settled before then.`
+            }
+            onChecked={(result, problem) => {
+              setChecked(result)
+              setCheckProblem(problem)
+            }}
+          />
         </>
       ) : (
         <p className="nothing">
@@ -161,11 +160,19 @@ export function SavingsMatch({
  *
  * Beside it, always, the bank balance after the transfer: optional, and
  * checked only once the month has settled, so the books it is compared with
- * already hold the match. */
+ * already hold the match.
+ *
+ * Before the month ends it is still here, disabled, with `blocked` as the
+ * reason — a control the state forbids keeps its place (DESIGN.md). */
 function SettleButton({
   ask,
+  blocked,
   onChecked,
-}: Ask & { onChecked: (result: Reconciliation | null, problem: string | null) => void }) {
+}: Ask & {
+  blocked: string | null
+  onChecked: (result: Reconciliation | null, problem: string | null) => void
+}) {
+  const whyId = useId()
   const [checking, setChecking] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [bank, setBank] = useState('')
@@ -233,15 +240,22 @@ function SettleButton({
           inputMode="decimal"
           placeholder="What the bank account now holds"
           value={bank}
+          disabled={blocked !== null}
           onChange={(event) => setBank(event.target.value)}
         />
       </label>
-      {/* Gold for now, like every parent button. The parent-screen restyle
-          (AJ) makes this raised, not gold: gold is for money and the
-          child's own do-it actions (DESIGN.md). Restyle it there, once. */}
-      <button type="button" className="button button-do" onClick={() => void settle()} disabled={checking}>
+      {/* Raised with the control edge, not gold: settling confirms, and gold
+          is money and the child's own do-it actions (DESIGN.md). */}
+      <button
+        type="button"
+        className="button button-confirm"
+        onClick={() => void settle()}
+        disabled={checking || blocked !== null}
+        aria-describedby={blocked ? whyId : undefined}
+      >
         {checking ? 'Working out the true figure…' : 'Settle the match'}
       </button>
+      <Why id={whyId} reason={blocked} />
       {problem && (
         <p className="dialog-error" role="alert">
           {problem}

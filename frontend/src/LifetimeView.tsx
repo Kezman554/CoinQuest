@@ -5,7 +5,7 @@
  * Deliberately narrow — three things, nothing else. Not the Savings page's
  * this-month detail, and not a place a parent settles anything from; both
  * belong on their own screens. Read-only, the same as Savings, and built
- * from the same shapes: the `.total` gradient card for the one figure that
+ * from the same shapes: the gold `.total` card for the one figure that
  * matters most, `.figures` for the rest.
  *
  * The breakdown is deliberately not folded into the total-earned card above

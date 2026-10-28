@@ -19,7 +19,8 @@
  * is how a wrong figure gets agreed to.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Why } from '../Why'
 
 export type PinAct = {
   title: string
@@ -29,6 +30,11 @@ export type PinAct = {
   run: (pin: string) => Promise<void>
   /** Set for anything permanent, which is styled to be read twice. */
   permanent?: boolean
+  /** Set for an act that removes money or undoes something — void, reopen,
+   * a withdrawal, declining a deposit, retiring a chore. Its button takes
+   * danger's outline; everything else confirms, in the neutral raised look.
+   * Neither is gold: gold is money and the child's own do-it actions. */
+  danger?: boolean
 }
 
 type Props = {
@@ -42,6 +48,8 @@ export function PinDialog({ act, onClose, onDone }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const input = useRef<HTMLInputElement>(null)
+  const whyId = useId()
+  const why = !busy && pin.length === 0 ? 'Enter the PIN first.' : null
 
   useEffect(() => {
     input.current?.focus()
@@ -126,12 +134,14 @@ export function PinDialog({ act, onClose, onDone }: Props) {
           </button>
           <button
             type="submit"
-            className="button button-do"
+            className={act.danger ? 'button button-danger' : 'button button-confirm'}
             disabled={busy || pin.length === 0}
+            aria-describedby={why ? whyId : undefined}
           >
             {busy ? 'Working…' : act.confirmLabel}
           </button>
         </div>
+        <Why id={whyId} reason={why} className="why why-end" />
       </form>
     </div>
   )

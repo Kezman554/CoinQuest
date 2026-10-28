@@ -16,7 +16,10 @@ The child's week is a chore chart on a kitchen wall, read by a nine-year-old fro
 - **Typefaces:** Lilita One for display text (the title, day names, money figures, section headings). Nunito 600/700/800 for everything else. Bundle both with `@fontsource`; never fetch from a URL.
 - **Geometry:** every card and control has a solid outline in the `outline` role, 3px on cards and buttons and 2px on small tags. Corner radius is 14px on cards, 12px on buttons and 8–10px on tags.
 - **Shadows are hard and offset:** `0 4px 0` on buttons and `0 5px 0` on cards, in the `shadow` role. Never a blurred or soft shadow.
-- **Gold means money and action.** The money card and the coin are `gold`; every "I've done it" / "Have another go" button is `action`. A finished chore shows a small gold coin with a tick. Nothing else is gold.
+- **Gold means money and action.** The money card and the coin are `gold`; every "I've done it" / "Have another go" button, and the child's own "Add it" on Savings, is `action`. A finished chore shows a small gold coin with a tick. Nothing else is gold.
+- **Every screen wears it.** Savings, Lifetime, the parent view and the PIN dialog use the same outlines, hard shadows, radii and typefaces as the week, with the brick strip under them.
+- **A parent's buttons are never gold.** A confirming act (confirm, settle, pay, record) is `raised` with a `control-edge` outline. A destructive or money-removing one (refuse, void, reopen, mark missed, a withdrawal, retire) is `raised` with a `danger-edge` outline and `danger` words, and so is its PIN dialog's button. A caution ("This cannot be undone") is `waiting`'s, never `danger`'s.
+- **A forbidden control stays and says why.** It keeps its place in the `disabled` roles, with the reason in a line beside it that the button names (`aria-describedby`). It is never hidden for being unusable.
 - **The ground is the sky**, with a brick strip 24px tall along the bottom edge (`brick`, with `mortar` joints). The strip is decoration and carries nothing.
 - **Past weeks lose the shine.** On a settled or voided week paged back to, the money card is `settled`, the coin is muted, and nothing has a shadow, so nothing looks tappable.
 - **State is never colour alone.** Every state has its word ("Done", "Waiting to be checked", "Missed", "Not accepted last time"). Done adds the coin tick, waiting uses a dashed edge, and the last-day notice adds an alarm-clock icon.
@@ -64,7 +67,7 @@ The values are provisional (see the top of this document). Day is light and nigh
 
 ## Contrast floors
 
-Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. `npm run check:contrast` measures exactly the 43 pairings below, in both modes, and every one passes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64), `disabled-edge` on `ground` (3.61 by day, 3.37 at night) `today` on `panel-today` at night (4.05) and the won Chores chip's edge on `gold` (3.24, both modes). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
+Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. `npm run check:contrast` measures exactly the 57 pairings below, in both modes, and every one passes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64), `disabled-edge` on `ground` (3.61 by day, 3.37 at night) `today` on `panel-today` at night (4.05) and the won Chores chip's edge on `gold` (3.24, both modes). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
 
 A component is measured against the surface it sits on, and its fill or its outline may carry the boundary (WCAG 1.4.11): the gold card is told apart from the sky by its outline, not its gold. An outline is never measured against its own fill, because that isn't what makes a shape visible.
 
@@ -75,17 +78,20 @@ A component is measured against the surface it sits on, and its fill or its outl
 - `done` on `done-bg`, and on `panel` ("All paid up")
 - `waiting` on `waiting-bg`, `danger` on `danger-bg`, `disabled` on `disabled-bg`
 - on the money card, fixed in both modes: `on-gold-chip-ink` and `on-gold-chip-ink-soft` on `on-gold-chip`, `on-gold-done` on `on-gold-done-bg`, `on-gold-danger` on `on-gold-danger-bg`
+- on the other screens: `danger` on `raised` (a destructive button) and on `panel` (an error, the reopen heading), `waiting` on `panel` (a reconciliation that disagrees), `ink-soft` on `settled` (a retired chore)
 
 **Named non-text pairings (3.15:1), measured exactly as named:**
 - `today` on `panel-today` (the TODAY pill)
 - `today-edge` on `ground`, `panel-edge` on `ground`, `disabled-edge` on `ground`
 - `waiting-edge` on `waiting-bg` (the dashed edge)
+- the lifetime chart, on its `panel`: `ink` (the real balance), `done` (if nothing had been withdrawn, dashed as well), `ink-soft` (the baseline)
 
 **Boundaries (3.15:1), a component on its surface, by the better of fill and edge:**
 - on `ground`: a panel (`panel`/`panel-edge`), today's tile (`panel-today`/`today-edge`), the money card (`gold`/`outline`), a neutral button (`raised`/`control-edge`), a disabled control (`disabled-bg`/`disabled-edge`)
 - on `panel`: the savings match amount on the owed card (`gold`/`outline`), a neutral button (`raised`/`control-edge`), "I've done it" (`action`/`outline`), a done chore (`done-bg`/`done-edge`), a waiting chore (`waiting-bg`/`waiting-edge`), a missed chore (`danger-bg`/`danger-edge`), the savings bar (`done-edge`)
 - on `panel-today`: "I've done it" (`action`/`outline`)
 - on `danger-bg`: "Not missed after all" (`raised`/`danger-edge`), inside a missed chore
+- on the other screens: a destructive button on `panel` (`raised`/`danger-edge`); Yes and No on a ruled queue row (`raised`/`control-edge` and `raised`/`danger-edge` on `done-bg`, `raised`/`control-edge` on `danger-bg`), a chosen Yes (`raised`/`done-edge` on `done-bg`); the waiting count on a tab (`waiting-bg`/`waiting-edge` on `raised`); chore money at risk as a figure (`danger-bg`/`danger-edge` on `panel`)
 - on `gold`: a chip or the make-good box (`on-gold-chip`/`on-gold-chip-edge`), the won Chores chip (`on-gold-done-bg`/`on-gold-done-edge`), the at-risk chip and the notice (`on-gold-danger-bg`/`on-gold-danger-edge`)
 
 **Decoration, not measured:** `brick` and `mortar` (the bottom strip), `coin-light` and `coin-dark` (the coin's face and ring), and `shadow` (a depth cue under shapes whose boundaries are measured). Any other colour token that is neither measured nor listed here fails the check.

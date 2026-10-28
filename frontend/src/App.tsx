@@ -68,11 +68,10 @@ function App() {
 
   return (
     <main className={screen === 'child' ? 'page page-wall' : 'page'}>
+      {/* The ground is the sky with its brick strip on every screen. */}
+      <Bricks />
       {screen === 'child' && (
-        <>
-          <Bricks />
-          <ChildWeek elsewhere={elsewhere} modeToggle={<ModeToggle mode={mode} onToggle={toggle} />} />
-        </>
+        <ChildWeek elsewhere={elsewhere} modeToggle={<ModeToggle mode={mode} onToggle={toggle} />} />
       )}
       {screen === 'savings' && <SavingsView />}
       {screen === 'lifetime' && <LifetimeView />}

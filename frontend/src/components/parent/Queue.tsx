@@ -22,11 +22,12 @@
  * batch, submitted together with the same single PIN, exactly as before.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useId, useState } from 'react'
 import { money } from '../../api'
 import type { Consequence, DecisionIn, Pending, Ruling } from '../../parentApi'
 import { previewReview } from '../../parentApi'
 import { batchAction, pendingLabel, waitingFor, weekLabel } from '../../parentWords'
+import { Why } from '../Why'
 
 type Props = {
   queue: Pending[]
@@ -37,6 +38,7 @@ export function Queue({ queue, onSubmit }: Props) {
   const [rulings, setRulings] = useState<Record<number, Ruling>>({})
   const [problem, setProblem] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
+  const whyId = useId()
 
   const decisions: DecisionIn[] = Object.entries(rulings).map(
     ([instance_id, decision]) => ({ instance_id: Number(instance_id), decision }),
@@ -117,18 +119,20 @@ export function Queue({ queue, onSubmit }: Props) {
                 <div className="queue-rule">
                   <button
                     type="button"
-                    className={`button button-yes${
+                    className={`button button-confirm button-yes${
                       rulings[claim.instance_id] === 'confirm' ? ' chosen' : ''
                     }`}
+                    aria-pressed={rulings[claim.instance_id] === 'confirm'}
                     onClick={() => rule(claim.instance_id, 'confirm')}
                   >
                     Yes
                   </button>
                   <button
                     type="button"
-                    className={`button button-no${
+                    className={`button button-danger button-no${
                       rulings[claim.instance_id] === 'reject' ? ' chosen' : ''
                     }`}
+                    aria-pressed={rulings[claim.instance_id] === 'reject'}
                     onClick={() => rule(claim.instance_id, 'reject')}
                   >
                     No
@@ -140,28 +144,33 @@ export function Queue({ queue, onSubmit }: Props) {
         </div>
       ))}
 
-      {decisions.length === 0 ? (
-        <p className="nothing">Rule on a claim to build a batch.</p>
-      ) : (
-        <div className="batch">
+      {/* Confirm stays where it is before anything is ruled, disabled and
+          saying why, rather than appearing only once there is a batch. */}
+      <div className="batch">
+        {decisions.length > 0 && (
           <p className="batch-action">{batchAction(confirmed, rejected)}</p>
+        )}
 
-          {problem && (
-            <p className="dialog-error" role="alert">
-              {problem}
-            </p>
-          )}
+        {problem && (
+          <p className="dialog-error" role="alert">
+            {problem}
+          </p>
+        )}
 
-          <button
-            type="button"
-            className="button button-do"
-            onClick={confirm}
-            disabled={checking}
-          >
-            {checking ? 'Working it out…' : 'Confirm'}
-          </button>
-        </div>
-      )}
+        <button
+          type="button"
+          className="button button-confirm"
+          onClick={confirm}
+          disabled={checking || decisions.length === 0}
+          aria-describedby={decisions.length === 0 ? whyId : undefined}
+        >
+          {checking ? 'Working it out…' : 'Confirm'}
+        </button>
+        <Why
+          id={whyId}
+          reason={decisions.length === 0 ? 'Rule on a claim to build a batch.' : null}
+        />
+      </div>
     </section>
   )
 }

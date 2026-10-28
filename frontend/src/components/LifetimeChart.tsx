@@ -4,9 +4,11 @@
  *
  * Plain inline SVG, not a charting library — this app depends on nothing
  * but react and react-dom, and two lines are not worth a new dependency.
- * Colour comes from CSS custom properties via className, the same as every
- * other themed element on these screens, so the chart follows light and
- * dark mode without any logic of its own.
+ * Every stroke is a token, set by className in App.css, so the chart follows
+ * day and night without any logic of its own; each is measured against the
+ * panel it is drawn on by check:contrast. The never-withdrawn line is dashed
+ * as well as coloured, so the two series are never told apart by colour
+ * alone (DESIGN.md).
  */
 
 import type { BalancePoint } from '../api'

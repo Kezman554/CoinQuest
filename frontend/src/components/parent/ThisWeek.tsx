@@ -18,7 +18,7 @@
  * the one that is about to be stored.
  */
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { money } from '../../api'
 import type { WeekView } from '../../api'
 import type { Proposal } from '../../parentApi'
@@ -32,6 +32,7 @@ import {
   waiveDay,
 } from '../../parentApi'
 import { longDate, shortDate } from '../../words'
+import { Why } from '../Why'
 
 /** What the acts that open a PIN dialog need: the week, and a way to ask.
  *  They need nothing else — the dialog's own onDone reloads the screen. */
@@ -68,7 +69,7 @@ export function ThisWeek({ week, ask, onDone, title = 'This week' }: Props) {
               ? money(week.totals.chore_pay_pence)
               : `${money(week.totals.chore_pay_at_stake_pence)} at risk`
           }
-          warn={!week.totals.chore_pay_awarded}
+          danger={!week.totals.chore_pay_awarded}
         />
         <Figure label="Bonus" value={money(week.totals.bonus_pence)} />
         {week.totals.ad_hoc_reward_pence > 0 && (
@@ -131,7 +132,7 @@ function SettleButton({ week, ask }: WeekAct) {
 
   return (
     <div className="settle-button">
-      <button type="button" className="button button-do" onClick={settle} disabled={checking}>
+      <button type="button" className="button button-confirm" onClick={settle} disabled={checking}>
         {checking ? 'Working out the true figure…' : 'Settle'}
       </button>
       {problem && (
@@ -150,16 +151,25 @@ export function Figure({
   value,
   big,
   warn,
+  danger,
   note,
 }: {
   label: string
   value: string
   big?: boolean
+  /** A caution — waiting's tier (a rate reset by a withdrawal). */
   warn?: boolean
+  /** Money at risk — danger's tier, as the child's own Chores chip is.
+   * DESIGN.md's three tiers: a caution never borrows danger. */
+  danger?: boolean
   note?: string
 }) {
   return (
-    <div className={`figure${big ? ' figure-big' : ''}${warn ? ' figure-warn' : ''}`}>
+    <div
+      className={`figure${big ? ' figure-big' : ''}${warn ? ' figure-warn' : ''}${
+        danger ? ' figure-danger' : ''
+      }`}
+    >
       <span className="figure-label">{label}</span>
       <span className="figure-value">{value}</span>
       {note && <span className="figure-note">{note}</span>}
@@ -201,15 +211,24 @@ function MarkMissed({ week, onDone }: { week: WeekView; onDone: () => void }) {
   const [instanceId, setInstanceId] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  const whyId = useId()
   const candidates = choreInstances(week).filter(
     (chore) => chore.state === 'untouched' || chore.state === 'claimed',
   )
 
-  if (candidates.length === 0) return null
+  // Kept on screen when there is nothing left to mark, disabled and saying
+  // so, rather than disappearing (DESIGN.md: a forbidden control says why).
+  const none = candidates.length === 0
 
   const chosen = candidates.find(
     (chore) => String(chore.instance_id) === instanceId,
   )
+
+  const why = none
+    ? 'Nothing this week is left to mark missed.'
+    : !chosen
+      ? 'Choose a chore first.'
+      : null
 
   const mark = async () => {
     if (!chosen) return
@@ -235,7 +254,11 @@ function MarkMissed({ week, onDone }: { week: WeekView; onDone: () => void }) {
         nothing, and either screen can clear it again with one.
       </p>
       <div className="act-row">
-        <select value={instanceId} onChange={(e) => setInstanceId(e.target.value)}>
+        <select
+          value={instanceId}
+          disabled={none}
+          onChange={(e) => setInstanceId(e.target.value)}
+        >
           <option value="">Choose a chore…</option>
           {candidates.map((chore) => (
             <option key={chore.instance_id} value={String(chore.instance_id)}>
@@ -247,13 +270,15 @@ function MarkMissed({ week, onDone }: { week: WeekView; onDone: () => void }) {
         </select>
         <button
           type="button"
-          className="button"
+          className="button button-danger"
           disabled={!chosen || busy}
+          aria-describedby={why ? whyId : undefined}
           onClick={() => void mark()}
         >
           {busy ? 'Marking…' : 'Mark missed'}
         </button>
       </div>
+      <Why id={whyId} reason={why} />
       {problem && (
         <p className="dialog-error" role="alert">
           {problem}
@@ -273,6 +298,8 @@ function Waive({
   const [dayReason, setDayReason] = useState('')
   const [choreId, setChoreId] = useState('')
   const [choreReason, setChoreReason] = useState('')
+  const dayWhy = useId()
+  const choreWhy = useId()
 
   const chore = chores.find((item) => String(item.definition_id) === choreId)
 
@@ -306,6 +333,7 @@ function Waive({
           type="button"
           className="button"
           disabled={!day}
+          aria-describedby={day ? undefined : dayWhy}
           onClick={() =>
             ask({
               title: 'Waive a day',
@@ -325,6 +353,7 @@ function Waive({
           Waive day
         </button>
       </div>
+      <Why id={dayWhy} reason={day ? null : 'Choose a day first.'} />
 
       <div className="act-row">
         <select value={choreId} onChange={(event) => setChoreId(event.target.value)}>
@@ -345,6 +374,7 @@ function Waive({
           type="button"
           className="button"
           disabled={!chore}
+          aria-describedby={chore ? undefined : choreWhy}
           onClick={() =>
             chore &&
             ask({
@@ -365,12 +395,15 @@ function Waive({
           Waive chore
         </button>
       </div>
+      <Why id={choreWhy} reason={chore ? null : 'Choose a chore first.'} />
     </div>
   )
 }
 
 function VoidWeek({ week, ask }: WeekAct) {
   const [reason, setReason] = useState('')
+  const whyId = useId()
+  const why = reason.trim().length === 0 ? 'Needs a reason first.' : null
 
   return (
     <div className="void-week">
@@ -383,7 +416,8 @@ function VoidWeek({ week, ask }: WeekAct) {
       <button
         type="button"
         className="button button-danger"
-        disabled={reason.trim().length === 0}
+        disabled={why !== null}
+        aria-describedby={why ? whyId : undefined}
         onClick={() =>
           ask({
             title: 'Void this week',
@@ -394,6 +428,7 @@ function VoidWeek({ week, ask }: WeekAct) {
             ],
             confirmLabel: 'Void the week',
             permanent: true,
+            danger: true,
             run: (pin) =>
               voidWeek(pin, week.week_id, reason).then(() => {
                 setReason('')
@@ -403,6 +438,7 @@ function VoidWeek({ week, ask }: WeekAct) {
       >
         Void the week
       </button>
+      <Why id={whyId} reason={why} />
     </div>
   )
 }

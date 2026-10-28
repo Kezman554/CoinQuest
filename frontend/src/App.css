@@ -221,6 +221,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  width: min(22rem, 100%);
   font-size: 0.95rem;
   color: var(--ink-soft);
 }
@@ -861,7 +862,7 @@
   flex: 1 1 10rem;
   background: var(--panel);
   color: var(--ink);
-  border: var(--edge-tag) solid var(--outline);
+  border: var(--edge-tag) solid var(--panel-edge);
   border-radius: var(--radius-button);
   padding: 0.75rem 1rem;
 }
@@ -1163,53 +1164,24 @@
   font-size: 1.375rem;
 }
 
-/* The week's own buttons: raised, outlined, with a hard shadow that a press
-   pushes the button down into. */
-.page-wall .button {
-  background: var(--raised);
-  color: var(--ink);
-  border: var(--edge-card) solid var(--control-edge);
-  border-radius: var(--radius-button);
-  box-shadow: var(--shadow-button);
-  font-size: var(--size-button);
-  font-weight: 800;
-}
-
-.page-wall .button-do {
-  background: var(--action);
-  color: var(--on-action);
-  border-color: var(--outline);
-}
-
-.page-wall .button:disabled {
-  background: var(--disabled-bg);
-  border-color: var(--disabled-edge);
-  color: var(--disabled);
-  box-shadow: none;
-}
-
-.page-wall .button:active:not(:disabled) {
-  transform: translateY(4px);
-  box-shadow: none;
-}
-
 /* --- Panels -------------------------------------------------------------- */
 
-.panel h2 {
-  font-size: 2rem;
-  margin-bottom: 0.9375rem;
-}
-
-.page-wall .panel {
+/* Every panel, on every screen: the 3px edge, the card radius and the hard
+   card shadow, with its heading in display type. */
+.panel {
+  background: var(--panel);
   border: var(--edge-card) solid var(--panel-edge);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+  padding: 1.5625rem;
 }
 
-.page-wall .panel h2 {
+.panel h2 {
   font-family: var(--font-display);
   font-weight: 400;
+  font-size: 2rem;
   letter-spacing: 0.01em;
+  margin-bottom: 0.9375rem;
 }
 
 .days {
@@ -1506,15 +1478,22 @@
   background: var(--settled);
 }
 
-/* --- The parent's screen -------------------------------------------------
+/* --- Buttons, on every screen ---------------------------------------------
  *
- * Denser than the child's on purpose. This one is read leaning in, at a
- * keyboard, by somebody working a list — the opposite posture from the wall
- * screen, and the same generous type would put three items on a page.
+ * One look everywhere (DESIGN.md, "Coin block"): raised, a 3px edge, the
+ * button radius and a hard shadow that a press pushes the button down into.
  *
- * The exceptions are the two figures that matter: what a batch does, and what
- * a week is about to settle at. Those stay large, because the whole point of
- * the parent view is that nobody agrees to a number they did not read.
+ * Three kinds, and only one is gold:
+ *
+ *  - .button-do: the child's own do-it actions — gold, like "I've done it"
+ *    on the wall. Gold is money and his actions; nothing else is gold.
+ *  - .button-confirm: a parent agreeing to something that gives or records
+ *    money — confirm, settle, pay, record. The neutral raised look with the
+ *    control edge: a parent reads the dialog, not the colour.
+ *  - .button-danger: anything that removes money or undoes something —
+ *    refuse, void, reopen, mark missed, a withdrawal, retire. Danger's
+ *    outline and danger's words. A caution never borrows it (DESIGN.md's
+ *    three tiers): a caution is waiting's.
  */
 
 .switcher {
@@ -1527,24 +1506,21 @@
 
 .button {
   font: inherit;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: var(--size-button);
+  font-weight: 800;
   min-height: 3.4375rem;
   padding: 0.625rem 1.375rem;
-  border-radius: 0.75rem;
-  border: 2px solid var(--panel-edge);
-  background: var(--panel);
+  border-radius: var(--radius-button);
+  border: var(--edge-card) solid var(--control-edge);
+  background: var(--raised);
   color: var(--ink);
+  box-shadow: var(--shadow-button);
   cursor: pointer;
 }
 
-/* "This is the latest", and any control the state forbids: its own
-   opaque roles, not a fade. */
-.button:disabled {
-  background: var(--disabled-bg);
-  border-color: var(--disabled-edge);
-  color: var(--disabled);
-  cursor: default;
+.button:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
 }
 
 .button-do {
@@ -1553,8 +1529,33 @@
   border-color: var(--outline);
 }
 
-.button-quiet {
+.button-danger {
+  border-color: var(--danger-edge);
+  color: var(--danger);
+}
+
+/* "This is the latest", and any control the state forbids: its own opaque
+   roles, never a fade, and no shadow, so it does not look pressable. It
+   stays where it is and says why beside it (Why.tsx). */
+.button:disabled {
+  background: var(--disabled-bg);
+  border-color: var(--disabled-edge);
+  color: var(--disabled);
+  box-shadow: none;
+  cursor: default;
+}
+
+/* Why a control is disabled, under the row it sits in (Why.tsx). */
+.why {
+  margin-top: 0.4375rem;
+  font-size: var(--size-date);
+  font-weight: 700;
   color: var(--ink-soft);
+}
+
+.why-end {
+  margin-top: 0;
+  text-align: right;
 }
 
 /* The parent page's second way back, above the masthead rather than fighting
@@ -1563,13 +1564,32 @@
   margin-bottom: 1.25rem;
 }
 
+/* --- The parent's screen -------------------------------------------------
+ *
+ * Denser than the child's on purpose. This one is read leaning in, at a
+ * keyboard, by somebody working a list — the opposite posture from the wall
+ * screen, and the same generous type would put three items on a page.
+ *
+ * The exceptions are the two figures that matter: what a batch does, and what
+ * a week is about to settle at. Those stay large, because the whole point of
+ * the parent view is that nobody agrees to a number they did not read.
+ */
+
+/* A tab's panels stand apart, as the page's own sections do. */
+.parent-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.875rem;
+}
+
 /* The parent page's three tabs. Full width and as tall as any other control,
-   so the one wanted is a tap from across the kitchen rather than a scroll. */
+   so the one wanted is a tap from across the kitchen rather than a scroll.
+   Raised buttons; the chosen one is pressed in — no shadow, pushed down, and
+   underlined in ink — so which is chosen is never colour alone. */
 .parent-tabs {
   display: flex;
   gap: 0.625rem;
-  margin-bottom: 1.5625rem;
-  border-bottom: 2px solid var(--panel-edge);
+  margin-bottom: 1.875rem;
 }
 
 .parent-tab {
@@ -1579,35 +1599,40 @@
   justify-content: center;
   gap: 0.625rem;
   font: inherit;
-  font-size: 1.3125rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.375rem;
+  letter-spacing: 0.01em;
   min-height: 4.0625rem;
   padding: 0.625rem 0.5rem;
-  margin-bottom: -2px;
   white-space: nowrap;
-  border: 2px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-radius: 0.75rem 0.75rem 0 0;
-  background: none;
-  color: var(--ink-soft);
+  border: var(--edge-card) solid var(--control-edge);
+  border-radius: var(--radius-button);
+  background: var(--raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-button);
   cursor: pointer;
 }
 
 .parent-tab.chosen {
-  background: var(--panel);
-  border-color: var(--panel-edge);
+  transform: translateY(4px);
+  box-shadow: inset 0 calc(-1 * var(--edge-card)) 0 var(--ink);
   border-bottom-color: var(--ink);
-  color: var(--ink);
 }
 
+/* How many are waiting: waiting's tier, with its dashed edge — a count of
+   things nobody has checked yet is not an alarm. */
 .parent-tab-count {
   min-width: 2rem;
   padding: 0 0.5rem;
   border-radius: var(--radius-pill);
-  background: var(--danger-bg);
-  color: var(--danger);
+  border: var(--edge-tag) dashed var(--waiting-edge);
+  background: var(--waiting-bg);
+  color: var(--waiting);
+  font-family: var(--font-body);
+  font-weight: 800;
   font-size: 1.0625rem;
-  line-height: 2rem;
+  line-height: 1.75rem;
 }
 
 @media (max-width: 420px) {
@@ -1622,21 +1647,16 @@
   }
 }
 
-.button-danger {
-  border-color: var(--danger);
-  color: var(--danger);
+/* Yes and No in the queue: a ruling chosen is pressed in, with no shadow,
+   and its row takes the ruling's colours and words — never colour alone. */
+.button-yes.chosen,
+.button-no.chosen {
+  transform: translateY(4px);
+  box-shadow: none;
 }
 
 .button-yes.chosen {
-  background: var(--done-bg);
-  border-color: var(--done);
-  color: var(--done);
-}
-
-.button-no.chosen {
-  background: var(--danger-bg);
-  border-color: var(--danger);
-  color: var(--danger);
+  border-color: var(--done-edge);
 }
 
 .act-note {
@@ -1644,14 +1664,6 @@
   font-size: 1.1875rem;
   margin-bottom: 0.9375rem;
   max-width: 57.5rem;
-}
-
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--panel-edge);
-  border-top: 5px solid var(--panel-edge);
-  border-radius: 1.25rem;
-  padding: 1.5625rem;
 }
 
 /* The day and weekly grids sit inside .panel on the child's screen and must
@@ -1662,27 +1674,48 @@
 }
 
 input[type='text'],
+input[type='number'],
 select {
   font: inherit;
   font-size: 1.25rem;
   min-height: 3.4375rem;
   padding: 0.5rem 0.875rem;
-  border-radius: 0.75rem;
-  border: 2px solid var(--control-edge);
+  border-radius: var(--radius-button);
+  border: var(--edge-card) solid var(--control-edge);
   background: var(--raised);
   color: var(--ink);
   flex: 1 1 15rem;
   min-width: 0;
 }
 
+input::placeholder {
+  color: var(--ink-soft);
+  opacity: 1;
+}
+
+input:disabled,
+select:disabled {
+  background: var(--disabled-bg);
+  border-color: var(--disabled-edge);
+  color: var(--disabled);
+}
+
+input:disabled::placeholder {
+  color: var(--disabled);
+}
+
 .act {
-  border-top: 1px solid var(--panel-edge);
+  border-top: var(--edge-tag) solid var(--panel-edge);
   padding-top: 1.25rem;
   margin-top: 1.25rem;
 }
 
-.act h3 {
-  font-size: 1.4375rem;
+.act h3,
+.closing h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.5rem;
+  letter-spacing: 0.01em;
   margin-bottom: 0.4375rem;
 }
 
@@ -1702,7 +1735,7 @@ select {
 
 .queue-week-heading {
   font-size: 1.1875rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--ink-soft);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -1715,33 +1748,46 @@ select {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.75rem;
 }
 
+/* A row inside a panel, shaped like a chore row on the wall. */
 .queue-item {
   display: flex;
   flex-wrap: wrap;
   gap: 0.625rem;
   align-items: center;
   justify-content: space-between;
-  border: 2px solid var(--panel-edge);
-  border-radius: 0.9375rem;
+  border: var(--edge-card) solid var(--panel-edge);
+  border-radius: var(--radius-button);
   padding: 0.75rem 1.125rem;
   background: var(--panel);
 }
 
 .queue-item.ruled-confirm {
-  border-color: var(--done);
+  border-color: var(--done-edge);
   background: var(--done-bg);
 }
 
 .queue-item.ruled-reject {
-  border-color: var(--danger);
+  border-color: var(--danger-edge);
   background: var(--danger-bg);
 }
 
+/* Words on a ruled row take its tier's text colour: ink-soft is measured on
+   the panel, not on done-bg or danger-bg. */
+.ruled-confirm .queue-name,
+.ruled-confirm .queue-meta {
+  color: var(--done);
+}
+
+.ruled-reject .queue-name,
+.ruled-reject .queue-meta {
+  color: var(--danger);
+}
+
 .queue-name {
-  font-weight: 600;
+  font-weight: 800;
   font-size: 1.3125rem;
   display: block;
 }
@@ -1763,22 +1809,25 @@ select {
 .tag-again {
   background: var(--waiting-bg);
   color: var(--waiting);
+  border-color: var(--waiting-edge);
 }
 
 .tag-settled {
   background: var(--done-bg);
   color: var(--done);
+  border-color: var(--done-edge);
 }
 
 .tag-voided {
   background: var(--settled);
   color: var(--ink);
+  border-color: var(--panel-edge);
 }
 
 /* --- What the batch does ------------------------------------------------- */
 
 .batch {
-  border-top: 2px solid var(--panel-edge);
+  border-top: var(--edge-tag) solid var(--panel-edge);
   padding-top: 1.25rem;
   display: flex;
   flex-direction: column;
@@ -1786,9 +1835,13 @@ select {
   align-items: flex-start;
 }
 
+.batch .why {
+  margin-top: -0.5rem;
+}
+
 .batch-action {
   font-size: 1.4375rem;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 /* --- The week's figures -------------------------------------------------- */
@@ -1800,9 +1853,11 @@ select {
   margin-bottom: 0.625rem;
 }
 
+/* A figure is a small card inside its panel; money in display type. */
 .figure {
   background: var(--panel);
-  border-radius: 0.875rem;
+  border: var(--edge-tag) solid var(--panel-edge);
+  border-radius: var(--radius-button);
   padding: 0.75rem 1.125rem;
   display: flex;
   flex-direction: column;
@@ -1811,12 +1866,15 @@ select {
 
 .figure-label {
   font-size: 1.0625rem;
+  font-weight: 700;
   color: var(--ink-soft);
 }
 
 .figure-value {
+  font-family: var(--font-display);
+  font-weight: 400;
   font-size: 1.75rem;
-  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .figure-big {
@@ -1825,15 +1883,31 @@ select {
 
 .figure-big .figure-value {
   font-size: 3.125rem;
+  line-height: 1.05;
 }
 
+/* A caution: waiting's tier. */
 .figure-warn {
   background: var(--waiting-bg);
+  border-color: var(--waiting-edge);
 }
 
 .figure-warn .figure-value,
-.figure-warn .figure-label {
+.figure-warn .figure-label,
+.figure-warn .figure-note {
   color: var(--waiting);
+}
+
+/* Money at risk: danger's tier, as the child's Chores chip is. */
+.figure-danger {
+  background: var(--danger-bg);
+  border-color: var(--danger-edge);
+}
+
+.figure-danger .figure-value,
+.figure-danger .figure-label,
+.figure-danger .figure-note {
+  color: var(--danger);
 }
 
 .figure-note {
@@ -1844,7 +1918,7 @@ select {
 /* --- Closing a week ------------------------------------------------------ */
 
 .closing {
-  border-top: 2px solid var(--panel-edge);
+  border-top: var(--edge-tag) solid var(--panel-edge);
   margin-top: 1.5625rem;
   padding-top: 1.25rem;
 }
@@ -1863,15 +1937,26 @@ select {
   align-items: flex-start;
 }
 
+/* The reason and "Void the week" wrap onto two lines when the row is too
+   narrow for both: at 390 wide the pair used to run to 409px and scroll the
+   page sideways. */
 .void-week {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.625rem;
   flex: 1 1 25rem;
+  min-width: 0;
+}
+
+.void-week .why {
+  flex-basis: 100%;
+  margin-top: 0;
 }
 
 .settle-button {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.5rem;
 }
 
@@ -1894,14 +1979,17 @@ select {
 .owed input {
   width: 1.75rem;
   height: 1.75rem;
+  accent-color: var(--ink);
 }
 
 .owed-week {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .owed-amount {
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.5rem;
 }
 
 .owed-note,
@@ -1923,7 +2011,7 @@ select {
   align-items: baseline;
   gap: 0.9375rem;
   padding: 0.625rem 0;
-  border-top: 1px solid var(--panel-edge);
+  border-top: var(--edge-tag) solid var(--panel-edge);
   flex-wrap: wrap;
 }
 
@@ -1941,7 +2029,7 @@ select {
 
 .ledger td {
   padding: 0.5rem 0.625rem;
-  border-top: 1px solid var(--panel-edge);
+  border-top: var(--edge-tag) solid var(--panel-edge);
 }
 
 .ledger-amount,
@@ -1952,7 +2040,7 @@ select {
 }
 
 .ledger-balance {
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .ledger-posted-by {
@@ -1962,13 +2050,13 @@ select {
 .reconciled-ok {
   margin-top: 0.75rem;
   color: var(--done);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .reconciled-off {
   margin-top: 0.75rem;
   color: var(--waiting);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .presets {
@@ -1988,7 +2076,7 @@ select {
   height: 1.125rem;
   border-radius: var(--radius-pill);
   background: var(--panel);
-  border: 1px solid var(--panel-edge);
+  border: var(--edge-tag) solid var(--panel-edge);
   overflow: hidden;
 }
 
@@ -2006,6 +2094,12 @@ select {
 }
 
 /* --- The lifetime chart ---------------------------------------------------- */
+/*
+ * Every stroke is a token, so the chart follows day and night with the rest
+ * of the page, and each is measured on the panel it is drawn on
+ * (check:contrast): the real balance in ink, the never-withdrawn line in
+ * done and dashed — so the two differ in shape as well as colour — and the
+ * baseline in ink-soft, thinner than either. */
 
 .lifetime-chart svg {
   width: 100%;
@@ -2014,7 +2108,7 @@ select {
 }
 
 .lifetime-chart-axis {
-  stroke: var(--panel-edge);
+  stroke: var(--ink-soft);
   stroke-width: 2;
 }
 
@@ -2033,15 +2127,19 @@ path.lifetime-line {
 }
 
 .lifetime-line-real {
-  stroke: var(--ink-soft);
+  stroke: var(--ink);
 }
 
 .lifetime-line-counterfactual {
   stroke: var(--done);
 }
 
+path.lifetime-line-counterfactual {
+  stroke-dasharray: 10 8;
+}
+
 circle.lifetime-line-real {
-  fill: var(--ink-soft);
+  fill: var(--ink);
 }
 
 circle.lifetime-line-counterfactual {
@@ -2056,30 +2154,28 @@ circle.lifetime-line-counterfactual {
   margin: 0.9375rem 0 0;
   padding: 0;
   font-size: 1.125rem;
+  font-weight: 700;
   color: var(--ink-soft);
 }
 
 .lifetime-legend li {
   position: relative;
-  padding-left: 1.625rem;
+  padding-left: 2rem;
 }
 
+/* The swatch is drawn the way its line is: solid ink, or done dashed. */
 .lifetime-legend li::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 0.35em;
-  width: 1.125rem;
-  height: 0.375rem;
-  border-radius: var(--radius-pill);
+  top: 0.6em;
+  width: 1.5rem;
+  border-top: 0.25rem solid var(--ink);
 }
 
-.lifetime-legend-real::before {
-  background: var(--ink-soft);
-}
-
-.lifetime-legend-counterfactual::before {
-  background: var(--done);
+.lifetime-legend li.lifetime-legend-counterfactual::before {
+  border-top-style: dashed;
+  border-top-color: var(--done);
 }
 
 /* --- Closed weeks -------------------------------------------------------- */
@@ -2100,24 +2196,27 @@ circle.lifetime-line-counterfactual {
   text-align: left;
   background: none;
   border: none;
-  border-top: 1px solid var(--panel-edge);
+  border-top: var(--edge-tag) solid var(--panel-edge);
   padding: 0.9375rem 0;
   cursor: pointer;
 }
 
 .closed-dates {
   flex: 1;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .closed-total {
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.5rem;
   font-variant-numeric: tabular-nums;
 }
 
 .closed-detail {
   background: var(--panel);
-  border-radius: 0.9375rem;
+  border: var(--edge-tag) solid var(--panel-edge);
+  border-radius: var(--radius-button);
   padding: 1.25rem;
   margin-bottom: 0.9375rem;
 }
@@ -2132,12 +2231,11 @@ circle.lifetime-line-counterfactual {
 }
 
 .closed-void {
-  color: var(--ink-soft);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .reopening-history {
-  border-top: 1px solid var(--panel-edge);
+  border-top: var(--edge-tag) solid var(--panel-edge);
   padding-top: 0.9375rem;
   margin-top: 0.9375rem;
 }
@@ -2162,13 +2260,16 @@ circle.lifetime-line-counterfactual {
 }
 
 .reopen-week {
-  border-top: 2px solid var(--danger);
+  border-top: var(--edge-tag) solid var(--danger-edge);
   padding-top: 0.9375rem;
   margin-top: 1.25rem;
 }
 
 .reopen-week h4 {
-  font-size: 1.3125rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.375rem;
+  letter-spacing: 0.01em;
   margin-bottom: 0.4375rem;
   color: var(--danger);
 }
@@ -2181,7 +2282,7 @@ circle.lifetime-line-counterfactual {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.75rem;
 }
 
 .chore-def {
@@ -2189,14 +2290,14 @@ circle.lifetime-line-counterfactual {
   flex-wrap: wrap;
   gap: 0.625rem;
   align-items: center;
-  border: 2px solid var(--panel-edge);
-  border-radius: 0.9375rem;
+  border: var(--edge-card) solid var(--panel-edge);
+  border-radius: var(--radius-button);
   padding: 0.75rem 1.125rem;
   background: var(--panel);
 }
 
 .chore-def-name {
-  font-weight: 600;
+  font-weight: 800;
   font-size: 1.3125rem;
   flex: 1 1 auto;
   min-width: 10rem;
@@ -2209,7 +2310,7 @@ circle.lifetime-line-counterfactual {
 }
 
 .chore-def-amount {
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .chore-def-actions {
@@ -2225,17 +2326,19 @@ circle.lifetime-line-counterfactual {
 .tag-basic {
   background: var(--panel);
   color: var(--ink-soft);
-  border: 1px solid var(--panel-edge);
+  border-color: var(--panel-edge);
 }
 
 .tag-reward {
   background: var(--done-bg);
   color: var(--done);
+  border-color: var(--done-edge);
 }
 
 .tag-retired {
   background: var(--settled);
-  color: var(--ink-soft);
+  color: var(--ink);
+  border-color: var(--panel-edge);
 }
 
 .chore-form-administered {
@@ -2261,31 +2364,35 @@ circle.lifetime-line-counterfactual {
   font-size: 1.1875rem;
 }
 
+.chore-form-administered input,
+.chore-form-weekday input {
+  accent-color: var(--ink);
+}
+
 .chore-def-amount-shared {
   font-style: italic;
   color: var(--ink-soft);
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .chore-basic-pay {
   background: var(--panel);
-  border-radius: 0.9375rem;
+  border: var(--edge-tag) solid var(--panel-edge);
+  border-radius: var(--radius-button);
   padding: 0.9375rem 1.125rem;
   margin-bottom: 1.25rem;
 }
 
-.chore-basic-pay h3 {
-  font-size: 1.3125rem;
-  margin-bottom: 0.3125rem;
-}
-
 .chore-basic-pay-amount {
-  font-size: 1.6875rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.75rem;
 }
 
 /* --- The PIN dialog ------------------------------------------------------ */
 
+/* The backdrop is the one see-through fill on any screen, and nothing is
+   written on it: every word sits on the dialog's opaque panel. */
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -2299,7 +2406,9 @@ circle.lifetime-line-counterfactual {
 
 .dialog {
   background: var(--panel);
-  border-radius: 1.25rem;
+  border: var(--edge-card) solid var(--panel-edge);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   padding: 1.875rem;
   width: min(40rem, 100%);
   max-height: 90vh;
@@ -2310,12 +2419,15 @@ circle.lifetime-line-counterfactual {
 }
 
 .dialog h2 {
-  font-size: 1.75rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 2rem;
+  letter-spacing: 0.01em;
 }
 
 .dialog-summary {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .dialog-lines {
@@ -2327,16 +2439,18 @@ circle.lifetime-line-counterfactual {
   color: var(--ink-soft);
 }
 
+/* "This cannot be undone": a caution, so waiting's tier, not danger's. */
 .dialog-permanent {
   background: var(--waiting-bg);
   color: var(--waiting);
-  font-weight: 700;
-  border-radius: 0.75rem;
+  border: var(--edge-tag) solid var(--waiting-edge);
+  font-weight: 800;
+  border-radius: var(--radius-button);
   padding: 0.75rem 1rem;
 }
 
 .pin-label {
-  font-weight: 600;
+  font-weight: 800;
   margin-top: 0.3125rem;
 }
 
@@ -2346,19 +2460,20 @@ circle.lifetime-line-counterfactual {
   letter-spacing: 0.4em;
   text-align: center;
   padding: 0.625rem;
-  border-radius: 0.75rem;
-  border: 2px solid var(--control-edge);
+  border-radius: var(--radius-button);
+  border: var(--edge-card) solid var(--control-edge);
   background: var(--raised);
   color: var(--ink);
 }
 
 .dialog-error {
   color: var(--danger);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .dialog-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.9375rem;
   justify-content: flex-end;
 }

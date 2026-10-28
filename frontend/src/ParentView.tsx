@@ -235,7 +235,12 @@ export function ParentView() {
         }}
       />
 
-      <div role="tabpanel" id={`parent-panel-${tab}`} aria-labelledby={`parent-tab-${tab}`}>
+      <div
+        className="parent-panel"
+        role="tabpanel"
+        id={`parent-panel-${tab}`}
+        aria-labelledby={`parent-tab-${tab}`}
+      >
         {tab === 'week' && (
           <>
             {lastBatch && (

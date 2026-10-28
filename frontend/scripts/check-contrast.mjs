@@ -55,6 +55,11 @@ const TEXT_PAIRS = [
   ['on-gold-chip-ink-soft', 'on-gold-chip', "a chip's label on the money card"],
   ['on-gold-done', 'on-gold-done-bg', 'the Chores chip once won, a put-right notice'],
   ['on-gold-danger', 'on-gold-danger-bg', 'the Chores chip at risk, the missed-chore notice'],
+  // The other screens (Savings, Lifetime, the parent view, the PIN dialog).
+  ['danger', 'raised', 'a refusing or money-removing button (reject, void, mark missed)'],
+  ['danger', 'panel', 'a refusal or error in a panel or the PIN dialog; the reopen heading'],
+  ['waiting', 'panel', "a reconciliation that does not agree"],
+  ['ink-soft', 'settled', "a retired chore's cadence, on its settled row"],
 ]
 
 // [colour, background, what it is] — DESIGN.md's Contrast floors, by name.
@@ -64,6 +69,10 @@ const EDGE_PAIRS = [
   ['panel-edge', 'ground', 'a panel outline on the sky (tightest at night)'],
   ['disabled-edge', 'ground', 'a disabled control on the sky (tight in both modes)'],
   ['waiting-edge', 'waiting-bg', 'the dashed waiting edge (check whenever either moves)'],
+  // The lifetime chart, each stroke on the panel it is drawn on.
+  ['ink', 'panel', 'the lifetime chart: the real balance line'],
+  ['done', 'panel', 'the lifetime chart: the never-withdrawn line (dashed)'],
+  ['ink-soft', 'panel', "the lifetime chart: its baseline"],
 ]
 
 // [fill, edge, surface, what it is] — passes on the better of fill and edge.
@@ -85,6 +94,14 @@ const BOUNDARIES = [
   ['gold', 'outline', 'panel', 'the savings match amount on the owed card'],
   ['on-gold-done-bg', 'on-gold-done-edge', 'gold', 'the Chores chip once won, on the money card'],
   ['on-gold-danger-bg', 'on-gold-danger-edge', 'gold', 'the Chores chip at risk, the notice, on the money card'],
+  // The other screens.
+  ['raised', 'danger-edge', 'panel', 'a refusing or money-removing button on a panel'],
+  ['raised', 'control-edge', 'done-bg', 'Yes / No on a queue row ruled yes'],
+  ['raised', 'danger-edge', 'done-bg', 'No on a queue row ruled yes'],
+  ['raised', 'done-edge', 'done-bg', 'Yes, chosen, on its row'],
+  ['raised', 'control-edge', 'danger-bg', 'Yes on a queue row ruled no'],
+  ['waiting-bg', 'waiting-edge', 'raised', 'the waiting count on a parent tab'],
+  ['danger-bg', 'danger-edge', 'panel', 'chore money at risk, a figure in the parent view'],
 ]
 
 // Colour tokens that are never read: each with why it may go unmeasured.
