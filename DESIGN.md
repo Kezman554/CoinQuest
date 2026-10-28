@@ -69,6 +69,10 @@ The values are provisional (see the top of this document). Day is light and nigh
 
 Text needs 4.725:1 and non-text 3.15:1: 5% above the 4.5 and 3.0 floors. `npm run check:contrast` measures exactly the 57 pairings below, in both modes, and every one passes. The tightest are `today-edge` on `ground` by day (3.92), `panel-edge` on `ground` at night (3.64), `disabled-edge` on `ground` (3.61 by day, 3.37 at night) `today` on `panel-today` at night (4.05) and the won Chores chip's edge on `gold` (3.24, both modes). Check `waiting-edge` against `waiting-bg` by day (4.49) whenever either value moves.
 
+**Named exceptions.** Two night pairings sit under the 3.15 floor and are deliberately not measured by `check:contrast`. They are kept as they are:
+- `panel-edge` on `panel`, night (3.02): the outlines of rows and figure cards nested inside a panel. They group information and aren't controls. The child's week already uses this pairing for its chore rows.
+- `disabled-edge` on `panel`, night (2.80): disabled controls on a panel. WCAG 1.4.11 exempts inactive components, and their text (`disabled` on `disabled-bg`) is measured and passes.
+
 A component is measured against the surface it sits on, and its fill or its outline may carry the boundary (WCAG 1.4.11): the gold card is told apart from the sky by its outline, not its gold. An outline is never measured against its own fill, because that isn't what makes a shape visible.
 
 **Text (4.725:1), words on their fill:**
