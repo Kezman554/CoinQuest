@@ -3058,3 +3058,41 @@ BANK_HOLDER, and the retired PARENT_PIN / PARENT_NAMES if still set.
   edited on the Pi (PARENT_PIN / PARENT_NAMES out, PARENT_1/2_NAME/PIN and
   BANK_HOLDER in), left uncommitted there for review. Not deployed: the
   .env, the compose file and the new image go together.
+
+2026-10-28 — Session AO: every migration upgrades a database holding rows
+
+tests/test_migration_seeded_upgrade.py: for each migration in turn, a scratch
+database is migrated to the revision before it, seeded with realistic rows in
+every table that exists there (confirmed, missed, claimed and rejected-claim
+instances; settled, voided and reopened weeks; both ledgers; settlement
+lines, waivers, matches, deposit requests), upgraded through that one
+migration, and checked for integrity, foreign keys, row counts and instance
+states. One SEED list reshapes itself to each schema; a table with no seed
+rows fails the test. Real migrations, foreign keys on, never create_all.
+Before the fix it failed at exactly e42da40283c5 (a_confirmation_names_its_
+author) and 82826e03b64d (a_miss_says_how_it_arose).
+
+Decision: both fixed in place with a backfill, not left as an exception.
+e42da sets authorised_by = 'parent' on confirmed rows (what the app recorded
+until parents were named); 82826 sets miss_origin from authorised_by
+(present: parent_marked; absent: inferred_at_settlement, the only origin
+that names nobody). Column added with a plain ALTER, backfilled, then the
+same batch adds the CHECKs. Safe to edit because Alembic tracks revision ids
+not text, so the live database never reruns them; and a database that ran the
+old text had no row for the UPDATE to touch, so old and new end identical.
+Schema from empty compared at all 16 revisions before and after: identical
+(constraint order inside a rebuilt table varies run to run from reflection,
+with or without this change). alembic check clean.
+
+Proved by a planted migration (chore_definitions.icon NOT NULL, no
+backfill): the new test failed on it alone; with add-nullable / UPDATE /
+alter-to-NOT-NULL it passed; plant removed. CLAUDE.md Conventions gained the
+rule. docs/scribble.md's open item for these two is cleared. pytest 652.
+
+Backups: oldest local archive coinquest-2026-10-21-0357 (KEEP=14) is at
+8a5d83828968; oldest B2 snapshot 7f93be67 (2026-08-27 16:29) is at
+c3f8b21a7d40. Neither predates either migration, and none can: both were
+committed 2026-08-20 and the live database was first created on 2026-08-21.
+B2 holds 64 snapshots. Only the 03:57 cron run sources
+~/.config/coinquest-restic.env, so a hand-run pre-deploy backup logs
+"offsite: skipped" — local only.

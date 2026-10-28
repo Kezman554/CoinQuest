@@ -109,13 +109,11 @@ def _seed_real_data(db_path: Path) -> dict[str, int]:
                 (f"2026-08-{day:02d}",),
             )
 
-        # Claimed, not confirmed or missed: both of those states acquired a
-        # CHECK later in the chain (`authorised_by`, `miss_origin`) naming a
-        # column that does not exist here yet and that no migration backfills,
-        # so a row seeded in either state would be rejected on the way up by a
-        # constraint about authorship rather than by anything this file is
-        # testing. Noted in docs/scribble.md; a claimed instance references the
-        # settled week under ON DELETE RESTRICT just as firmly.
+        # Claimed, which references the settled week under ON DELETE RESTRICT
+        # as firmly as any state does. Confirmed and missed instances seeded
+        # before the migrations that gave them a required column
+        # (`authorised_by`, `miss_origin`) are test_migration_seeded_upgrade.py's
+        # business, one migration at a time; those two backfill since Session AO.
         for day in range(9, 16):
             con.execute(
                 "INSERT INTO chore_instances"

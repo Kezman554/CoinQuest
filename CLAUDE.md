@@ -46,6 +46,7 @@ These are load-bearing. Each was decided deliberately and none should be reverse
 - **Never subtract two aware datetimes directly.** Python ignores the zone when they share a `tzinfo`, so a week across a clock change measures 168 hours instead of 169. Use `calendar.elapsed()`
 - **Time intervals are half-open: [start, end).** The end is the first instant of the next period, never a "last instant" — a last instant exists only at whatever resolution was chosen, and comparing against it silently loses records in the final fraction of a second. `Period.start` / `.end` stay inclusive dates for display
 - **Tests build the database with the real migration**, never `create_all` - the triggers exist only in the migration
+- **A migration that adds a required column, or a CHECK that depends on one, backfills existing rows.** A schema built from empty passes either way; a restored backup does not. `tests/test_migration_seeded_upgrade.py` seeds rows before each migration and enforces it
 - Runs on ARM64 - anything with native builds must resolve for that architecture
 
 ## Reference
