@@ -102,7 +102,7 @@ In the household stack this is automated: `scripts/coinquest-backup.sh` and
 `scripts/restore-coinquest.sh` in AlfredHomeHub do the above plus rotation, an
 optional offsite (restic → B2) leg, and a verification pass run inside the
 app's own image (integrity check, Alembic revision, row counts across all
-nine tables). See AlfredHomeHub's `DEPLOY.md` → **CoinQuest** for the nightly
+eleven tables, and the stored figures compared row by row against live). See AlfredHomeHub's `DEPLOY.md` → **CoinQuest** for the nightly
 cron slot and the full drill.
 
 ## What must survive
@@ -231,13 +231,32 @@ never been built before this; everything below marked done was run for real.
 - [x] **Negative test**: a deliberately corrupted or truncated archive fails
       the drill (non-zero exit) — the check has teeth rather than passing
       vacuously.
-- [ ] **Still open — the gate this checklist exists for.** The drill above ran
+- [x] **Real rows come back from B2 — done 2026-10-28.** The drill above ran
       against an **empty** database, because that was all that existed at
-      deploy time: it proves the mechanics (extract, open, integrity-check,
-      restart) but not that real rows survive. Before this item can be ticked,
-      seed test data across all nine tables (`chore_definitions`,
-      `chore_instances`, `weeks`, `week_reopenings`, `settlement_lines`,
-      `waivers`, `earnings_ledger`, `savings_ledger`, `scheme_settings`),
-      back up, restore into a scratch volume, and confirm every table's row
-      count comes back — the same standard KitchenSync's drill was held to
-      before its backup was trusted.
+      deploy time: it proved the mechanics (extract, open, integrity-check,
+      restart) but not that real rows survive. On 2026-10-28, after the first
+      monthly savings match settled (September, 50p), a fresh backup went to
+      B2 as snapshot `6d594818` (`coinquest-2026-10-28-1039.tar.gz`) and
+      `restore-coinquest.sh --drill --snapshot 6d594818` restored it into the
+      scratch volume `coinquest-restore-drill`, live untouched:
+      `integrity_check` ok, schema at head `8a5d83828968`, `RESTORE VERIFIED`,
+      exit 0. Compared against live:
+      - **Row counts, all eleven tables, every one equal**:
+        `chore_definitions` 6, `chore_instances` 183, `weeks` 11,
+        `settlement_lines` 28, `waivers` 4, `earnings_ledger` 7,
+        `savings_ledger` 2, `week_reopenings` 0, `savings_month_matches` 1,
+        `savings_deposit_requests` 1, `scheme_settings` 1.
+      - **Row by row, every column identical**: `savings_month_matches` (its
+        first comparison against a real row — 11 columns), `settlement_lines`,
+        both ledgers; and the stored closing and payment figures of all ten
+        closed weeks.
+      - **Made to fail on purpose**: a scratch copy of the same archive with
+        the match's triggers dropped and its row moved to low 10000p / match
+        500p (moved together, because the table's CHECK refuses a match that
+        is not the rate applied to the capped low) still passed
+        `integrity_check` and matched on count, and the drill exited 1 on
+        `savings_month_matches id 1: restored (...) != live (...)`.
+- [ ] **`week_reopenings` is still empty in live** (0 against 0 on
+      2026-10-28 and on every earlier drill), so no reopening has ever come
+      back from B2. Not to be filled by creating one: re-run the B2 drill the
+      first time a week is genuinely reopened.

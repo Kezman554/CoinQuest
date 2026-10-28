@@ -3169,3 +3169,11 @@ parentWords.ts untouched.
 Pushed and deployed the same day. Backup coinquest-2026-10-28-1020.tar.gz
 (local only); frontend only. Healthy; /health, /parent, /api/summary 200;
 integrity_check ok, foreign_key_check empty.
+
+B2 restore drill with a settled month (2026-10-28). Fresh offsite backup
+6d594818 (coinquest-2026-10-28-1039.tar.gz) restored into the scratch volume:
+RESTORE VERIFIED, exit 0; all eleven tables match live on count, and
+savings_month_matches (1 row), settlement_lines, both ledgers and the ten
+closed weeks match column for column. A tampered scratch copy (match 50p ->
+500p) exited 1. week_reopenings is still empty in live, left open in
+DEPLOY.md, not filled. DEPLOY.md drill item ticked.
