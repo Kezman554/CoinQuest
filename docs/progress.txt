@@ -3096,3 +3096,10 @@ committed 2026-08-20 and the live database was first created on 2026-08-21.
 B2 holds 64 snapshots. Only the 03:57 cron run sources
 ~/.config/coinquest-restic.env, so a hand-run pre-deploy backup logs
 "offsite: skipped" — local only.
+
+Pushed and deployed Session AO, carrying the named parents (46b30da) with
+it, once the household .env had PARENT_1/2_NAME/PIN and BANK_HOLDER in and
+PARENT_PIN / PARENT_NAMES out. Backup coinquest-2026-10-28-0844.tar.gz, run
+with the restic env sourced: offsite restic OK to B2. No migration (live
+already at 8a5d83828968). Healthy; /health, /parent, /api/summary,
+/api/savings/match/due 200; integrity_check ok, foreign_key_check empty.
