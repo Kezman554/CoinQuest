@@ -113,6 +113,15 @@ const DECORATION = {
   shadow: 'hard offset shadows; a depth cue under shapes whose boundaries are measured',
 }
 
+// Pairings DESIGN.md names as exceptions ("Named exceptions"): under the floor,
+// kept on purpose, and so not measured above. Listed here so the run states
+// what it skips rather than leaving them out in silence.
+// [colour, background, mode, what it is and why]
+const EXCEPTIONS = [
+  ['panel-edge', 'panel', 'night', 'rows and figure cards nested in a panel; they group information, not controls'],
+  ['disabled-edge', 'panel', 'night', 'disabled controls on a panel; WCAG 1.4.11 exempts inactive components'],
+]
+
 // --- the palette, as the page has it -------------------------------------------
 
 const css = readFileSync(fileURLToPath(new URL('../src/index.css', import.meta.url)), 'utf8')
@@ -215,6 +224,9 @@ for (const m of unreadable) failures.push(`--${m[1]} is not a six-digit hex valu
 
 console.log(lines.join('\n'))
 console.log(`\ndecoration (unmeasured): ${Object.entries(DECORATION).map(([k, why]) => `\n  ${k} — ${why}`).join('')}`)
+const palettes = { day, night }
+console.log(`\nnamed exceptions (skipped, see DESIGN.md): ${EXCEPTIONS.map(([fg, bg, mode, why]) =>
+  `\n  ${fg} on ${bg}, ${mode} (${ratio(palettes[mode][fg], palettes[mode][bg]).toFixed(2)}:1) — ${why}`).join('')}`)
 
 if (failures.length) {
   console.error(`\ncheck:contrast — ${failures.length} failure(s):`)
