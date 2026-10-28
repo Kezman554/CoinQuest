@@ -3,6 +3,10 @@
 //   public/favicon.svg          coin-32.svg, as it is
 //   public/favicon-32.png       coin-32.svg at 32px
 //   public/favicon-16.png       coin-small.svg at 16px
+//   public/favicon.ico          the 16 and 32 PNGs, in one ICO — for whatever
+//                               asks for /favicon.ico without reading the
+//                               page's links, which would otherwise be handed
+//                               index.html by the SPA fallback
 //   public/apple-touch-icon.png coin.svg at 180px, on a solid ground (the day
 //                               value, read from the token block) — iOS fills
 //                               transparency with black
@@ -20,7 +24,7 @@
 // no dependency and nothing native to build. The PNGs are committed; the
 // container build never runs this.
 
-import { copyFileSync, readFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 
@@ -60,3 +64,32 @@ await png(small, 16, 'public/favicon-16.png')
 // iOS rounds the corners itself; the coin sits inside them, on the sky.
 await png(coin, 180, 'public/apple-touch-icon.png', { background: ground, drawn: 148 })
 await browser.close()
+
+/** An ICO holding each PNG as it is; every browser since IE has read PNG entries. */
+function ico(files, out) {
+  const images = files.map((file) => ({ size: readPngSize(file), data: readFileSync(at(file)) }))
+  const header = Buffer.alloc(6 + 16 * images.length)
+  header.writeUInt16LE(0, 0) // reserved
+  header.writeUInt16LE(1, 2) // 1 = icon
+  header.writeUInt16LE(images.length, 4)
+  let offset = header.length
+  images.forEach(({ size, data }, i) => {
+    const entry = 6 + 16 * i
+    header.writeUInt8(size % 256, entry) // 256 is written as 0
+    header.writeUInt8(size % 256, entry + 1)
+    header.writeUInt16LE(1, entry + 4) // colour planes
+    header.writeUInt16LE(32, entry + 6) // bits per pixel
+    header.writeUInt32LE(data.length, entry + 8)
+    header.writeUInt32LE(offset, entry + 12)
+    offset += data.length
+  })
+  writeFileSync(at(out), Buffer.concat([header, ...images.map(({ data }) => data)]))
+  console.log(`  ${out}  ${images.map(({ size }) => size).join(' + ')}`)
+}
+
+/** Width of a square PNG, from its IHDR. */
+function readPngSize(file) {
+  return readFileSync(at(file)).readUInt32BE(16)
+}
+
+ico(['public/favicon-16.png', 'public/favicon-32.png'], 'public/favicon.ico')
