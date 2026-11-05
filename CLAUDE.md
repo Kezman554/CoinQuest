@@ -3,6 +3,19 @@
 A pocket-money and chore tracker for one child, running as a self-contained service on a home Raspberry Pi.
 Built with FastAPI, SQLite, Alembic, React, Vite and TypeScript, served from a single multi-stage container on port 8600.
 
+## Rules from the vault
+
+Each has already cost this repo a defect. The reason lives in the vault, cited in brackets — read it there rather than copying it here. (Landed 5 Nov 2026 from the Hub AK sweep, `AlfredHomeHub/docs/claude-md-rules-build-log.md`.)
+
+- Verify a migration or admin command through the app's own code path (`app.db.run_migrations()`), never a bare `alembic` CLI: the CLI doesn't enable foreign-key enforcement, so it passes where the app fails. [4-dev-hub/lessons-learned, 25 Aug]
+- A migration that fails part-way has disarmed whatever it touched first. If it dropped a protective trigger, the protection is off: stop the service before anything writes. [lessons-learned, 25 Aug]
+- When a value becomes a display value, check that nothing submits from it. Settle once read the optimistic week figure as `agreed_total_pence`. [lessons-learned, card U]
+- A deploy is verified only when the served bundle's content hash matches the build you tested. [lessons-learned, card T]
+- A check with no evidence has abstained, not passed: say so in its output ("both empty — proves nothing"). [lessons-learned, card W]
+- A reversal that could only apply by destroying data refuses, loudly. [lessons-learned, `4e720209aaba`]
+- Assert a guarantee by attempting the forbidden thing (the barred UPDATE or DELETE), not by finding its name in `sqlite_master`. [lessons-learned, card X]
+- CSS can override an SVG element's own attribute, and no unit test renders it: anything painted needs a rendered check (Playwright). [lessons-learned, Lifetime chart]
+
 ## Structure
 - `app/` - FastAPI application: `models/` (schema), `routers/`, `services/` (money, calendar, scheme logic), `migrations/` (Alembic)
 - `frontend/` - React + Vite + TypeScript, built into the image and served by the API
