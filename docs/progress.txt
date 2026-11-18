@@ -3208,3 +3208,11 @@ the backup scripts; it resets daily). A refused B2 read appears to lead
 coinquest-backup.sh to attempt `restic init`, as though the repository
 did not exist — to be looked at with the backup scripts, not fixed here.
 CoinQuest stayed up: the app restarts before the offsite leg.
+
+Pushed and deployed Session AR the same day (31a7633). Backup
+coinquest-2026-11-18-1902.tar.gz (local; offsite refused, above). Rebuilt
+with `compose up -d --build --no-deps coinquest` only, during a wake-word
+test on Home Assistant: every other container kept its uptime. Healthy;
+/health, /parent, /api/summary 200; integrity_check ok, foreign_key_check
+empty. Served bundle index-DSoFz8um.js + index-ClO1HiV5.css, the hashes
+the e2e run tested, carrying "Nothing left to approve".
