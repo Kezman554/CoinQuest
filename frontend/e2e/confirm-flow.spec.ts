@@ -141,15 +141,20 @@ test.describe('confirming and rejecting claims from the parent queue', () => {
 
     // Staging only: pressing it asks nothing of the server.
     const reviews = watchReviews(page)
-    await page.getByRole('button', { name: 'Approve all' }).click()
+    const approveAll = page.getByRole('button', { name: 'Approve all' })
+    const before = await items.first().boundingBox()
+    await approveAll.click()
 
     // Every row shows as chosen, by the same rulings the Yes buttons write.
     await expect(page.locator('li.queue-item.ruled-confirm')).toHaveCount(2)
     for (const yes of await items.locator('button.button-yes').all()) {
       await expect(yes).toHaveAttribute('aria-pressed', 'true')
     }
-    // Nothing is left to stage, so it is no longer offered.
-    await expect(page.getByRole('button', { name: 'Approve all' })).toHaveCount(0)
+    // Nothing is left to stage: it stays in place, greyed, and says why —
+    // and the queue under it has not moved.
+    await expect(approveAll).toBeDisabled()
+    await expect(approveAll).toHaveAccessibleDescription('Nothing left to approve.')
+    expect(await items.first().boundingBox()).toEqual(before)
     await expect(page.locator('.batch-action')).toHaveText('Confirming 2 claims')
     expect(reviews).toEqual([])
 
@@ -165,6 +170,8 @@ test.describe('confirming and rejecting claims from the parent queue', () => {
     await expect(dialog).toHaveCount(0)
     await expect(items).toHaveCount(0)
     await expect(page.locator('.last-batch')).toHaveText('Confirmed 2 claims — by E2E Parent.')
+    // An empty queue has nowhere for it to sit.
+    await expect(approveAll).toHaveCount(0)
 
     await page.reload()
     await page.getByRole('button', { name: 'Parent' }).click()
@@ -195,14 +202,17 @@ test.describe('confirming and rejecting claims from the parent queue', () => {
       'Confirming 2 claims and refusing 1 claim',
     )
 
+    // Every row ruled: Approve all greys rather than going.
+    await expect(page.getByRole('button', { name: 'Approve all' })).toBeDisabled()
+
     // Switched with its own button, and cleared with its own button: the
-    // cleared row is unruled again, so Approve all is offered once more.
+    // cleared row is unruled again, so Approve all is enabled once more.
     await items.nth(0).locator('button.button-no').click()
     await expect(items.nth(0)).toHaveClass(/ruled-reject/)
     await items.nth(2).locator('button.button-yes').click()
     await expect(items.nth(2)).toHaveClass(/ruled-none/)
     await expect(page.locator('.batch-action')).toHaveText('refusing 2 claims')
-    await expect(page.getByRole('button', { name: 'Approve all' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Approve all' })).toBeEnabled()
 
     expect(reviews).toEqual([])
   })
@@ -225,7 +235,7 @@ test.describe('confirming and rejecting claims from the parent queue', () => {
     // nothing was ever previewed or applied.
     await expect(page.locator('li.queue-item')).toHaveCount(3)
     await expect(page.locator('li.queue-item.ruled-none')).toHaveCount(3)
-    await expect(page.getByRole('button', { name: 'Approve all' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Approve all' })).toBeEnabled()
     expect(reviews).toEqual([])
   })
 })

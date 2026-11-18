@@ -3184,14 +3184,27 @@ DEPLOY.md, not filled. DEPLOY.md drill item ticked.
   same rulings state the row buttons write. Staging only: no request, no
   PIN, no new route. Confirm, its preview and the PIN are unchanged. A
   staged refusal is left alone; any row still switches or clears.
-- Offered only while some claim is unruled (with nothing left to stage it
-  is empty, not forbidden, so it goes rather than greying). A neutral
-  button with a note naming what it stages and that nothing is sent until
-  Confirm (parentWords.approveAllNote); .queue-tools wraps at 390.
+- With every claim ruled it stays in place, greyed, saying "Nothing left
+  to approve" (DESIGN.md's forbidden-control rule; first shipped hidden,
+  changed before deploy at Nick's call), so the queue does not jump under
+  a finger on the wall when the last claim is ruled. Only an empty queue
+  has no button. A neutral button with one note line, the same height in
+  either state: what it stages and that nothing is sent until Confirm
+  (parentWords.approveAllNote), or the reason. .queue-tools wraps at 390.
 - e2e/confirm-flow.spec.ts, three more: Approve all then Confirm commits a
   real two-claim batch through the preview and PIN (Thursday's and
   Saturday's Make bed, 0p, read by no other spec); a refused claim
   survives Approve all and rows still switch and clear, at 390; leaving
-  the screen after Approve all commits nothing, at 1280x800. Both staging
+  the screen after Approve all commits nothing, at 1280x800. The first
+  also asserts the greyed state and that the first row has not moved. Both staging
   tests record every /review request and assert none. e2e 35 passed;
   check:literals and check:contrast clean.
+
+Backup at deploy (2026-11-18 19:02): the local leg wrote and verified
+coinquest-2026-11-18-1902.tar.gz; the offsite leg hung in `restic init` to
+its 600s timeout. B2 was refusing every read that day with 403
+download_cap_exceeded (the daily download cap, used up by earlier work on
+the backup scripts; it resets daily). A refused B2 read appears to lead
+coinquest-backup.sh to attempt `restic init`, as though the repository
+did not exist — to be looked at with the backup scripts, not fixed here.
+CoinQuest stayed up: the app restarts before the offsite leg.

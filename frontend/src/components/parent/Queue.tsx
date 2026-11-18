@@ -16,9 +16,12 @@
  * every claim is approved, and a click per row was a lot of clicks for one
  * decision. A refusal already staged is left alone, and every row can still
  * be switched or cleared afterwards. It sits at the head of the queue, not
- * beside Confirm, so the two are never read as one another; and it is
- * offered only while some claim is unruled — with nothing left to stage it
- * is not a forbidden act but an empty one, so it goes rather than greying.
+ * beside Confirm, so the two are never read as one another. Once every
+ * claim has a ruling it stays where it is, greyed, saying "Nothing left to
+ * approve" (DESIGN.md: a forbidden control keeps its place and says why) —
+ * which also keeps the queue from jumping under a finger on the wall the
+ * moment the last claim is ruled. Only an empty queue has no button, since
+ * there is no queue for it to sit in.
  *
  * The batch is still submitted once, with one PIN, and either all of it
  * applies or none does — nothing about that changed, only where the
@@ -118,21 +121,22 @@ export function Queue({ queue, onSubmit }: Props) {
     <section className="panel">
       <h2>Claims waiting ({queue.length})</h2>
 
-      {unruled > 0 && (
-        <div className="queue-tools">
-          <button
-            type="button"
-            className="button button-quiet"
-            onClick={approveAll}
-            aria-describedby={approveId}
-          >
-            Approve all
-          </button>
-          <p className="queue-tools-note" id={approveId}>
-            {approveAllNote(unruled, queue.length)}
-          </p>
-        </div>
-      )}
+      <div className="queue-tools">
+        <button
+          type="button"
+          className="button button-quiet"
+          onClick={approveAll}
+          disabled={unruled === 0}
+          aria-describedby={approveId}
+        >
+          Approve all
+        </button>
+        {/* One line in one place, enabled or not: what it stages, or why
+            there is nothing to. Its height does not change with the state. */}
+        <p className="queue-tools-note" id={approveId}>
+          {unruled === 0 ? 'Nothing left to approve.' : approveAllNote(unruled, queue.length)}
+        </p>
+      </div>
 
       {groups.map((group) => (
         <div className="queue-week" key={group.week_id}>
