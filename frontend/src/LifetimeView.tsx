@@ -89,7 +89,11 @@ export function LifetimeView() {
 
         {hasHistory ? (
           <>
-            <LifetimeChart real={data.real} counterfactual={data.counterfactual} />
+            <LifetimeChart
+              real={data.real}
+              counterfactual={data.counterfactual}
+              saved={data.saved_everything}
+            />
             <div className="figures">
               <Figure label="Real, today" value={money(currentReal)} />
               <Figure

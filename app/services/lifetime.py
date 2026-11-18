@@ -37,6 +37,26 @@ over time:
   still open — this is a fresh "what if" recomputation, not an attempt to
   reproduce whatever the ladder happened to be worth on some past date.
 
+  `saved_everything_trajectory` (Session AT) asks a bigger "what if": every
+  closed week's pay banked whole, on the day the week closed, and nothing
+  ever taken out. It starts from the never-withdrawn entries, takes out the
+  real payday entries — every DEPOSIT and REVERSAL carrying a week_id, the
+  two halves of what payday really banked — and puts in each closed week's
+  full pay instead, so the part of a week that really was banked is not
+  counted twice. The opening balance and gifts stay as they happened. The
+  pay is read, never recomputed: `payments.amount_owed`, the week's stored
+  settled total plus the rewards entered against it, the same figure payday
+  hands over — so a rule changed later cannot rewrite it. An open or
+  reopened week counts only once it closes again.
+
+Both "what if" lines go through one replay, `_replay`, which walks the
+months and takes each month's match from `savings_match.match_pence`. The
+two differ only in the entries they hand it. There is no second copy of the
+ladder here, the low or the cap.
+
+Nothing in this module writes anything: every line is a computation over
+what the ledgers already hold.
+
 "How money grows if you leave it alone" is the intended framing on any
 screen that reads this, not "what you would have had" — the counterfactual
 is a lesson about not withdrawing, not a running total of a grievance about
@@ -52,9 +72,10 @@ from datetime import date
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.enums import SavingsType
+from app.models.enums import SavingsType, WeekStatus
 from app.models.ledgers import EarningEntry, SavingsEntry
-from app.services import savings, savings_match, scheme_settings
+from app.models.weeks import Week
+from app.services import payments, savings, savings_match, scheme_settings
 from app.services.calendar import month_containing, today
 
 
@@ -159,19 +180,65 @@ def _month_after(day: date) -> date:
 def counterfactual_trajectory(session: Session, tz) -> list[BalancePoint]:
     """What the balance would be if no withdrawal had ever happened.
 
-    Walks the same calendar months savings_match.propose walks for the real
-    ladder, one at a time from the first kept entry's month to the current
-    one, but over a balance of its own that a real withdrawal never touches.
-    A month still in progress contributes its deposits so far and no match —
-    the same "final only once the month has ended" rule the real ladder
-    applies, so the two trajectories stay comparable at any point in time
-    rather than one of them projecting ahead of the other.
+    Every kept entry (see _KEPT_TYPES), exactly as the ledger recorded it,
+    replayed by `_replay`.
     """
-    kept = [
-        (entry.occurred_on, entry.amount_pence)
+    return _replay(session, tz, [(day, amount) for day, amount, _ in _kept_entries(session)])
+
+
+def saved_everything_trajectory(session: Session, tz) -> list[BalancePoint]:
+    """What the balance would be if every closed week's pay had been banked
+    whole, and nothing ever withdrawn. See the module note.
+
+    The never-withdrawn entries with payday's own taken out, and each closed
+    week's full pay put in on the day it closed. A computation only.
+    """
+    entries = [
+        (day, amount)
+        for day, amount, week_id in _kept_entries(session)
+        if week_id is None  # payday's deposits and their reversals go
+    ]
+    closed = (
+        session.query(Week)
+        .filter(Week.status.in_((WeekStatus.SETTLED, WeekStatus.VOIDED)))
+        .filter(Week.settled_total_pence.isnot(None), Week.closed_at.isnot(None))
+        .order_by(Week.closed_at, Week.id)
+    )
+    for week in closed:
+        pay = payments.amount_owed(session, week)
+        if pay > 0:
+            entries.append((week.closed_at.astimezone(tz).date(), pay))
+    return _replay(session, tz, entries)
+
+
+def _kept_entries(session: Session) -> list[tuple[date, int, int | None]]:
+    """Every entry a "what if" line starts from: day, amount, and the week it
+    came from (payday's entries carry one; nothing else does)."""
+    return [
+        (entry.occurred_on, entry.amount_pence, entry.week_id)
         for entry in savings.history(session)
         if entry.entry_type in _KEPT_TYPES
     ]
+
+
+def _replay(session: Session, tz, entries: list[tuple[date, int]]) -> list[BalancePoint]:
+    """A balance of its own, built from `entries`, matched month by month.
+
+    Walks the same calendar months savings_match.propose walks for the real
+    ladder, one at a time from the first entry's month to the current one,
+    and adds each finished month's match with `savings_match.match_pence` —
+    the one formula that settles real months. With no withdrawal among the
+    entries, every month is clean and the ladder climbs from the start rate
+    to the ceiling. A month still in progress contributes its entries so far
+    and no match — the same "final only once the month has ended" rule the
+    real ladder applies, so every line stays comparable at any point in time
+    rather than one of them projecting ahead of the others. Only months that
+    have begun are walked: nothing is extrapolated.
+
+    Entries are taken in date order (a stable sort, so entries on one day
+    keep the order they were given in).
+    """
+    kept = sorted(entries, key=lambda entry: entry[0])
     if not kept:
         return []
 

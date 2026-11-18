@@ -324,6 +324,7 @@ def test_the_endpoint_is_empty_and_not_an_error_with_no_history(api):
         },
         "real": [],
         "counterfactual": [],
+        "saved_everything": [],
     }
 
 
@@ -483,3 +484,181 @@ def test_the_counterfactual_still_renders_with_a_standalone_deposit_included(api
     # balance has to reflect it, the same as the real trajectory does.
     assert body["counterfactual"][-1]["balance_pence"] == body["real"][-1]["balance_pence"]
     assert body["real"][-1]["balance_pence"] >= 100_00 + 20_00
+
+
+# --- If every week's pay had been saved (Session AT) ------------------------
+
+
+def closed_week(session, *, start, pay_pence, tz):
+    """A week settled as stored: its figures written once, closed on the
+    Sunday after it ended (noon, London)."""
+    from datetime import datetime, time, timedelta
+
+    from app.models import Week
+    from app.models.enums import WeekStatus
+
+    end = start + timedelta(days=6)
+    closed_on = end + timedelta(days=1)
+    week = Week(
+        start_date=start,
+        end_date=end,
+        status=WeekStatus.SETTLED,
+        settled_base_pence=pay_pence,
+        settled_chore_pay_pence=0,
+        settled_bonus_pence=0,
+        settled_reward_pence=0,
+        settled_total_pence=pay_pence,
+        closed_at=datetime.combine(closed_on, time(12), tzinfo=tz),
+    )
+    session.add(week)
+    session.flush()
+    return week, closed_on
+
+
+def seeded_history(session, tz):
+    """Six months of a real-looking account, all of it in the past: an
+    opening balance, twelve weeks each paying £4.50 with £1.50 of it banked
+    on the day it closed, a birthday gift, a withdrawal, and one week that
+    was banked, reopened (its deposit reversed) and is open again."""
+    from datetime import timedelta
+
+    from app.models import Week
+
+    opening_balance(session, amount_pence=10_00, on=date(2026, 1, 5))
+    paid = []
+    start = date(2026, 1, 4)  # a Sunday
+    for _ in range(12):
+        week, closed_on = closed_week(session, start=start, pay_pence=450, tz=tz)
+        savings.record_deposit(session, amount_pence=150, occurred_on=closed_on, week_id=week.id)
+        paid.append(week)
+        start += timedelta(days=7)
+    deposit(session, amount_pence=5_00, on=date(2026, 2, 14))
+    withdraw(session, amount_pence=3_00, on=date(2026, 3, 10))
+
+    reopened = Week(start_date=start, end_date=start + timedelta(days=6))
+    session.add(reopened)
+    session.flush()
+    savings.record_deposit(session, amount_pence=150, occurred_on=date(2026, 4, 5), week_id=reopened.id)
+    savings.record_reversal(
+        session, amount_pence=150, occurred_on=date(2026, 4, 9), week_id=reopened.id,
+        reason="Reversed: a week reopened",
+    )
+    session.commit()
+    return paid
+
+
+def test_saving_everything_grows_by_more_than_the_extra_money_put_in(session, tz):
+    """The extra money is every closed week's full pay less what payday
+    really banked. Matched month after month on a higher low, the line ends
+    further above the never-withdrawn one than that extra alone."""
+    paid = seeded_history(session, tz)
+    full_pay = sum(450 for _ in paid)
+    really_banked = sum(
+        entry.amount_pence for entry in savings.history(session) if entry.week_id is not None
+    )
+    extra = full_pay - really_banked
+    assert extra == 12 * 450 - 12 * 150  # the reopened week's deposit and reversal net out
+
+    never_withdrawn = lifetime.counterfactual_trajectory(session, tz)
+    saved_everything = lifetime.saved_everything_trajectory(session, tz)
+
+    gap = saved_everything[-1].balance_pence - never_withdrawn[-1].balance_pence
+    assert gap > extra
+
+
+def test_saving_everything_is_never_below_never_withdrawn_at_a_month_end(session, tz):
+    seeded_history(session, tz)
+    never_withdrawn = {p.occurred_on: p.balance_pence for p in lifetime.counterfactual_trajectory(session, tz)}
+    saved_everything = {p.occurred_on: p.balance_pence for p in lifetime.saved_everything_trajectory(session, tz)}
+    shared = sorted(set(never_withdrawn) & set(saved_everything))
+    assert shared  # the month ends both lines reach
+    for day in shared:
+        assert saved_everything[day] >= never_withdrawn[day], day
+
+
+def test_saving_everything_replaces_payday_and_keeps_the_rest(session, tz):
+    """Payday's own deposit is replaced by the week's whole pay, on the day
+    the week closed — not added to it. The opening balance and the gift stay
+    exactly as they happened. February 2026, to its first match."""
+    opening_balance(session, amount_pence=10_00, on=date(2026, 2, 2))
+    deposit(session, amount_pence=5_00, on=date(2026, 2, 3))
+    week, closed_on = closed_week(session, start=date(2026, 2, 1), pay_pence=450, tz=tz)
+    assert closed_on == date(2026, 2, 8)
+    savings.record_deposit(session, amount_pence=150, occurred_on=closed_on, week_id=week.id)
+    session.commit()
+
+    never_withdrawn = lifetime.counterfactual_trajectory(session, tz)
+    saved_everything = lifetime.saved_everything_trajectory(session, tz)
+
+    assert [(p.occurred_on, p.balance_pence) for p in never_withdrawn[:3]] == [
+        (date(2026, 2, 2), 10_00),
+        (date(2026, 2, 3), 15_00),
+        (date(2026, 2, 8), 16_50),
+    ]
+    assert [(p.occurred_on, p.balance_pence) for p in saved_everything[:4]] == [
+        (date(2026, 2, 2), 10_00),
+        (date(2026, 2, 3), 15_00),
+        (date(2026, 2, 8), 19_50),  # 4.50 in place of the 1.50, not beside it
+        # February's match: the start rate on the month's low, as the real ladder.
+        (date(2026, 2, 28), 19_50 + savings_match.match_pence(
+            low_pence=10_00,
+            rate_percent=scheme_settings_start_rate(session),
+            cap_pence=scheme_settings_cap(session),
+        )),
+    ]
+
+
+def scheme_settings_start_rate(session):
+    from app.services import scheme_settings
+
+    return scheme_settings.savings_match_start_rate_percent(session)
+
+
+def scheme_settings_cap(session):
+    from app.services import scheme_settings
+
+    return scheme_settings.savings_match_cap_pence(session)
+
+
+def test_an_open_week_adds_nothing_until_it_closes(session, tz):
+    seeded_history(session, tz)
+    before = lifetime.saved_everything_trajectory(session, tz)
+
+    from app.models import Week
+
+    session.add(Week(start_date=date(2026, 11, 15), end_date=date(2026, 11, 21)))
+    session.commit()
+    assert lifetime.saved_everything_trajectory(session, tz) == before
+
+
+def test_a_later_rule_change_does_not_rewrite_the_line(session, tz):
+    """The pay is read from each week's stored settlement, so a change to
+    what a week pays now reaches nothing already closed."""
+    from app.services import scheme_settings
+
+    seeded_history(session, tz)
+    before = lifetime.saved_everything_trajectory(session, tz)
+    scheme_settings.get_row(session).weekly_basic_pay_pence = 9_99
+    session.commit()
+    assert lifetime.saved_everything_trajectory(session, tz) == before
+
+
+def test_the_replay_writes_nothing(session, tz):
+    from app.models import Week
+
+    seeded_history(session, tz)
+    counts = (session.query(SavingsEntry).count(), session.query(EarningEntry).count(), session.query(Week).count())
+    balance = savings.current_balance(session)
+
+    lifetime.saved_everything_trajectory(session, tz)
+    session.commit()
+
+    assert (session.query(SavingsEntry).count(), session.query(EarningEntry).count(), session.query(Week).count()) == counts
+    assert savings.current_balance(session) == balance
+
+
+def test_the_endpoint_reports_the_saved_everything_line(api, session, tz):
+    seeded_history(session, tz)
+    body = api.get("/api/lifetime").json()
+    assert body["saved_everything"]
+    assert body["saved_everything"][-1]["balance_pence"] > body["counterfactual"][-1]["balance_pence"]

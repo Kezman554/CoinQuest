@@ -1,14 +1,20 @@
 /**
- * Two balance trajectories on one chart: what actually happened, and what
- * would have happened if no withdrawal ever had.
+ * Three balance trajectories on one chart: what actually happened, what
+ * would have happened if no withdrawal ever had, and that again with every
+ * week's pay saved whole (Session AT).
  *
  * Plain inline SVG, not a charting library — this app depends on nothing
  * but react and react-dom, and two lines are not worth a new dependency.
  * Every stroke is a token, set by className in App.css, so the chart follows
  * day and night without any logic of its own; each is measured against the
  * panel it is drawn on by check:contrast. The never-withdrawn line is dashed
- * as well as coloured, so the two series are never told apart by colour
- * alone (DESIGN.md).
+ * and the saved-everything line dotted, as well as coloured, so no two
+ * series are told apart by colour alone (DESIGN.md).
+ *
+ * Lines only: no figure for either "what if", and nothing shaded between
+ * them. The page's caption is how money grows if you leave it alone; a gap
+ * filled in would read as money lost, and spending his own money was never
+ * a failure.
  */
 
 import type { BalancePoint } from '../api'
@@ -17,6 +23,16 @@ const WIDTH = 720
 const HEIGHT = 240
 const PAD_X = 6
 const PAD_TOP = 14
+
+type Kind = 'real' | 'counterfactual' | 'saved'
+
+/** The legend's words, short enough to read at a glance from the wall. The
+ * first two are the page's own, unchanged. */
+const LABELS: Record<Kind, string> = {
+  real: 'Real',
+  counterfactual: 'If nothing had ever been withdrawn',
+  saved: "If every week's pay had been saved",
+}
 const PAD_BOTTOM = 6
 
 function toTimestamp(occurredOn: string): number {
@@ -37,11 +53,13 @@ function pathFor(points: BalancePoint[], xScale: Scale, yScale: Scale): string {
 export function LifetimeChart({
   real,
   counterfactual,
+  saved,
 }: {
   real: BalancePoint[]
   counterfactual: BalancePoint[]
+  saved: BalancePoint[]
 }) {
-  const all = [...real, ...counterfactual]
+  const all = [...real, ...counterfactual, ...saved]
   if (all.length === 0) return null
 
   const times = all.map((point) => toTimestamp(point.occurred_on))
@@ -61,7 +79,7 @@ export function LifetimeChart({
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"
-        aria-label="The real savings balance against what it would be if nothing had ever been withdrawn"
+        aria-label="The real savings balance, what it would be if nothing had ever been withdrawn, and what it would be if every week's pay had been saved"
       >
         <line
           x1={PAD_X}
@@ -70,13 +88,15 @@ export function LifetimeChart({
           y2={HEIGHT - PAD_BOTTOM}
           className="lifetime-chart-axis"
         />
+        <Series points={saved} xScale={xScale} yScale={yScale} kind="saved" />
         <Series points={counterfactual} xScale={xScale} yScale={yScale} kind="counterfactual" />
         <Series points={real} xScale={xScale} yScale={yScale} kind="real" />
       </svg>
 
       <ul className="lifetime-legend">
-        <li className="lifetime-legend-real">Real</li>
-        <li className="lifetime-legend-counterfactual">If nothing had ever been withdrawn</li>
+        <li className="lifetime-legend-real">{LABELS.real}</li>
+        <li className="lifetime-legend-counterfactual">{LABELS.counterfactual}</li>
+        {saved.length > 0 && <li className="lifetime-legend-saved">{LABELS.saved}</li>}
       </ul>
     </div>
   )
@@ -93,7 +113,7 @@ function Series({
   points: BalancePoint[]
   xScale: Scale
   yScale: Scale
-  kind: 'real' | 'counterfactual'
+  kind: Kind
 }) {
   if (points.length === 0) return null
 

@@ -47,6 +47,11 @@ class LifetimeView(BaseModel):
     #: as "how money grows if you leave it alone", never as "what you would
     #: have had".
     counterfactual: list[BalancePointView]
+    #: What the balance would be if every closed week's pay had been banked
+    #: whole and nothing withdrawn — see
+    #: app.services.lifetime.saved_everything_trajectory. The same framing:
+    #: how money grows, never what was lost.
+    saved_everything: list[BalancePointView]
 
 
 def _points(values) -> list[BalancePointView]:
@@ -58,7 +63,7 @@ def _points(values) -> list[BalancePointView]:
 
 @router.get("", response_model=LifetimeView)
 def get_lifetime(session: Session = Depends(get_session)) -> LifetimeView:
-    """Everything ever earned, the savings breakdown, and the two
+    """Everything ever earned, the savings breakdown, and the three
     trajectories. Applies and stores nothing; every figure is recomputed
     fresh from the existing ledgers."""
     tz = get_settings().tzinfo
@@ -72,4 +77,5 @@ def get_lifetime(session: Session = Depends(get_session)) -> LifetimeView:
         ),
         real=_points(lifetime.real_trajectory(session)),
         counterfactual=_points(lifetime.counterfactual_trajectory(session, tz)),
+        saved_everything=_points(lifetime.saved_everything_trajectory(session, tz)),
     )

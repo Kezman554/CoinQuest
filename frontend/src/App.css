@@ -2116,8 +2116,9 @@ input:disabled::placeholder {
  * Every stroke is a token, so the chart follows day and night with the rest
  * of the page, and each is measured on the panel it is drawn on
  * (check:contrast): the real balance in ink, the never-withdrawn line in
- * done and dashed — so the two differ in shape as well as colour — and the
- * baseline in ink-soft, thinner than either. */
+ * done and dashed, the every-week's-pay-saved line in waiting and dotted —
+ * so all three differ in shape as well as colour — and the baseline in
+ * ink-soft, thinner than any. Nothing is filled between them. */
 
 .lifetime-chart svg {
   width: 100%;
@@ -2154,6 +2155,19 @@ path.lifetime-line {
 
 path.lifetime-line-counterfactual {
   stroke-dasharray: 10 8;
+}
+
+.lifetime-line-saved {
+  stroke: var(--waiting);
+}
+
+/* Round caps on a near-zero dash draw a row of dots. */
+path.lifetime-line-saved {
+  stroke-dasharray: 0.1 10;
+}
+
+circle.lifetime-line-saved {
+  fill: var(--waiting);
 }
 
 circle.lifetime-line-real {
@@ -2194,6 +2208,11 @@ circle.lifetime-line-counterfactual {
 .lifetime-legend li.lifetime-legend-counterfactual::before {
   border-top-style: dashed;
   border-top-color: var(--done);
+}
+
+.lifetime-legend li.lifetime-legend-saved::before {
+  border-top-style: dotted;
+  border-top-color: var(--waiting);
 }
 
 /* --- Closed weeks -------------------------------------------------------- */

@@ -73,6 +73,7 @@ const EDGE_PAIRS = [
   ['ink', 'panel', 'the lifetime chart: the real balance line'],
   ['done', 'panel', 'the lifetime chart: the never-withdrawn line (dashed)'],
   ['ink-soft', 'panel', "the lifetime chart: its baseline"],
+  ['waiting', 'panel', "the lifetime chart: if every week's pay had been saved (dotted)"],
 ]
 
 // [fill, edge, surface, what it is] — passes on the better of fill and edge.

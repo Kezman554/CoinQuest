@@ -3292,3 +3292,29 @@ longer from its cache) and index-BkTGjopz.js + index-D15G6smX.css, then
 previewed and committed a claim batch with the PIN entered on the keypad
 (one wrong PIN refused, 401, then 200). Nick: "appears to work". Session AS
 closed.
+
+2026-11-18 — Session AT: Lifetime's third line, if every week's pay had been saved
+- lifetime.saved_everything_trajectory: the never-withdrawn entries, less
+  payday's own (every DEPOSIT and REVERSAL carrying a week_id — dropping the
+  deposit but keeping its reversal would subtract it twice), plus each closed
+  week's full pay on the day it closed (closed_at, London). Full pay is
+  payments.amount_owed: the stored settled_total_pence plus rewards entered
+  against the week — what payday hands over, read and never recomputed. A
+  voided week counts its rewards only (all it owes); an open or reopened week
+  nothing until it closes. Opening balance and gifts as they happened.
+- One replay: counterfactual_trajectory's month walk became _replay(entries)
+  and both "what if" lines call it, matches from savings_match.match_pence.
+  Entries are now sorted by date first (stable; a no-op on the ledger's own).
+  Nothing is written.
+- /api/lifetime: saved_everything. Chart: a third line in waiting, dotted
+  (real ink solid, never-withdrawn done dashed); legend "Real", "If nothing
+  had ever been withdrawn" (both kept as they were), "If every week's pay had
+  been saved". No figure for it and nothing shaded, under the existing
+  caption. check:contrast 60 (waiting on panel, the chart line). DESIGN.md.
+- tests: on a seeded six-month history the line ends 67.10 above
+  never-withdrawn against 36.00 of extra money put in (gap > extra); never
+  below never-withdrawn at a month end; payday replaced, not added (exact
+  February figures); an open week adds nothing; a later rule change rewrites
+  nothing; nothing written. e2e/lifetime-lines.spec.ts: three lines differing
+  in dash, the labels, two figures only, no fill, token colours day and
+  night. pytest 667, e2e 43. Looked at 1280x800, day and night.

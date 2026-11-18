@@ -165,9 +165,9 @@ export type SavingsBreakdown = {
   from_match_pence: number
 }
 
-/** Everything ever earned, the savings breakdown, and the two savings
- * trajectories — the real one and, if no withdrawal had ever happened,
- * what it would be instead. See app.services.lifetime: the counterfactual
+/** Everything ever earned, the savings breakdown, and three savings
+ * trajectories — the real one; if no withdrawal had ever happened; and if
+ * every week's pay had been saved whole as well (Session AT). See app.services.lifetime: the counterfactual
  * is framed as "how money grows if you leave it alone", never as "what
  * you would have had". */
 export type Lifetime = {
@@ -175,6 +175,7 @@ export type Lifetime = {
   savings_breakdown: SavingsBreakdown
   real: BalancePoint[]
   counterfactual: BalancePoint[]
+  saved_everything: BalancePoint[]
 }
 
 async function json<T>(response: Response): Promise<T> {
