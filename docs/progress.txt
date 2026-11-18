@@ -3286,3 +3286,9 @@ every other container kept its uptime. Healthy; /health, /parent,
 /api/summary 200; integrity ok, no FK violations. Served: / and /parent
 "no-cache", /assets/index-BkTGjopz.js "public, max-age=31536000, immutable",
 the same bundle the e2e run tested (sha256 2ebe8085...).
+
+Verified at the wall, 21:14-21:15: the kiosk fetched / for the frame (no
+longer from its cache) and index-BkTGjopz.js + index-D15G6smX.css, then
+previewed and committed a claim batch with the PIN entered on the keypad
+(one wrong PIN refused, 401, then 200). Nick: "appears to work". Session AS
+closed.
