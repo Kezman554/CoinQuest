@@ -102,6 +102,10 @@ const BOUNDARIES = [
   ['raised', 'control-edge', 'danger-bg', 'Yes on a queue row ruled no'],
   ['waiting-bg', 'waiting-edge', 'raised', 'the waiting count on a parent tab'],
   ['danger-bg', 'danger-edge', 'panel', 'chore money at risk, a figure in the parent view'],
+  // The keypad at the wall (Session AS). Its keys are the neutral button on a
+  // panel, measured above; the tray and a chosen preset are new.
+  ['panel', 'control-edge', 'panel', 'the keypad tray, open over its panel'],
+  ['raised', 'done-edge', 'panel', 'a chosen "where it came from" on the Savings panel'],
 ]
 
 // Colour tokens that are never read: each with why it may go unmeasured.

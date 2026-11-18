@@ -33,6 +33,7 @@ import {
 } from '../../parentApi'
 import { longDate, shortDate } from '../../words'
 import { Why } from '../Why'
+import { WALL_ACT_REASON, WALL_TEXT_REASON, useWall } from '../../wall'
 
 /** What the acts that open a PIN dialog need: the week, and a way to ask.
  *  They need nothing else — the dialog's own onDone reloads the screen. */
@@ -298,6 +299,11 @@ function Waive({
   const [dayReason, setDayReason] = useState('')
   const [choreId, setChoreId] = useState('')
   const [choreReason, setChoreReason] = useState('')
+  // The reasons are optional words: at the wall they stay empty and the
+  // waiver still goes through (docs/wall-inputs.md).
+  const wall = useWall()
+  const dayTextWhy = useId()
+  const choreTextWhy = useId()
   const dayWhy = useId()
   const choreWhy = useId()
 
@@ -327,6 +333,8 @@ function Waive({
           type="text"
           placeholder="Why (e.g. away at Grandma's)"
           value={dayReason}
+          disabled={wall}
+          aria-describedby={wall ? dayTextWhy : undefined}
           onChange={(event) => setDayReason(event.target.value)}
         />
         <button
@@ -353,6 +361,7 @@ function Waive({
           Waive day
         </button>
       </div>
+      <Why id={dayTextWhy} reason={wall ? WALL_TEXT_REASON : null} />
       <Why id={dayWhy} reason={day ? null : 'Choose a day first.'} />
 
       <div className="act-row">
@@ -368,6 +377,8 @@ function Waive({
           type="text"
           placeholder="Why (e.g. the hoover is broken)"
           value={choreReason}
+          disabled={wall}
+          aria-describedby={wall ? choreTextWhy : undefined}
           onChange={(event) => setChoreReason(event.target.value)}
         />
         <button
@@ -395,6 +406,7 @@ function Waive({
           Waive chore
         </button>
       </div>
+      <Why id={choreTextWhy} reason={wall ? WALL_TEXT_REASON : null} />
       <Why id={choreWhy} reason={chore ? null : 'Choose a chore first.'} />
     </div>
   )
@@ -402,8 +414,14 @@ function Waive({
 
 function VoidWeek({ week, ask }: WeekAct) {
   const [reason, setReason] = useState('')
+  const wall = useWall()
   const whyId = useId()
-  const why = reason.trim().length === 0 ? 'Needs a reason first.' : null
+  // A required reason: at the wall, voiding waits for a laptop or a phone.
+  const why = wall
+    ? WALL_ACT_REASON
+    : reason.trim().length === 0
+      ? 'Needs a reason first.'
+      : null
 
   return (
     <div className="void-week">
@@ -411,6 +429,8 @@ function VoidWeek({ week, ask }: WeekAct) {
         type="text"
         placeholder="Why this week is void"
         value={reason}
+        disabled={wall}
+        aria-describedby={wall ? whyId : undefined}
         onChange={(event) => setReason(event.target.value)}
       />
       <button

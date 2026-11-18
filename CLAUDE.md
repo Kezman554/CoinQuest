@@ -65,4 +65,5 @@ These are load-bearing. Each was decided deliberately and none should be reverse
 ## Reference
 - Requirements: docs/coinquest_PRD.md
 - Progress log: docs/progress.txt
+- Inputs at the wall, and how the wall is recognised: docs/wall-inputs.md
 - Task prompts: Kanban app

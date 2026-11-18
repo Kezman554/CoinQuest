@@ -3216,3 +3216,36 @@ test on Home Assistant: every other container kept its uptime. Healthy;
 /health, /parent, /api/summary 200; integrity_check ok, foreign_key_check
 empty. Served bundle index-DSoFz8um.js + index-ClO1HiV5.css, the hashes
 the e2e run tested, carrying "Nothing left to approve".
+
+2026-11-18 — Session AS: a keypad for PINs and amounts at the wall
+The wall (1280x800 touch, Chromium kiosk, no keyboard of any kind) could
+not take a PIN, so a parent could not confirm a claim there. Every input is
+now listed in docs/wall-inputs.md with what it does at the wall, and the
+decisions asked for along the way are recorded there.
+- components/Keypad.tsx: KeypadField, a plain input everywhere but the wall;
+  at the wall inputMode="none" plus CoinQuest's own keys (60px, neutral
+  buttons, Delete and Clear, Done; a point and two decimals for amounts,
+  whole numbers for Times a week). It only fills the field: no copy of the
+  value, so the PIN stays in PinDialog's state as before, checked server-side.
+  The tray opens under its field in the flow (first built floating: it
+  covered the child's "where it came from" buttons), and closes after a
+  click elsewhere, not on blur (blur moves the page under a landing finger).
+  In the PIN dialog the keys sit beside the field, and Clear takes the
+  pointless point's cell, so a claim batch with its consequences fits 800px.
+- wall.ts: the wall is CoinQuest framed by a loopback page (the dashboard at
+  localhost:8500). Touch media queries were turned down: the Pi's touch
+  controller also registers as a mouse. ?wall=on|off|auto overrides per
+  device. Reasoning in docs/wall-inputs.md.
+- Child's "Add money": amount by keypad, where it came from tapped from
+  MONEY_SOURCES (wall.ts). Reward, deposit, withdrawal, void, reopen and a
+  new chore are laptop/phone-only at the wall, disabled with the reason;
+  waiver reasons and an edited chore's name disabled, the acts still work.
+- check:contrast 59 (was 57): the keypad tray (panel/control-edge on panel)
+  and a chosen preset (raised/done-edge on panel). DESIGN.md: "The keypad at
+  the wall".
+- e2e/wall-keypad.spec.ts frames the real app from a real server on
+  localhost:8599 (a Playwright-faked page counts as public, and Chromium's
+  local-network checks refuse to let it frame loopback): amount and PIN by
+  touch keypad at 1280x800 through a real deposit, a key typed from a
+  physical keyboard, disabled text with reasons, a claim batch's dialog fits,
+  laptop typing unchanged, a phone shows no keypad. e2e 40 passed.

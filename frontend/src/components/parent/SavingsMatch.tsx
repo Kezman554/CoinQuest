@@ -33,6 +33,7 @@ import { byWhom } from '../../parentWords'
 import type { PinAct } from './PinDialog'
 import { Figure } from './ThisWeek'
 import { longDate, monthName, monthOnly } from '../../words'
+import { KeypadField } from '../Keypad'
 import { Why } from '../Why'
 
 type Ask = { ask: (act: PinAct) => void }
@@ -235,13 +236,14 @@ function SettleButton({
       </p>
       <label className="match-bank">
         <span>Bank balance after the transfer (optional)</span>
-        <input
+        <KeypadField
+          kind="amount"
           type="text"
           inputMode="decimal"
           placeholder="What the bank account now holds"
           value={bank}
           disabled={blocked !== null}
-          onChange={(event) => setBank(event.target.value)}
+          onChange={setBank}
         />
       </label>
       {/* Raised with the control edge, not gold: settling confirms, and gold

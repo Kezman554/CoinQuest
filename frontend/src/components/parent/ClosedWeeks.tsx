@@ -25,6 +25,7 @@ import { loadWeek, reopenWeek } from '../../parentApi'
 import type { PinAct } from './PinDialog'
 import { shortDate } from '../../words'
 import { Why } from '../Why'
+import { WALL_ACT_REASON, useWall } from '../../wall'
 
 type Ask = { ask: (act: PinAct) => void }
 
@@ -209,10 +210,14 @@ function ReopenWeek({
   canReopen,
 }: Ask & { week: SettledWeek; canReopen: boolean }) {
   const [reason, setReason] = useState('')
+  const wall = useWall()
   const whyId = useId()
+  // A required reason: at the wall, reopening waits for a laptop or a phone.
   const why = !canReopen
     ? 'Only the most recent closed week can be reopened.'
-    : reason.trim().length === 0
+    : wall
+      ? WALL_ACT_REASON
+      : reason.trim().length === 0
       ? 'Needs a reason first.'
       : null
 
@@ -246,7 +251,8 @@ function ReopenWeek({
           type="text"
           placeholder="Why this week is being reopened"
           value={reason}
-          disabled={!canReopen}
+          disabled={!canReopen || wall}
+          aria-describedby={wall ? whyId : undefined}
           onChange={(event) => setReason(event.target.value)}
         />
         <button

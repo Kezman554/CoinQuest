@@ -95,7 +95,7 @@ A component is measured against the surface it sits on, and its fill or its outl
 - on `panel`: the savings match amount on the owed card (`gold`/`outline`), a neutral button (`raised`/`control-edge`), "I've done it" (`action`/`outline`), a done chore (`done-bg`/`done-edge`), a waiting chore (`waiting-bg`/`waiting-edge`), a missed chore (`danger-bg`/`danger-edge`), the savings bar (`done-edge`)
 - on `panel-today`: "I've done it" (`action`/`outline`)
 - on `danger-bg`: "Not missed after all" (`raised`/`danger-edge`), inside a missed chore
-- on the other screens: a destructive button on `panel` (`raised`/`danger-edge`); Yes and No on a ruled queue row (`raised`/`control-edge` and `raised`/`danger-edge` on `done-bg`, `raised`/`control-edge` on `danger-bg`), a chosen Yes (`raised`/`done-edge` on `done-bg`); the waiting count on a tab (`waiting-bg`/`waiting-edge` on `raised`); chore money at risk as a figure (`danger-bg`/`danger-edge` on `panel`)
+- on the other screens: a destructive button on `panel` (`raised`/`danger-edge`); Yes and No on a ruled queue row (`raised`/`control-edge` and `raised`/`danger-edge` on `done-bg`, `raised`/`control-edge` on `danger-bg`), a chosen Yes (`raised`/`done-edge` on `done-bg`); the waiting count on a tab (`waiting-bg`/`waiting-edge` on `raised`); chore money at risk as a figure (`danger-bg`/`danger-edge` on `panel`); the wall's keypad tray (`panel`/`control-edge` on `panel`), a chosen "where it came from" (`raised`/`done-edge` on `panel`)
 - on `gold`: a chip or the make-good box (`on-gold-chip`/`on-gold-chip-edge`), the won Chores chip (`on-gold-done-bg`/`on-gold-done-edge`), the at-risk chip and the notice (`on-gold-danger-bg`/`on-gold-danger-edge`)
 
 **Decoration, not measured:** `brick` and `mortar` (the bottom strip), `coin-light` and `coin-dark` (the coin's face and ring), and `shadow` (a depth cue under shapes whose boundaries are measured). Any other colour token that is neither measured nor listed here fails the check.
@@ -117,6 +117,14 @@ The 1280×800 wall layout from `91d155f` stays: the title row with its buttons, 
 - **Size budget:** the 1280×800 fit test with three chores, the at-risk note, a make-good line and two owed weeks must still pass. The chore button keeps a minimum height of 60px. **Set `html { font-size: 16px }`** so 1rem means what it says, and express sizes as tokens.
 
 **Type sizes** (provisional, judged at 1280): title 40px, day names 22px, money figure 52px, owed figure 40px, chore names 15px/700, button labels 16px/800, dates 14px/700. If chore names read too small from across the kitchen, raise them before anything else.
+
+### The keypad at the wall
+
+The wall has no keyboard, so PINs and amounts bring CoinQuest's own keypad there, and only there (docs/wall-inputs.md lists every input and says how the wall is recognised).
+- **Keys are neutral buttons** (`raised`/`control-edge`), at least 60px tall, the same floor as a chore button, in a grid of three. Each says what it does in words ("Delete", "Clear", "Done"); nothing is an icon alone.
+- **The tray opens under its field, in the flow,** never floating over the next thing to tap, with a `control-edge` outline on its `panel`. In the PIN dialog the keys sit beside the field, so a dialog with a batch's consequences still fits 800px.
+- **Text is a laptop or phone job.** At the wall a text field keeps its place, disabled, with the reason beside it ("Use the laptop or a phone to type here."). An act that cannot complete without words disables its amount too, with "Use the laptop or a phone.", so nobody keys in a figure the screen cannot send.
+- **The child's "where it came from" is tapped** at the wall: neutral buttons, the chosen one pressed in with a `done-edge` outline and `aria-pressed`.
 
 ## Icon
 

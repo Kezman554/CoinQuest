@@ -27,7 +27,9 @@ import {
 } from './api'
 import type { DepositRequest, Depositors, SavingsBalance, SavingsMatchProposal } from './api'
 import { Figure } from './components/parent/ThisWeek'
+import { KeypadField } from './components/Keypad'
 import { Why } from './components/Why'
+import { MONEY_SOURCES, useWall } from './wall'
 import { monthName, shortDate } from './words'
 
 export function SavingsView() {
@@ -146,6 +148,7 @@ function DepositForm({
   pending: DepositRequest[]
   onSubmitted: () => void
 }) {
+  const wall = useWall()
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -181,19 +184,38 @@ function DepositForm({
       </p>
 
       <div className="act-row">
-        <input
+        <KeypadField
+          kind="amount"
           type="text"
           inputMode="decimal"
           placeholder="Amount, e.g. £5"
           value={amount}
-          onChange={(event) => setAmount(event.target.value)}
+          onChange={setAmount}
         />
-        <input
-          type="text"
-          placeholder="Where it came from"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-        />
+        {wall ? (
+          // No typing at the wall: where it came from is tapped, and the
+          // label tapped is the note, exactly as if it had been typed.
+          <div className="presets" role="group" aria-label="Where it came from">
+            {MONEY_SOURCES.map((source) => (
+              <button
+                key={source}
+                type="button"
+                className={`button preset${note === source ? ' chosen' : ''}`}
+                aria-pressed={note === source}
+                onClick={() => setNote(note === source ? '' : source)}
+              >
+                {source}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <input
+            type="text"
+            placeholder="Where it came from"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        )}
         {/* His own do-it action, so it is gold like "I've done it". */}
         <button
           type="button"

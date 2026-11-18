@@ -43,7 +43,9 @@ import {
 } from '../../parentApi'
 import { cadenceLabel, weekdayLabel } from '../../parentWords'
 import type { PinAct } from './PinDialog'
+import { KeypadField } from '../Keypad'
 import { Why } from '../Why'
+import { WALL_ACT_REASON, WALL_TEXT_REASON, useWall } from '../../wall'
 
 type Ask = { ask: (act: PinAct) => void }
 
@@ -171,12 +173,13 @@ function WeeklyBasicPay({ settings, ask }: Ask & { settings: SchemeSettings }) {
     <div className="act chore-basic-pay">
       <h3>Weekly basic pay</h3>
       <div className="act-row">
-        <input
+        <KeypadField
+          kind="amount"
           type="text"
           inputMode="decimal"
           placeholder="Amount, e.g. £2"
           value={amount}
-          onChange={(event) => setAmount(event.target.value)}
+          onChange={setAmount}
         />
         <button
           type="button"
@@ -313,20 +316,29 @@ function ChoreForm({
   )
   const [administered, setAdministered] = useState(initial?.is_administered ?? false)
 
+  // At the wall nothing can be typed (docs/wall-inputs.md). Editing keeps
+  // the name it has and takes the numbers by keypad; a new chore needs a
+  // typed name, so its whole form waits for a laptop or a phone.
+  const wall = useWall()
+  const locked = wall && initial === null
+  const nameWhy = useId()
+
   const isBasic = category === 'basic'
   const pence = parsePence(amount)
   const needsCount = cadence === 'weekly_count'
   const needsWeekdays = cadence === 'weekdays'
   const count = needsCount ? Number(timesPerWeek) : null
   const ready =
+    !locked &&
     name.trim().length > 0 &&
     (isBasic || (pence !== null && pence >= 0)) &&
     (!needsCount || (count !== null && count > 0)) &&
     (!needsWeekdays || weekdays.length > 0)
   const formWhy = useId()
   // The first thing still missing, so the disabled Save says what to do next.
-  const formReason =
-    name.trim().length === 0
+  const formReason = locked
+    ? WALL_ACT_REASON
+    : name.trim().length === 0
       ? 'Needs a name.'
       : !isBasic && (pence === null || pence < 0)
         ? 'Needs an amount that can be paid in coins.'
@@ -378,10 +390,13 @@ function ChoreForm({
           type="text"
           placeholder="Name"
           value={name}
+          disabled={wall}
+          aria-describedby={locked ? formWhy : wall ? nameWhy : undefined}
           onChange={(event) => setName(event.target.value)}
         />
         <select
           value={category}
+          disabled={locked}
           onChange={(event) => setCategory(event.target.value)}
         >
           {CATEGORIES.map((option) => (
@@ -391,10 +406,12 @@ function ChoreForm({
           ))}
         </select>
       </div>
+      {wall && !locked && <Why id={nameWhy} reason={WALL_TEXT_REASON} />}
 
       <div className="act-row">
         <select
           value={cadence}
+          disabled={locked}
           onChange={(event) => setCadence(event.target.value as Cadence)}
         >
           {CADENCES.map((option) => (
@@ -404,22 +421,26 @@ function ChoreForm({
           ))}
         </select>
         {needsCount && (
-          <input
+          <KeypadField
+            kind="count"
             type="number"
             inputMode="numeric"
             min={1}
             placeholder="Times a week"
             value={timesPerWeek}
-            onChange={(event) => setTimesPerWeek(event.target.value)}
+            disabled={locked}
+            onChange={setTimesPerWeek}
           />
         )}
         {!isBasic && (
-          <input
+          <KeypadField
+            kind="amount"
             type="text"
             inputMode="decimal"
             placeholder="Amount, e.g. £0.50"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            disabled={locked}
+            onChange={setAmount}
           />
         )}
       </div>
@@ -438,6 +459,7 @@ function ChoreForm({
               <input
                 type="checkbox"
                 checked={weekdays.includes(day)}
+                disabled={locked}
                 onChange={() => toggleWeekday(day)}
               />
               {weekdayLabel(day)}
@@ -450,6 +472,7 @@ function ChoreForm({
         <input
           type="checkbox"
           checked={administered}
+          disabled={locked}
           onChange={(event) => setAdministered(event.target.checked)}
         />
         Nick marks this one directly — the child does not claim it

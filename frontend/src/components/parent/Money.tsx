@@ -25,7 +25,9 @@ import type { Reconciliation } from '../../parentApi'
 import type { PinAct } from './PinDialog'
 import { shortDate } from '../../words'
 import { plural } from '../../words'
+import { KeypadField } from '../Keypad'
 import { Why } from '../Why'
+import { WALL_ACT_REASON, useWall } from '../../wall'
 
 type Ask = { ask: (act: PinAct) => void }
 
@@ -35,9 +37,12 @@ export function Rewards({ presets, ask }: Ask & { presets: Preset[] }) {
   const [amount, setAmount] = useState('')
   const [reason, setReason] = useState('')
   const pence = parsePence(amount)
-  const ready = pence !== null && pence > 0 && reason.trim().length > 0
+  // Needs typed words, so a laptop or phone job: at the wall the amount and
+  // the words are both disabled, with the one reason (docs/wall-inputs.md).
+  const wall = useWall()
+  const ready = !wall && pence !== null && pence > 0 && reason.trim().length > 0
   const whyId = useId()
-  const why = ready ? null : 'Needs an amount and what it is for.'
+  const why = wall ? WALL_ACT_REASON : ready ? null : 'Needs an amount and what it is for.'
 
   return (
     <section className="panel">
@@ -55,12 +60,16 @@ export function Rewards({ presets, ask }: Ask & { presets: Preset[] }) {
           inputMode="decimal"
           placeholder="Amount, e.g. £2.50"
           value={amount}
+          disabled={wall}
+          aria-describedby={wall ? whyId : undefined}
           onChange={(event) => setAmount(event.target.value)}
         />
         <input
           type="text"
           placeholder="What it is for"
           value={reason}
+          disabled={wall}
+          aria-describedby={wall ? whyId : undefined}
           onChange={(event) => setReason(event.target.value)}
         />
         <button
@@ -184,13 +193,14 @@ export function Payday({ owed, ask }: Ask & { owed: Owed[] }) {
             {plural(weeks.length, 'week', 'weeks')}
           </p>
         )}
-        <input
+        <KeypadField
+          kind="amount"
           type="text"
           inputMode="decimal"
           placeholder="Banked, e.g. £3"
           value={deposit}
           disabled={weeks.length === 0}
-          onChange={(event) => setDeposit(event.target.value)}
+          onChange={setDeposit}
         />
         <button
           type="button"
@@ -255,14 +265,17 @@ export function SavingsPanel({
   const [actual, setActual] = useState('')
   const [checked, setChecked] = useState<Reconciliation | null>(null)
 
+  const wall = useWall()
   const pence = parsePence(amount)
-  const ready = pence !== null && pence > 0 && reason.trim().length > 0
+  const ready = !wall && pence !== null && pence > 0 && reason.trim().length > 0
   const empty = savings.entries.length === 0
   const logWhy = useId()
   const checkWhy = useId()
   const logReason = empty
     ? 'Nothing in the account to withdraw.'
-    : ready
+    : wall
+      ? WALL_ACT_REASON
+      : ready
       ? null
       : 'Needs an amount and what it went on.'
   const checkReason = empty
@@ -298,14 +311,16 @@ export function SavingsPanel({
             inputMode="decimal"
             placeholder="Amount"
             value={amount}
-            disabled={empty}
+            disabled={empty || wall}
+            aria-describedby={wall ? logWhy : undefined}
             onChange={(event) => setAmount(event.target.value)}
           />
           <input
             type="text"
             placeholder="What it went on"
             value={reason}
-            disabled={empty}
+            disabled={empty || wall}
+            aria-describedby={wall ? logWhy : undefined}
             onChange={(event) => setReason(event.target.value)}
           />
           <button
@@ -348,13 +363,14 @@ export function SavingsPanel({
           information the difference carries.
         </p>
         <div className="act-row">
-          <input
+          <KeypadField
+            kind="amount"
             type="text"
             inputMode="decimal"
             placeholder="What the account really holds"
             value={actual}
             disabled={empty}
-            onChange={(event) => setActual(event.target.value)}
+            onChange={setActual}
           />
           <button
             type="button"
@@ -421,10 +437,11 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
 
+  const wall = useWall()
   const pence = parsePence(amount)
-  const ready = pence !== null && pence > 0 && note.trim().length > 0
+  const ready = !wall && pence !== null && pence > 0 && note.trim().length > 0
   const whyId = useId()
-  const why = ready ? null : 'Needs an amount and where it came from.'
+  const why = wall ? WALL_ACT_REASON : ready ? null : 'Needs an amount and where it came from.'
 
   return (
     <div className="act">
@@ -441,12 +458,16 @@ function DepositAct({ depositors, ask }: Ask & { depositors: Depositors }) {
           inputMode="decimal"
           placeholder="Amount, e.g. £10"
           value={amount}
+          disabled={wall}
+          aria-describedby={wall ? whyId : undefined}
           onChange={(event) => setAmount(event.target.value)}
         />
         <input
           type="text"
           placeholder="Where it came from"
           value={note}
+          disabled={wall}
+          aria-describedby={wall ? whyId : undefined}
           onChange={(event) => setNote(event.target.value)}
         />
         <button

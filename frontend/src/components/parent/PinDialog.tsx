@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react'
+import { KeypadField } from '../Keypad'
 import { Why } from '../Why'
 
 export type PinAct = {
@@ -105,16 +106,20 @@ export function PinDialog({ act, onClose, onDone }: Props) {
         <label className="pin-label" htmlFor="pin">
           Parent PIN
         </label>
-        <input
+        {/* At the wall the keypad under it fills this same field; it keeps
+            no copy of the PIN (components/Keypad.tsx). */}
+        <KeypadField
+          kind="pin"
+          inline
           id="pin"
-          ref={input}
+          inputRef={input}
           className="pin-input"
           type="password"
           inputMode="numeric"
           autoComplete="off"
           value={pin}
           disabled={busy}
-          onChange={(event) => setPin(event.target.value)}
+          onChange={setPin}
         />
 
         {error && (
