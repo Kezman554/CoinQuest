@@ -1729,6 +1729,24 @@ input:disabled::placeholder {
 
 /* --- The queue ----------------------------------------------------------- */
 
+/* Approve all, at the head of the queue and away from Confirm: staging,
+   not an act, so a neutral button with a line saying it sends nothing. */
+.queue-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem 0.9375rem;
+  margin-bottom: 1.25rem;
+}
+
+.queue-tools-note {
+  font-size: var(--size-date);
+  font-weight: 700;
+  color: var(--ink-soft);
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
 .queue-week + .queue-week {
   margin-top: 1.5625rem;
 }

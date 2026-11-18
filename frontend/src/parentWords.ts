@@ -37,6 +37,19 @@ export function batchAction(confirmed: number, rejected: number): string {
   return parts.join(' and ')
 }
 
+/** Beside Approve all: what it stages, and that it is not the commit. Once
+ * some rows are ruled it names only the rest, so it never claims to touch a
+ * refusal already staged. */
+export function approveAllNote(unruled: number, total: number): string {
+  const which =
+    unruled < total
+      ? `the ${claims(unruled)} not yet ruled`
+      : total === 1
+        ? 'the claim'
+        : `all ${claims(total)}`
+  return `Says yes to ${which}. Nothing is sent until you press Confirm.`
+}
+
 /** After the fact, and by whom: "Confirmed 2 claims — by <name>." */
 export function batchDone(confirmed: number, rejected: number, party: string): string {
   const parts: string[] = []

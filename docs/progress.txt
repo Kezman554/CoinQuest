@@ -3177,3 +3177,21 @@ savings_month_matches (1 row), settlement_lines, both ledgers and the ten
 closed weeks match column for column. A tampered scratch copy (match 50p ->
 500p) exited 1. week_reopenings is still empty in live, left open in
 DEPLOY.md, not filled. DEPLOY.md drill item ticked.
+
+2026-11-18 — Session AR: Approve all in the claims queue
+- Queue.tsx: "Approve all" at the head of the queue, under the heading and
+  away from Confirm. It presses Yes on every claim with no ruling, in the
+  same rulings state the row buttons write. Staging only: no request, no
+  PIN, no new route. Confirm, its preview and the PIN are unchanged. A
+  staged refusal is left alone; any row still switches or clears.
+- Offered only while some claim is unruled (with nothing left to stage it
+  is empty, not forbidden, so it goes rather than greying). A neutral
+  button with a note naming what it stages and that nothing is sent until
+  Confirm (parentWords.approveAllNote); .queue-tools wraps at 390.
+- e2e/confirm-flow.spec.ts, three more: Approve all then Confirm commits a
+  real two-claim batch through the preview and PIN (Thursday's and
+  Saturday's Make bed, 0p, read by no other spec); a refused claim
+  survives Approve all and rows still switch and clear, at 390; leaving
+  the screen after Approve all commits nothing, at 1280x800. Both staging
+  tests record every /review request and assert none. e2e 35 passed;
+  check:literals and check:contrast clean.

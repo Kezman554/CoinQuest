@@ -12,6 +12,7 @@
  */
 
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 
 test.describe('confirming and rejecting claims from the parent queue', () => {
   test('a mixed batch — confirm one, reject another — commits, is refused nothing, and needs no manual reload', async ({
@@ -111,4 +112,168 @@ test.describe('confirming and rejecting claims from the parent queue', () => {
     await expect(problem).toBeVisible()
     await expect(problem).toContainText('not a pending claim')
   })
+
+  test('Approve all, then Confirm, commits the whole batch through the preview and the PIN', async ({
+    page,
+    request,
+  }) => {
+    // Thursday's and Saturday's "Make bed", claimed for real: no other spec
+    // reads those days, and the chore pays 0p, so the week's figure the wall
+    // specs check is the same either way.
+    const view = await (await request.post('/api/week/open')).json()
+    for (const weekday of ['Thursday', 'Saturday']) {
+      const day = view.days.find((d: { weekday: string }) => d.weekday === weekday)
+      const bed = day.chores.find(
+        (chore: { name: string; state: string }) =>
+          chore.name === 'Make bed' && chore.state === 'untouched',
+      )
+      expect(bed, weekday).toBeTruthy()
+      const claimed = await request.post('/api/claims', { data: { instance_id: bed.instance_id } })
+      expect(claimed.ok(), weekday).toBe(true)
+    }
+
+    await page.goto('/')
+    await page.getByText('E2E Kid').waitFor()
+    await page.getByRole('button', { name: 'Parent' }).click()
+
+    const items = page.locator('li.queue-item')
+    await expect(items).toHaveCount(2)
+
+    // Staging only: pressing it asks nothing of the server.
+    const reviews = watchReviews(page)
+    await page.getByRole('button', { name: 'Approve all' }).click()
+
+    // Every row shows as chosen, by the same rulings the Yes buttons write.
+    await expect(page.locator('li.queue-item.ruled-confirm')).toHaveCount(2)
+    for (const yes of await items.locator('button.button-yes').all()) {
+      await expect(yes).toHaveAttribute('aria-pressed', 'true')
+    }
+    // Nothing is left to stage, so it is no longer offered.
+    await expect(page.getByRole('button', { name: 'Approve all' })).toHaveCount(0)
+    await expect(page.locator('.batch-action')).toHaveText('Confirming 2 claims')
+    expect(reviews).toEqual([])
+
+    await page.locator('.batch').getByRole('button', { name: 'Confirm' }).click()
+
+    // The preview, then the PIN, exactly as for a batch built a row at a time.
+    const dialog = page.locator('.dialog-backdrop')
+    await expect(dialog).toBeVisible()
+    expect(reviews).toEqual(['/api/parent/review/preview'])
+    await page.locator('#pin').fill('0000')
+    await dialog.getByRole('button', { name: 'Confirm the batch' }).click()
+
+    await expect(dialog).toHaveCount(0)
+    await expect(items).toHaveCount(0)
+    await expect(page.locator('.last-batch')).toHaveText('Confirmed 2 claims — by E2E Parent.')
+
+    await page.reload()
+    await page.getByRole('button', { name: 'Parent' }).click()
+    await expect(page.locator('li.queue-item')).toHaveCount(0)
+  })
+
+  test('a refused claim stays refused through Approve all, and every row can still change', async ({
+    page,
+  }) => {
+    // On a phone: the button and its note wrap inside the panel.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await threeClaimsWaiting(page)
+    const reviews = watchReviews(page)
+    await expectNoSideways(page)
+
+    const items = page.locator('li.queue-item')
+    await items.nth(1).locator('button.button-no').click()
+    await expect(page.locator('.queue-tools-note')).toContainText('the 2 claims not yet ruled')
+
+    await page.getByRole('button', { name: 'Approve all' }).click()
+
+    await expect(items.nth(0)).toHaveClass(/ruled-confirm/)
+    await expect(items.nth(1)).toHaveClass(/ruled-reject/)
+    await expect(items.nth(1).locator('button.button-no')).toHaveAttribute('aria-pressed', 'true')
+    await expect(items.nth(1).locator('button.button-yes')).toHaveAttribute('aria-pressed', 'false')
+    await expect(items.nth(2)).toHaveClass(/ruled-confirm/)
+    await expect(page.locator('.batch-action')).toHaveText(
+      'Confirming 2 claims and refusing 1 claim',
+    )
+
+    // Switched with its own button, and cleared with its own button: the
+    // cleared row is unruled again, so Approve all is offered once more.
+    await items.nth(0).locator('button.button-no').click()
+    await expect(items.nth(0)).toHaveClass(/ruled-reject/)
+    await items.nth(2).locator('button.button-yes').click()
+    await expect(items.nth(2)).toHaveClass(/ruled-none/)
+    await expect(page.locator('.batch-action')).toHaveText('refusing 2 claims')
+    await expect(page.getByRole('button', { name: 'Approve all' })).toBeVisible()
+
+    expect(reviews).toEqual([])
+  })
+
+  test('leaving the screen after Approve all commits nothing', async ({ page }) => {
+    // On the kitchen panel.
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await threeClaimsWaiting(page)
+    const reviews = watchReviews(page)
+    await expectNoSideways(page)
+
+    await page.getByRole('button', { name: 'Approve all' }).click()
+    await expect(page.locator('li.queue-item.ruled-confirm')).toHaveCount(3)
+
+    await page.getByRole('button', { name: 'Back to the week' }).first().click()
+    await page.getByText('E2E Kid').waitFor()
+    await page.getByRole('button', { name: 'Parent' }).click()
+
+    // Back on the queue: every claim still waiting, none of them ruled, and
+    // nothing was ever previewed or applied.
+    await expect(page.locator('li.queue-item')).toHaveCount(3)
+    await expect(page.locator('li.queue-item.ruled-none')).toHaveCount(3)
+    await expect(page.getByRole('button', { name: 'Approve all' })).toBeVisible()
+    expect(reviews).toEqual([])
+  })
 })
+
+async function expectNoSideways(page: Page) {
+  await expect(page.getByRole('button', { name: 'Approve all' })).toBeInViewport()
+  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }))
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+}
+
+/** Every request to a review route — the preview and the commit — as made. */
+function watchReviews(page: Page): string[] {
+  const seen: string[] = []
+  page.on('request', (req) => {
+    const path = new URL(req.url()).pathname
+    if (path.includes('/review')) seen.push(path)
+  })
+  return seen
+}
+
+/** Three claims in the queue that the server never holds, so a spec that
+ *  only stages can prove it sent nothing without spending a real chore. */
+async function threeClaimsWaiting(page: Page) {
+  const claim = (instance_id: number, due_date: string) => ({
+    instance_id,
+    definition_id: 1,
+    name: 'Make bed',
+    category: 'basic',
+    cadence: 'daily',
+    amount_pence: 0,
+    sequence: 1,
+    due_date,
+    week_id: 1,
+    week_start_date: '2026-10-26',
+    week_end_date: '2026-11-01',
+    claimed_at: new Date().toISOString(),
+    rejection_count: 0,
+  })
+  await page.route('**/api/parent/queue', (route) =>
+    route.fulfill({
+      json: [claim(99991, '2026-10-26'), claim(99992, '2026-10-27'), claim(99993, '2026-10-28')],
+    }),
+  )
+  await page.goto('/')
+  await page.getByText('E2E Kid').waitFor()
+  await page.getByRole('button', { name: 'Parent' }).click()
+  await expect(page.locator('li.queue-item')).toHaveCount(3)
+}

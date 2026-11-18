@@ -1,14 +1,24 @@
 /**
  * The pending queue: rule on each claim, then confirm the lot once.
  *
- * One button in this section, matching every other act on this screen: rule
- * on the claims, press Confirm, read what it does, authorise it with a PIN.
- * The consequence still comes before the PIN — it just lives in the dialog
- * that Confirm opens, the same place Settle, Void and every other act on
- * this screen already shows theirs, rather than in a second display in this
- * section that needed a second button to reach. A parent who has just
- * ticked three chores sees Confirm immediately; nothing here depends on
- * them noticing a differently-labelled button first.
+ * Two buttons in this section, and only one of them acts. Confirm is the
+ * act, matching every other act on this screen: rule on the claims, press
+ * Confirm, read what it does, authorise it with a PIN. The consequence
+ * still comes before the PIN — it lives in the dialog that Confirm opens,
+ * the same place Settle, Void and every other act on this screen already
+ * shows theirs. A parent who has just ticked three chores sees Confirm
+ * immediately; nothing here depends on them noticing a differently-labelled
+ * button first.
+ *
+ * Approve all (Session AR) is staging only: it presses Yes on every claim
+ * with no ruling yet, in the same rulings the per-row buttons write, and
+ * sends nothing, asks for no PIN and calls no route of its own. Most weeks
+ * every claim is approved, and a click per row was a lot of clicks for one
+ * decision. A refusal already staged is left alone, and every row can still
+ * be switched or cleared afterwards. It sits at the head of the queue, not
+ * beside Confirm, so the two are never read as one another; and it is
+ * offered only while some claim is unruled — with nothing left to stage it
+ * is not a forbidden act but an empty one, so it goes rather than greying.
  *
  * The batch is still submitted once, with one PIN, and either all of it
  * applies or none does — nothing about that changed, only where the
@@ -26,7 +36,7 @@ import { useCallback, useId, useState } from 'react'
 import { money } from '../../api'
 import type { Consequence, DecisionIn, Pending, Ruling } from '../../parentApi'
 import { previewReview } from '../../parentApi'
-import { batchAction, pendingLabel, waitingFor, weekLabel } from '../../parentWords'
+import { approveAllNote, batchAction, pendingLabel, waitingFor, weekLabel } from '../../parentWords'
 import { Why } from '../Why'
 
 type Props = {
@@ -39,6 +49,7 @@ export function Queue({ queue, onSubmit }: Props) {
   const [problem, setProblem] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
   const whyId = useId()
+  const approveId = useId()
 
   const decisions: DecisionIn[] = Object.entries(rulings).map(
     ([instance_id, decision]) => ({ instance_id: Number(instance_id), decision }),
@@ -56,6 +67,19 @@ export function Queue({ queue, onSubmit }: Props) {
       return next
     })
   }, [])
+
+  // Yes on every claim without a ruling; a refusal or an earlier Yes is
+  // left exactly as it is. Nothing is sent — Confirm still does that.
+  const approveAll = useCallback(() => {
+    setProblem(null)
+    setRulings((current) => {
+      const next = { ...current }
+      for (const claim of queue) {
+        if (!(claim.instance_id in next)) next[claim.instance_id] = 'confirm'
+      }
+      return next
+    })
+  }, [queue])
 
   // Reads the consequence and hands it straight to the PIN dialog — the
   // same fetch the old two-click version made, just no longer requiring a
@@ -86,11 +110,29 @@ export function Queue({ queue, onSubmit }: Props) {
   const confirmed = decisions.filter((d) => d.decision === 'confirm').length
   const rejected = decisions.length - confirmed
 
+  const unruled = queue.filter((claim) => !(claim.instance_id in rulings)).length
+
   const groups = groupByWeek(queue)
 
   return (
     <section className="panel">
       <h2>Claims waiting ({queue.length})</h2>
+
+      {unruled > 0 && (
+        <div className="queue-tools">
+          <button
+            type="button"
+            className="button button-quiet"
+            onClick={approveAll}
+            aria-describedby={approveId}
+          >
+            Approve all
+          </button>
+          <p className="queue-tools-note" id={approveId}>
+            {approveAllNote(unruled, queue.length)}
+          </p>
+        </div>
+      )}
 
       {groups.map((group) => (
         <div className="queue-week" key={group.week_id}>
