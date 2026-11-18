@@ -3257,3 +3257,25 @@ other container kept its uptime. Healthy; /health, /parent, /api/summary
 200; integrity_check ok, no foreign-key violations. Served index-BkTGjopz.js
 (sha256 2ebe8085...) + index-D15G6smX.css, byte-identical to the bundle the
 e2e run tested. Waiting on Nick: approve a claim at the wall by keypad.
+
+AS follow-up (2026-11-18 evening): no keypad at the wall. Not the code: the
+kiosk's HTTP cache. Its CoinQuest frame was running the 28 Oct build
+(index-BC82hRD4.js, cached 17:08), through both of today's deploys. The page
+had Last-Modified and no Cache-Control, so Chromium judged it fresh for 10%
+of its age (~2 days) and never asked: since the deploy the kiosk requested
+only the queue and the dashboard's no-cors liveness probe (cached apart from
+the frame), never the new bundle. Reloading the dashboard would not have
+helped: the frame is created later and still takes the cached page.
+- Cleared at 20:53: launcher paused, kiosk Chromium stopped, its HTTP cache
+  (Default/Cache, 1.2M) deleted, launcher resumed and relaunched it. No
+  container touched. Gotcha: with the launcher paused, the stopped Chromium
+  stays a zombie (kill -0 still succeeds); wait for state Z, not for gone.
+- Fixed for every client: app/frontend.py sends Cache-Control "no-cache" on
+  the page, its SPA fallback and unhashed files (a 304 when unchanged), and
+  "public, max-age=31536000, immutable" on hashed /assets/*.
+  tests/test_frontend_caching.py (8). pytest 660 passed; e2e 40 passed.
+- The wall check itself should pass on the kiosk: the dashboard is
+  http://localhost:8500 and frames http://192.168.1.100:8600/, with no
+  referrer policy or sandbox to mask the parent — the e2e harness's shape.
+- Deploy checks now include the wall fetching the new bundle (CoinQuest's
+  log, requests from 192.168.1.100), not only the server serving it.

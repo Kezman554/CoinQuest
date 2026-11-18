@@ -12,7 +12,27 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+# The page itself, and every route that falls back to it, is checked with the
+# server on every open. Without a Cache-Control header the browser guesses how
+# long a page stays fresh — 10% of its age since Last-Modified — and a bundle
+# built three weeks before was trusted for two days: the kitchen wall ran the
+# 28 October build all evening after two deploys on 18 Nov 2026, never asking
+# for the new page (Session AS). "no-cache" still caches; it only means ask
+# first, and the ETag makes an unchanged page a 304.
+REVALIDATE = "no-cache"
+
+# Vite names every built asset after a hash of its content, so a name never
+# changes meaning: a new build is a new name, reached through the page above.
+IMMUTABLE = "public, max-age=31536000, immutable"
+
+
+def cache_control(url_path: str) -> str:
+    """The Cache-Control for one served path: assets for ever, all else asked."""
+    return IMMUTABLE if url_path.strip("/").startswith("assets/") else REVALIDATE
 
 
 class SPAStaticFiles(StaticFiles):
@@ -44,13 +64,18 @@ class SPAStaticFiles(StaticFiles):
             for prefix in self.reserved_prefixes
         )
 
-    async def get_response(self, path: str, scope):
+    async def get_response(self, path: str, scope) -> Response:
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
             if exc.status_code == 404 and not self._is_reserved(scope):
-                return await super().get_response("index.html", scope)
+                response = await super().get_response("index.html", scope)
+                # The fallback is the page, whatever path asked for it.
+                response.headers["Cache-Control"] = REVALIDATE
+                return response
             raise
+        response.headers["Cache-Control"] = cache_control(scope.get("path", ""))
+        return response
 
 
 def mount_frontend(app: FastAPI, directory: Path) -> bool:
