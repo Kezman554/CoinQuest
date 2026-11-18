@@ -3279,3 +3279,10 @@ helped: the frame is created later and still takes the cached page.
   referrer policy or sandbox to mask the parent — the e2e harness's shape.
 - Deploy checks now include the wall fetching the new bundle (CoinQuest's
   log, requests from 192.168.1.100), not only the server serving it.
+
+Pushed and deployed the caching fix the same evening (329a0ba). Backup
+coinquest-2026-11-18-2100.tar.gz (--local-only). coinquest only, --no-deps;
+every other container kept its uptime. Healthy; /health, /parent,
+/api/summary 200; integrity ok, no FK violations. Served: / and /parent
+"no-cache", /assets/index-BkTGjopz.js "public, max-age=31536000, immutable",
+the same bundle the e2e run tested (sha256 2ebe8085...).
