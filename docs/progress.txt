@@ -3249,3 +3249,11 @@ decisions asked for along the way are recorded there.
   touch keypad at 1280x800 through a real deposit, a key typed from a
   physical keyboard, disabled text with reasons, a claim batch's dialog fits,
   laptop typing unchanged, a phone shows no keypad. e2e 40 passed.
+
+Pushed and deployed Session AS the same day (343a529). Backup
+coinquest-2026-11-18-2002.tar.gz, run --local-only (B2's download cap, as
+above). Rebuilt with `compose up -d --build --no-deps coinquest` only; every
+other container kept its uptime. Healthy; /health, /parent, /api/summary
+200; integrity_check ok, no foreign-key violations. Served index-BkTGjopz.js
+(sha256 2ebe8085...) + index-D15G6smX.css, byte-identical to the bundle the
+e2e run tested. Waiting on Nick: approve a claim at the wall by keypad.
