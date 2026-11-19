@@ -3355,3 +3355,7 @@ closed.
 - Lifetime headline renamed "Earned from chores and rewards" (19 Nov): the
   figure is the whole earnings ledger, ad-hoc rewards included. Figure
   unchanged; lifetime-lines.spec.ts checks the new label. e2e 46.
+- Pushed and deployed 993dac9, 19 Nov 13:50. Backup coinquest-2026-11-19-1350
+  (--local-only). coinquest alone, --no-deps; other uptimes unchanged.
+  Served index-C0WbKCl_.js matches the tested build (sha256 9a1fd02b...);
+  endpoints 200; integrity ok, 0 FK errors.
