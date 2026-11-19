@@ -3324,3 +3324,11 @@ closed.
   lifetime-lines.spec.ts now checks the panel's only figure is "Real, today"
   and neither what-if's final balance appears among the figures. e2e 43,
   contrast 60.
+- Pushed and deployed AT and its follow-up (b574e73, a056dd6), 19 Nov 07:54.
+  Backup coinquest-2026-11-19-0754 (--local-only). coinquest rebuilt alone
+  with --no-deps; every other container's uptime unchanged. Served
+  index-fTkMbHyL.js matches the tested build (sha256 bf42d174...); /health,
+  /parent, /api/summary, /api/lifetime 200; integrity ok, 0 FK errors. Live
+  data gives the new line 12 points to the real line's 3: one per settled
+  week, the last 8 Nov, against a real account with no payday deposits since
+  the opening £10. The wall had not yet reloaded at deploy time.
