@@ -118,7 +118,7 @@ test('the axis is marked in pounds, up to at least the highest point', async ({ 
 
 test('the headline and the savings breakdown say what they count', async ({ page }) => {
   await openLifetime(page, '2026-11-18T12:00:00Z')
-  await expect(page.locator('.total-label')).toHaveText('Earned from chores')
+  await expect(page.locator('.total-label')).toHaveText('Earned from chores and rewards')
   await expect(page.locator('.total-amount')).toHaveText(pounds(HISTORY.total_earned_pence))
   await expect(page.getByText('Banked from your pay')).toBeVisible()
   await expect(page.getByText('Total earned to date')).toHaveCount(0)

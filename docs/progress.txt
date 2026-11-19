@@ -3352,3 +3352,6 @@ closed.
   unchanged. Served index-C6trANbO.js matches the tested build (sha256
   b4778ebd...); endpoints 200; integrity ok, 0 FK errors. The wall had not
   reloaded at deploy time; with no-cache it takes the new page on next load.
+- Lifetime headline renamed "Earned from chores and rewards" (19 Nov): the
+  figure is the whole earnings ledger, ad-hoc rewards included. Figure
+  unchanged; lifetime-lines.spec.ts checks the new label. e2e 46.

@@ -25,8 +25,9 @@
  * absence of any shading between the lines, not hidden numbers.
  *
  * The page speaks to the child as "you", so the payday share of the savings
- * is "Banked from your pay". The headline is "Earned from chores": the same
- * figure as ever (the earnings ledger, summed), named for what it counts.
+ * is "Banked from your pay". The headline is "Earned from chores and
+ * rewards": the same figure as ever (the earnings ledger, summed — chore pay
+ * and every reward, ad-hoc ones included), named for what it counts.
  */
 
 import { useEffect, useState } from 'react'
@@ -65,7 +66,7 @@ export function LifetimeView() {
       </header>
 
       <section className="total">
-        <p className="total-label">Earned from chores</p>
+        <p className="total-label">Earned from chores and rewards</p>
         <p className="total-amount">{money(data.total_earned_pence)}</p>
       </section>
 
