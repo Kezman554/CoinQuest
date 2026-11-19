@@ -19,9 +19,14 @@
  * what withdrawing "cost". Same numbers either way; the framing is the
  * spec's, not a wording choice made here.
  *
- * So the what-ifs are lines only: neither carries a figure of its own, since
- * a single "what he'd have" number reads as a sum lost. "Real, today" stays —
- * it is the real balance, not a what-if.
+ * Every line carries its figure — its final balance, in the chart's key
+ * beside the line's swatch (LifetimeChart) — because a line with no value
+ * gives the child nothing to read. The framing is the caption and the
+ * absence of any shading between the lines, not hidden numbers.
+ *
+ * The page speaks to the child as "you", so the payday share of the savings
+ * is "Banked from your pay". The headline is "Earned from chores": the same
+ * figure as ever (the earnings ledger, summed), named for what it counts.
  */
 
 import { useEffect, useState } from 'react'
@@ -51,7 +56,6 @@ export function LifetimeView() {
   if (!data) return <p className="loading">Loading…</p>
 
   const hasHistory = data.real.length > 0
-  const currentReal = hasHistory ? data.real[data.real.length - 1].balance_pence : 0
 
   return (
     <>
@@ -61,7 +65,7 @@ export function LifetimeView() {
       </header>
 
       <section className="total">
-        <p className="total-label">Total earned to date</p>
+        <p className="total-label">Earned from chores</p>
         <p className="total-amount">{money(data.total_earned_pence)}</p>
       </section>
 
@@ -72,7 +76,10 @@ export function LifetimeView() {
           being left alone, not only for what goes into it.
         </p>
         <div className="figures">
-          <Figure label="From payday" value={money(data.savings_breakdown.from_payday_pence)} />
+          <Figure
+            label="Banked from your pay"
+            value={money(data.savings_breakdown.from_payday_pence)}
+          />
           <Figure
             label="Gifts and extras"
             value={money(data.savings_breakdown.from_gifts_pence)}
@@ -94,9 +101,6 @@ export function LifetimeView() {
               counterfactual={data.counterfactual}
               saved={data.saved_everything}
             />
-            <div className="figures">
-              <Figure label="Real, today" value={money(currentReal)} />
-            </div>
           </>
         ) : (
           <p className="nothing">Nothing saved yet to compare.</p>

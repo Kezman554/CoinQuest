@@ -88,7 +88,7 @@ A component is measured against the surface it sits on, and its fill or its outl
 - `today` on `panel-today` (the TODAY pill)
 - `today-edge` on `ground`, `panel-edge` on `ground`, `disabled-edge` on `ground`
 - `waiting-edge` on `waiting-bg` (the dashed edge)
-- the lifetime chart, on its `panel`: `ink` (the real balance), `done` (if nothing had been withdrawn, dashed as well), `waiting` (if every week's pay had been saved, dotted as well), `ink-soft` (the baseline). Neither what-if line has a figure of its own (only "Real, today" does) and nothing is shaded between lines, so nothing reads as money lost
+- the lifetime chart, on its `panel`: `ink` (the real balance), `done` (if nothing had been withdrawn, dashed as well), `waiting` (if every week's pay had been saved, dotted as well), `ink-soft` (the baseline). Every line has its figure, its final balance, in the key beside its swatch, in the line's own colour and underlined in its dash; the vertical axis is marked in pounds (`ink-soft`, with dashed hairlines) so any point can be read. The framing is lines with their figures under the caption about money left alone: nothing is shaded between lines and no wording speaks of money lost or spent
 
 **Boundaries (3.15:1), a component on its surface, by the better of fill and edge:**
 - on `ground`: a panel (`panel`/`panel-edge`), today's tile (`panel-today`/`today-edge`), the money card (`gold`/`outline`), a neutral button (`raised`/`control-edge`), a disabled control (`disabled-bg`/`disabled-edge`)

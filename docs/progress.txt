@@ -3332,3 +3332,18 @@ closed.
   data gives the new line 12 points to the real line's 3: one per settled
   week, the last 8 Nov, against a real account with no payday deposits since
   the opening £10. The wall had not yet reloaded at deploy time.
+- Lifetime: every line has its figure (19 Nov). The no-single-figure rule
+  from AT is dropped: a line with no value gives the child nothing to read.
+  The chart's key now carries each line's final balance beside its swatch,
+  in the line's colour and underlined in its dash ("Real, today", "If nothing
+  had ever been withdrawn", "If every week's pay had been saved"). The
+  vertical axis is marked in pounds (1/2/5 steps, top mark at or above the
+  highest point) with dashed ink-soft hairlines. The drawing stretches to a
+  3:1 box with a 12rem floor so a phone can read it; strokes are
+  non-scaling, and a single point is a round-capped dot, not a circle that
+  would squash. Renamed, figures unchanged: "Total earned to date" ->
+  "Earned from chores"; "From payday" -> "Banked from your pay" (the page
+  says "you"). Still no shading between lines. lifetime-lines.spec.ts: each
+  figure equals its line's last point in its line's colour, three figures
+  only; axis marks in pounds reaching the highest point and level with their
+  hairlines; the renames. e2e 46, contrast 60.

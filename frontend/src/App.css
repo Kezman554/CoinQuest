@@ -2118,31 +2118,90 @@ input:disabled::placeholder {
  * (check:contrast): the real balance in ink, the never-withdrawn line in
  * done and dashed, the every-week's-pay-saved line in waiting and dotted —
  * so all three differ in shape as well as colour — and the baseline in
- * ink-soft, thinner than any. Nothing is filled between them. */
+ * ink-soft, thinner than any. Nothing is filled between them.
+ *
+ * The pound marks run up the left in ink-soft, with a hairline across the
+ * drawing at each one, dashed thin so it never reads as a fourth line. Each
+ * line's figure sits in the key beside its swatch, in the line's colour and
+ * underlined in its dash. */
 
+.lifetime-plot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.625rem;
+}
+
+.lifetime-axis {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 2.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.lifetime-axis li {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+/* Keeps the column as wide as its longest mark, though every mark is
+   positioned out of the flow. */
+.lifetime-axis::after {
+  content: '£0000';
+  visibility: hidden;
+}
+
+.lifetime-chart-mark {
+  stroke: var(--ink-soft);
+  stroke-width: 0.0625rem;
+  stroke-dasharray: 0.125rem 0.375rem;
+}
+
+/* As wide as the panel and a third as tall, but never so short on a phone
+   that a point cannot be read against the pound marks. The drawing stretches
+   to fit (preserveAspectRatio="none"), and every stroke is measured on the
+   screen rather than in the drawing, so a line is the same thickness, and a
+   dash the same length, however the box is shaped. */
 .lifetime-chart svg {
   width: 100%;
   height: auto;
+  aspect-ratio: 3 / 1;
+  min-height: 12rem;
   display: block;
+}
+
+.lifetime-chart svg line,
+.lifetime-chart svg path {
+  vector-effect: non-scaling-stroke;
 }
 
 .lifetime-chart-axis {
   stroke: var(--ink-soft);
-  stroke-width: 2;
+  stroke-width: 0.1875rem;
 }
 
 .lifetime-line {
-  stroke-width: 4;
+  stroke-width: 0.375rem;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 /* A path is an open line — no fill, or the browser closes the gap between
-   its two ends into a solid wedge. A circle (a single-point series with
-   nothing to draw a line between) is the one place this chart wants a
-   fill, so the tag-qualified selectors below only turn it on there. */
+   its two ends into a solid wedge. */
 path.lifetime-line {
   fill: none;
+}
+
+/* A single-point series: a zero-length path, its round cap the dot. */
+path.lifetime-line.lifetime-dot {
+  stroke-width: 0.75rem;
+  stroke-dasharray: none;
 }
 
 .lifetime-line-real {
@@ -2154,7 +2213,7 @@ path.lifetime-line {
 }
 
 path.lifetime-line-counterfactual {
-  stroke-dasharray: 10 8;
+  stroke-dasharray: 1rem 0.75rem;
 }
 
 .lifetime-line-saved {
@@ -2163,19 +2222,7 @@ path.lifetime-line-counterfactual {
 
 /* Round caps on a near-zero dash draw a row of dots. */
 path.lifetime-line-saved {
-  stroke-dasharray: 0.1 10;
-}
-
-circle.lifetime-line-saved {
-  fill: var(--waiting);
-}
-
-circle.lifetime-line-real {
-  fill: var(--ink);
-}
-
-circle.lifetime-line-counterfactual {
-  fill: var(--done);
+  stroke-dasharray: 0.01rem 0.875rem;
 }
 
 .lifetime-legend {
@@ -2193,9 +2240,33 @@ circle.lifetime-line-counterfactual {
 .lifetime-legend li {
   position: relative;
   padding-left: 2rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 12rem;
 }
 
-/* The swatch is drawn the way its line is: solid ink, or done dashed. */
+.lifetime-legend-value {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.75rem;
+  letter-spacing: 0.01em;
+  align-self: flex-start;
+  color: var(--ink);
+  text-decoration: underline solid var(--ink) 0.1875rem;
+  text-underline-offset: 0.3125rem;
+}
+
+.lifetime-legend-counterfactual .lifetime-legend-value {
+  color: var(--done);
+  text-decoration: underline dashed var(--done) 0.1875rem;
+}
+
+.lifetime-legend-saved .lifetime-legend-value {
+  color: var(--waiting);
+  text-decoration: underline dotted var(--waiting) 0.1875rem;
+}
+
+/* The swatch is drawn the way its line is: solid ink, done dashed, waiting dotted. */
 .lifetime-legend li::before {
   content: '';
   position: absolute;

@@ -3,8 +3,9 @@
  * been withdrawn, and if every week's pay had been saved.
  *
  * A layout and framing fact, so it needs a rendered page: the third line is
- * drawn, dotted, and named in the legend; neither what-if line carries a
- * figure of its own, and nothing is shaded beside them — the page is about how money grows when
+ * drawn, dotted, and named in the key; every line's figure sits beside its
+ * swatch and is its line's final balance; the axis is marked in pounds; and
+ * nothing is shaded beside the lines — the page is about how money grows when
  * it is left alone, never about money lost. The history is fixed here, the
  * way the server would send nine months of it, so the result does not
  * depend on what earlier specs left in the scratch database.
@@ -56,31 +57,76 @@ test('three lines, each told apart by shape as well as colour, and named', async
   )
   expect(new Set(dashes).size).toBe(3)
 
-  await expect(page.locator('.lifetime-legend li')).toHaveText([
-    'Real',
+  await expect(page.locator('.lifetime-legend-label')).toHaveText([
+    'Real, today',
     'If nothing had ever been withdrawn',
     "If every week's pay had been saved",
   ])
 })
 
-test('neither what-if line has a figure, and nothing is shaded as a loss', async ({ page }) => {
+/** Formatted the way the page formats money (every figure here is over £1). */
+function pounds(pence: number): string {
+  return pence % 100 === 0 ? `£${pence / 100}` : `£${(pence / 100).toFixed(2)}`
+}
+
+const final = (points: Point[]) => points[points.length - 1].balance_pence
+
+test("each line's figure is its final point, beside its swatch, in its colour", async ({ page }) => {
   await openLifetime(page, '2026-11-18T12:00:00Z')
 
-  const panel = page.locator('section.panel', { has: page.locator('.lifetime-chart') })
-  // Only the real balance is a figure; the what-ifs are lines only.
-  await expect(panel.locator('.figure-label')).toHaveText(['Real, today'])
-  const last = (points: Point[]) => points[points.length - 1].balance_pence
-  // Formatted the way the page formats money (all these are over £1).
-  const pounds = (pence: number) =>
-    pence % 100 === 0 ? `£${pence / 100}` : `£${(pence / 100).toFixed(2)}`
-  for (const pence of [last(HISTORY.counterfactual), last(HISTORY.saved_everything)]) {
-    await expect(panel.locator('.figures')).not.toContainText(pounds(pence))
+  const key = page.locator('.lifetime-legend')
+  for (const [kind, points, colour] of [
+    ['real', HISTORY.real, '--ink'],
+    ['counterfactual', HISTORY.counterfactual, '--done'],
+    ['saved', HISTORY.saved_everything, '--waiting'],
+  ] as const) {
+    const entry = key.locator(`li.lifetime-legend-${kind}`)
+    const value = entry.locator('.lifetime-legend-value')
+    await expect(value).toHaveText(pounds(final(points)))
+    const [ink, token] = await value.evaluate((element, name) => {
+      const probe = document.createElement('span')
+      probe.style.color = `var(${name})`
+      document.body.append(probe)
+      const resolved = getComputedStyle(probe).color
+      probe.remove()
+      return [getComputedStyle(element).color, resolved]
+    }, colour)
+    expect(ink).toBe(token)
   }
-  // The lines keep their names in the legend.
-  await expect(panel.locator('.lifetime-legend li')).toContainText([
-    'If nothing had ever been withdrawn',
-    "If every week's pay had been saved",
-  ])
+  // Three lines, three figures: no figure stands apart from the key.
+  await expect(key.locator('.lifetime-legend-value')).toHaveCount(3)
+})
+
+test('the axis is marked in pounds, up to at least the highest point', async ({ page }) => {
+  await openLifetime(page, '2026-11-18T12:00:00Z')
+
+  const marks = await page.locator('.lifetime-axis li').allTextContents()
+  expect(marks[0]).toBe('£0')
+  expect(marks.every((mark) => /^£\d+(\.\d\d)?$/.test(mark))).toBe(true)
+  const top = Number(marks[marks.length - 1].slice(1)) * 100
+  const highest = Math.max(
+    ...[...HISTORY.real, ...HISTORY.counterfactual, ...HISTORY.saved_everything].map(
+      (point) => point.balance_pence,
+    ),
+  )
+  expect(top).toBeGreaterThanOrEqual(highest)
+  // Each mark sits level with its hairline: the top one at the top of the drawing.
+  const axis = await page.locator('.lifetime-axis li').last().boundingBox()
+  const line = await page.locator('.lifetime-chart-mark').last().boundingBox()
+  expect(Math.abs(axis!.y + axis!.height / 2 - (line!.y + line!.height / 2))).toBeLessThan(3)
+})
+
+test('the headline and the savings breakdown say what they count', async ({ page }) => {
+  await openLifetime(page, '2026-11-18T12:00:00Z')
+  await expect(page.locator('.total-label')).toHaveText('Earned from chores')
+  await expect(page.locator('.total-amount')).toHaveText(pounds(HISTORY.total_earned_pence))
+  await expect(page.getByText('Banked from your pay')).toBeVisible()
+  await expect(page.getByText('Total earned to date')).toHaveCount(0)
+  await expect(page.getByText('From payday', { exact: true })).toHaveCount(0)
+})
+
+test('nothing is shaded between the lines', async ({ page }) => {
+  await openLifetime(page, '2026-11-18T12:00:00Z')
 
   // Lines only: no area, and no path filled in.
   const chart = page.locator('.lifetime-chart svg')
