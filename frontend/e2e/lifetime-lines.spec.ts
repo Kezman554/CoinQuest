@@ -3,8 +3,8 @@
  * been withdrawn, and if every week's pay had been saved.
  *
  * A layout and framing fact, so it needs a rendered page: the third line is
- * drawn, dotted, and named in the legend, and it carries no figure of its
- * own and nothing shaded beside it — the page is about how money grows when
+ * drawn, dotted, and named in the legend; neither what-if line carries a
+ * figure of its own, and nothing is shaded beside them — the page is about how money grows when
  * it is left alone, never about money lost. The history is fixed here, the
  * way the server would send nine months of it, so the result does not
  * depend on what earlier specs left in the scratch database.
@@ -63,14 +63,23 @@ test('three lines, each told apart by shape as well as colour, and named', async
   ])
 })
 
-test('the saved-everything line has no figure, and nothing is shaded as a loss', async ({ page }) => {
+test('neither what-if line has a figure, and nothing is shaded as a loss', async ({ page }) => {
   await openLifetime(page, '2026-11-18T12:00:00Z')
 
   const panel = page.locator('section.panel', { has: page.locator('.lifetime-chart') })
-  // The two figures the page already had, and no third.
-  await expect(panel.locator('.figure-label')).toHaveText([
-    'Real, today',
+  // Only the real balance is a figure; the what-ifs are lines only.
+  await expect(panel.locator('.figure-label')).toHaveText(['Real, today'])
+  const last = (points: Point[]) => points[points.length - 1].balance_pence
+  // Formatted the way the page formats money (all these are over £1).
+  const pounds = (pence: number) =>
+    pence % 100 === 0 ? `£${pence / 100}` : `£${(pence / 100).toFixed(2)}`
+  for (const pence of [last(HISTORY.counterfactual), last(HISTORY.saved_everything)]) {
+    await expect(panel.locator('.figures')).not.toContainText(pounds(pence))
+  }
+  // The lines keep their names in the legend.
+  await expect(panel.locator('.lifetime-legend li')).toContainText([
     'If nothing had ever been withdrawn',
+    "If every week's pay had been saved",
   ])
 
   // Lines only: no area, and no path filled in.

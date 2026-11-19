@@ -18,6 +18,10 @@
  * counterfactual is a lesson about leaving money in, not a running tally of
  * what withdrawing "cost". Same numbers either way; the framing is the
  * spec's, not a wording choice made here.
+ *
+ * So the what-ifs are lines only: neither carries a figure of its own, since
+ * a single "what he'd have" number reads as a sum lost. "Real, today" stays —
+ * it is the real balance, not a what-if.
  */
 
 import { useEffect, useState } from 'react'
@@ -48,10 +52,6 @@ export function LifetimeView() {
 
   const hasHistory = data.real.length > 0
   const currentReal = hasHistory ? data.real[data.real.length - 1].balance_pence : 0
-  const currentCounterfactual =
-    data.counterfactual.length > 0
-      ? data.counterfactual[data.counterfactual.length - 1].balance_pence
-      : 0
 
   return (
     <>
@@ -96,10 +96,6 @@ export function LifetimeView() {
             />
             <div className="figures">
               <Figure label="Real, today" value={money(currentReal)} />
-              <Figure
-                label="If nothing had ever been withdrawn"
-                value={money(currentCounterfactual)}
-              />
             </div>
           </>
         ) : (

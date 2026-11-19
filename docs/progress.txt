@@ -3318,3 +3318,9 @@ closed.
   nothing; nothing written. e2e/lifetime-lines.spec.ts: three lines differing
   in dash, the labels, two figures only, no fill, token colours day and
   night. pytest 667, e2e 43. Looked at 1280x800, day and night.
+- AT follow-up (19 Nov): the "If nothing had ever been withdrawn" figure
+  removed from the Lifetime panel, so both what-ifs are lines only; "Real,
+  today" stays (the real balance). Line, label and caption unchanged.
+  lifetime-lines.spec.ts now checks the panel's only figure is "Real, today"
+  and neither what-if's final balance appears among the figures. e2e 43,
+  contrast 60.
